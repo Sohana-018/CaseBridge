@@ -163,3 +163,41 @@ class AlertListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class OverlapCaseMini(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    case_no: str
+    bureau: str
+    status: str
+
+
+class OverlapRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    band: str
+    review_status: str
+    reasons: List[str] = []
+    case_a: OverlapCaseMini
+    case_b: OverlapCaseMini
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    note: Optional[str] = None
+
+
+class OverlapListResponse(BaseModel):
+    items: List[OverlapRead]
+    total: int
+    page: int
+    page_size: int
+
+
+class OverlapScanResponse(BaseModel):
+    created: int
+
+
+class OverlapReviewRequest(BaseModel):
+    decision: ReviewStatus
+    note: Optional[str] = None

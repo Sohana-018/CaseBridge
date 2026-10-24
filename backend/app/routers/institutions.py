@@ -15,6 +15,7 @@ from app.schemas import (
     InstitutionMini,
     InstitutionRead,
 )
+from app.services.overlap import open_overlaps_for_cases
 
 router = APIRouter(prefix="/institutions", tags=["Institutions"])
 
@@ -153,5 +154,5 @@ def get_institution_detail(
         state=inst.state,
         type=inst.type,
         cases=case_items,
-        open_overlaps=[],
+        open_overlaps=open_overlaps_for_cases(session, [c.id for c in cases]),
     )

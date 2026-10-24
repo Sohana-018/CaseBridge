@@ -79,6 +79,38 @@ def check_alert_action_permission(user: UserPayload) -> None:
     )
 
 
+def check_overlap_scan_permission(user: UserPayload) -> None:
+    """Enforce permission rules for re-running overlap detection.
+
+    Rules (demo choice):
+    - coordinator and administrator: permitted (system/coordination action).
+    - bureau_officer and senior_management: FORBIDDEN.
+    """
+    allowed_roles = {"coordinator", "administrator"}
+    if user.role in allowed_roles:
+        return
+
+    raise ForbiddenError(
+        f"Role '{user.role}' is not permitted to run overlap detection.",
+        details={"role": user.role},
+    )
+
+
+def check_overlap_review_permission(user: UserPayload) -> None:
+    """Enforce permission rules for reviewing/linking/dismissing overlaps.
+
+    Per PRD Section 3 only the Coordinator may review overlaps. Administrators
+    are kept separate from decision-making on purpose.
+    """
+    if user.role == "coordinator":
+        return
+
+    raise ForbiddenError(
+        f"Role '{user.role}' is not permitted to review overlaps; only a coordinator may do so.",
+        details={"role": user.role},
+    )
+
+
 def is_full_case_visible(user: UserPayload, case_bureau: str) -> bool:
     """Check if the user has full case visibility or summary-only visibility.
 

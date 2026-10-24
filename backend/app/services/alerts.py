@@ -55,8 +55,13 @@ def create_overlap_alert(
     session: Session,
     link_id: int,
     case_no: Optional[str] = None,
+    commit: bool = True,
 ) -> Alert:
-    """Create an overlap alert for coordination when a pair is flagged."""
+    """Create an overlap alert for coordination when a pair is flagged.
+
+    ``commit=False`` lets a caller (e.g. the overlap scan) keep the whole
+    operation in one transaction.
+    """
     case_id = None
     if case_no:
         case = session.exec(select(Case).where(Case.case_no == case_no)).first()
@@ -79,14 +84,17 @@ def create_overlap_alert(
         type=AlertType.OVERLAP,
         case_id=case_id,
         link_id=link_id,
-        message="Potential Overlapping Cases – Coordination Required",
+        message="Potential overlapping cases. Coordination required",
         priority=Priority.HIGH,
         status="open",
         created_at=datetime.now(timezone.utc),
     )
     session.add(alert)
-    session.commit()
-    session.refresh(alert)
+    if commit:
+        session.commit()
+        session.refresh(alert)
+    else:
+        session.flush()
     return alert
 
 
