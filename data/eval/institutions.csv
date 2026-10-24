@@ -1,0 +1,46 @@
+id,permanent_id,name,address,region,state,type
+1,EVAL-0001,Sunrise Institute of Technology 01 (demo),"Demo Campus Road, Haryana",North,Haryana,Technology
+2,EVAL-0002,National Institute of Technology 02 (demo),"Demo Campus Road, Tamil Nadu",South,Tamil Nadu,Technology
+3,EVAL-0003,Central Institute of Technology 03 (demo),"Demo Campus Road, Bihar",East,Bihar,Technology
+4,EVAL-0004,Western Institute of Technology 04 (demo),"Demo Campus Road, Goa",West,Goa,Technology
+5,EVAL-0005,Eastern Institute of Technology 05 (demo),"Demo Campus Road, Madhya Pradesh",Central,Madhya Pradesh,Technology
+6,EVAL-0006,Northern Institute of Technology 06 (demo),"Demo Campus Road, Punjab",North,Punjab,Technology
+7,EVAL-0007,Southern Institute of Technology 07 (demo),"Demo Campus Road, Telangana",South,Telangana,Technology
+8,EVAL-0008,Metro Institute of Technology 08 (demo),"Demo Campus Road, Jharkhand",East,Jharkhand,Technology
+9,EVAL-0009,Heritage Institute of Technology 09 (demo),"Demo Campus Road, Maharashtra",West,Maharashtra,Technology
+10,EVAL-0010,Pioneer Institute of Technology 10 (demo),"Demo Campus Road, Chhattisgarh",Central,Chhattisgarh,Technology
+11,EVAL-0011,Crescent Institute of Technology 11 (demo),"Demo Campus Road, Delhi",North,Delhi,Technology
+12,EVAL-0012,Summit Institute of Technology 12 (demo),"Demo Campus Road, Kerala",South,Kerala,Technology
+13,EVAL-0013,Horizon Institute of Technology 13 (demo),"Demo Campus Road, West Bengal",East,West Bengal,Technology
+14,EVAL-0014,Capitol Institute of Technology 14 (demo),"Demo Campus Road, Gujarat",West,Gujarat,Technology
+15,EVAL-0015,Riverside Institute of Technology 15 (demo),"Demo Campus Road, Uttarakhand",Central,Uttarakhand,Technology
+16,EVAL-0016,Sunrise Polytechnic College 16 (demo),"Demo Campus Road, Uttar Pradesh",North,Uttar Pradesh,College
+17,EVAL-0017,National Polytechnic College 17 (demo),"Demo Campus Road, Karnataka",South,Karnataka,College
+18,EVAL-0018,Central Polytechnic College 18 (demo),"Demo Campus Road, Odisha",East,Odisha,College
+19,EVAL-0019,Western Polytechnic College 19 (demo),"Demo Campus Road, Rajasthan",West,Rajasthan,College
+20,EVAL-0020,Eastern Polytechnic College 20 (demo),"Demo Campus Road, Jharkhand",Central,Jharkhand,College
+21,EVAL-0021,Northern Polytechnic College 21 (demo),"Demo Campus Road, Haryana",North,Haryana,College
+22,EVAL-0022,Southern Polytechnic College 22 (demo),"Demo Campus Road, Tamil Nadu",South,Tamil Nadu,College
+23,EVAL-0023,Metro Polytechnic College 23 (demo),"Demo Campus Road, Bihar",East,Bihar,College
+24,EVAL-0024,Heritage Polytechnic College 24 (demo),"Demo Campus Road, Goa",West,Goa,College
+25,EVAL-0025,Pioneer Polytechnic College 25 (demo),"Demo Campus Road, Madhya Pradesh",Central,Madhya Pradesh,College
+26,EVAL-0026,Crescent Polytechnic College 26 (demo),"Demo Campus Road, Punjab",North,Punjab,College
+27,EVAL-0027,Summit Polytechnic College 27 (demo),"Demo Campus Road, Telangana",South,Telangana,College
+28,EVAL-0028,Horizon Polytechnic College 28 (demo),"Demo Campus Road, Jharkhand",East,Jharkhand,College
+29,EVAL-0029,Capitol Polytechnic College 29 (demo),"Demo Campus Road, Maharashtra",West,Maharashtra,College
+30,EVAL-0030,Riverside Polytechnic College 30 (demo),"Demo Campus Road, Chhattisgarh",Central,Chhattisgarh,College
+31,EVAL-0031,Sunrise Academy of Management 31 (demo),"Demo Campus Road, Delhi",North,Delhi,Management
+32,EVAL-0032,National Academy of Management 32 (demo),"Demo Campus Road, Kerala",South,Kerala,Management
+33,EVAL-0033,Central Academy of Management 33 (demo),"Demo Campus Road, West Bengal",East,West Bengal,Management
+34,EVAL-0034,Western Academy of Management 34 (demo),"Demo Campus Road, Gujarat",West,Gujarat,Management
+35,EVAL-0035,Eastern Academy of Management 35 (demo),"Demo Campus Road, Uttarakhand",Central,Uttarakhand,Management
+36,EVAL-0036,Northern Academy of Management 36 (demo),"Demo Campus Road, Uttar Pradesh",North,Uttar Pradesh,Management
+37,EVAL-0037,Southern Academy of Management 37 (demo),"Demo Campus Road, Karnataka",South,Karnataka,Management
+38,EVAL-0038,Metro Academy of Management 38 (demo),"Demo Campus Road, Odisha",East,Odisha,Management
+39,EVAL-0039,Heritage Academy of Management 39 (demo),"Demo Campus Road, Rajasthan",West,Rajasthan,Management
+40,EVAL-0040,Pioneer Academy of Management 40 (demo),"Demo Campus Road, Jharkhand",Central,Jharkhand,Management
+41,EVAL-0041,Crescent Academy of Management 41 (demo),"Demo Campus Road, Haryana",North,Haryana,Management
+42,EVAL-0042,Summit Academy of Management 42 (demo),"Demo Campus Road, Tamil Nadu",South,Tamil Nadu,Management
+43,EVAL-0043,Horizon Academy of Management 43 (demo),"Demo Campus Road, Bihar",East,Bihar,Management
+44,EVAL-0044,Capitol Academy of Management 44 (demo),"Demo Campus Road, Goa",West,Goa,Management
+45,EVAL-0045,Riverside Academy of Management 45 (demo),"Demo Campus Road, Madhya Pradesh",Central,Madhya Pradesh,Management

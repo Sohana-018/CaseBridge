@@ -18,7 +18,7 @@ import app.models  # noqa: F401
 from sqlmodel import Session
 from app.db import create_db_and_tables, engine
 from app.errors import register_error_handlers
-from app.routers import alerts, auth, cases, dashboard, events, institutions, reports
+from app.routers import alerts, auth, cases, dashboard, events, institutions, overlaps, reports
 from app.services.alerts import refresh_alerts
 
 
@@ -46,6 +46,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(institutions.router, prefix="/api/v1")
 app.include_router(cases.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
+app.include_router(overlaps.router, prefix="/api/v1")
 app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")

@@ -10,6 +10,7 @@ All data is synthetic demo data.
 """
 
 import csv
+import os
 import sys
 from pathlib import Path
 
@@ -17,6 +18,9 @@ ROOT = Path(__file__).resolve().parent.parent
 BACKEND_DIR = ROOT / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+
+# Default to backend/casebridge.db regardless of the caller's working directory.
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{(BACKEND_DIR / 'casebridge.db').as_posix()}")
 
 from sqlmodel import Session, select  # noqa: E402
 from app.db import engine  # noqa: E402

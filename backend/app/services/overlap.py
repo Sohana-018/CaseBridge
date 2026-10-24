@@ -1,0 +1,356 @@
+"""Overlap detection and review (PRD Section 9, FR8-FR12).
+
+The engine is deliberately explainable:
+- candidate pairs are same-institution, cross-bureau, non-disposed cases
+  received within 365 days of each other;
+- every flagged pair carries a confidence band and a list of human-readable
+  reasons;
+- nothing is auto-merged, auto-closed or auto-disposed. A coordinator makes
+  every linking decision by hand.
+
+All data is synthetic demo data.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
+from rapidfuzz import fuzz
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sqlmodel import Session, select
+
+from app.errors import NotFoundError, ValidationError
+from app.models import (
+    Case,
+    CaseEvent,
+    CaseStatus,
+    ConfidenceBand,
+    EventType,
+    Institution,
+    OverlapLink,
+    ReviewStatus,
+    utc_now,
+)
+from app.services.alerts import create_overlap_alert
+
+# ---------------------------------------------------------------------------
+# Demo-tuned thresholds (PRD Section 9.4).
+# Tuned on the development split of data/labelled_pairs.csv only; see
+# docs/eval.md for the protocol and the test-split numbers.
+# ---------------------------------------------------------------------------
+SIMILARITY_HIGH = 0.50
+SIMILARITY_MEDIUM = 0.50
+CANDIDATE_MAX_DAYS = 365
+DATE_PROXIMITY_DAYS = 90
+
+# Categories that describe the same underlying complaint area (demo mapping).
+RELATED_CATEGORIES = (
+    frozenset({"infrastructure", "approval"}),
+    frozenset({"faculty", "other"}),
+    frozenset({"admission", "examination"}),
+    frozenset({"fee_refund", "admission"}),
+)
+
+# Only these decisions may be submitted by a reviewer. "open" means
+# "not reviewed yet" and is never a valid decision.
+REVIEW_DECISIONS = {
+    ReviewStatus.RELATED,
+    ReviewStatus.DUPLICATE,
+    ReviewStatus.NOT_RELATED,
+    ReviewStatus.NEEDS_REVIEW,
+}
+
+# Case-number style references, e.g. PG-2026-00104 or RB-2026-00219.
+_CASE_REF_RE = re.compile(r"\b([A-Z]{2,4}-\d{4}-\d{5})\b")
+# Letter style references, e.g. AICTE/RO/2026/118 (at least one slash).
+_LETTER_REF_RE = re.compile(r"\b([A-Z]{2,6}(?:/[A-Z0-9]{2,12}){1,4})\b")
+
+
+def _enum_value(value: Any) -> str:
+    """Return the string value of an enum member (or str(value))."""
+    return value.value if hasattr(value, "value") else str(value)
+
+
+def _norm_category(category: Any) -> str:
+    return _enum_value(category).lower()
+
+
+def categories_related(category_a: Any, category_b: Any) -> bool:
+    """True when both cases concern the same or a related complaint area."""
+    cat_a = _norm_category(category_a)
+    cat_b = _norm_category(category_b)
+    if cat_a == cat_b:
+        return True
+    return frozenset({cat_a, cat_b}) in RELATED_CATEGORIES
+
+
+def category_signal(category_a: Any, category_b: Any) -> Optional[str]:
+    """Return the category reason string, or None when unrelated."""
+    if _norm_category(category_a) == _norm_category(category_b):
+        return "same_category"
+    if categories_related(category_a, category_b):
+        return "related_category"
+    return None
+
+
+def extract_references(text: Optional[str]) -> set[str]:
+    """Extract case-number and letter references from a description."""
+    if not text:
+        return set()
+    upper = text.upper()
+    return set(_CASE_REF_RE.findall(upper)) | set(_LETTER_REF_RE.findall(upper))
+
+
+def text_similarity(text_a: Optional[str], text_b: Optional[str]) -> float:
+    """Combined text similarity in [0, 1].
+
+    Takes the higher of TF-IDF cosine similarity and rapidfuzz token-set
+    ratio, as required by PRD Section 9. Falls back to 0.0 when the two
+    short texts produce an empty vocabulary.
+    """
+    a = text_a or ""
+    b = text_b or ""
+    if not a.strip() or not b.strip():
+        return 0.0
+
+    cosine = 0.0
+    for stop_words in ("english", None):
+        try:
+            vectorizer = TfidfVectorizer(min_df=1, stop_words=stop_words)
+            matrix = vectorizer.fit_transform([a, b])
+            cosine = float(cosine_similarity(matrix[0:1], matrix[1:2])[0][0])
+            break
+        except ValueError:
+            # Empty vocabulary (e.g. only stop words); retry without stop words.
+            cosine = 0.0
+
+    try:
+        fuzzy = fuzz.token_set_ratio(a, b) / 100.0
+    except Exception:  # pragma: no cover - rapidfuzz is pure Python
+        fuzzy = 0.0
+
+    return max(cosine, float(fuzzy))
+
+
+def score_pair(
+    case_a: Case,
+    case_b: Case,
+    sim_high: float = SIMILARITY_HIGH,
+    sim_medium: float = SIMILARITY_MEDIUM,
+) -> Tuple[ConfidenceBand, List[str]]:
+    """Score one candidate pair, returning (band, explainable reasons).
+
+    Band rules (PRD Section 9.4, demo-tuned thresholds):
+    - high:   shared reference, or same category and similarity >= sim_high
+    - medium: same/related category, or similarity >= sim_medium
+    - low:    same institution and different bureau only
+    """
+    if case_a.institution_id != case_b.institution_id:
+        raise ValidationError("Overlap pairs must belong to the same institution.")
+    if case_a.id is not None and case_a.id == case_b.id:
+        raise ValidationError("A case cannot overlap with itself.")
+
+    reasons: List[str] = ["same_permanent_id"]
+
+    cat_reason = category_signal(case_a.category, case_b.category)
+    if cat_reason:
+        reasons.append(cat_reason)
+
+    shared = extract_references(case_a.description) & extract_references(case_b.description)
+    if shared:
+        reasons.append("shared_reference")
+
+    similarity = text_similarity(case_a.description, case_b.description)
+    if similarity >= 0.30:
+        reasons.append(f"text_similarity {similarity:.2f}")
+
+    days_apart = abs((case_a.received_date - case_b.received_date).days)
+    if days_apart <= DATE_PROXIMITY_DAYS:
+        reasons.append(f"date_proximity {days_apart} days")
+
+    same_category = _norm_category(case_a.category) == _norm_category(case_b.category)
+    if shared or (same_category and similarity >= sim_high):
+        band = ConfidenceBand.HIGH
+    elif cat_reason or similarity >= sim_medium:
+        band = ConfidenceBand.MEDIUM
+    else:
+        band = ConfidenceBand.LOW
+
+    return band, reasons
+
+
+def is_candidate_pair(case_a: Case, case_b: Case) -> bool:
+    """Candidate filter per PRD Section 9.2.
+
+    Same institution, both open (not disposed), different bureaus, and
+    received within 365 days of each other.
+    """
+    if case_a.institution_id != case_b.institution_id:
+        return False
+    if case_a.status == CaseStatus.DISPOSED or case_b.status == CaseStatus.DISPOSED:
+        return False
+    if case_a.bureau == case_b.bureau:
+        return False
+    days_apart = abs((case_a.received_date - case_b.received_date).days)
+    return days_apart <= CANDIDATE_MAX_DAYS
+
+
+def detect_overlaps(session: Session, commit: bool = True) -> int:
+    """Run overlap detection and persist new OverlapLink rows.
+
+    Pairs that already have a link (whatever its review decision) are left
+    untouched so human decisions are never overwritten by a re-scan.
+    Returns the number of newly created links.
+    """
+    rows = session.exec(
+        select(Case, Institution).join(Institution, Case.institution_id == Institution.id)
+    ).all()
+
+    by_institution: Dict[int, List[Case]] = {}
+    for case, _inst in rows:
+        by_institution.setdefault(case.institution_id, []).append(case)
+
+    existing = {(link.case_a_id, link.case_b_id) for link in session.exec(select(OverlapLink)).all()}
+
+    created = 0
+    for cases in by_institution.values():
+        ordered = sorted(cases, key=lambda c: c.id or 0)
+        for i, case_a in enumerate(ordered):
+            for case_b in ordered[i + 1 :]:
+                if not is_candidate_pair(case_a, case_b):
+                    continue
+
+                pair = (min(case_a.id, case_b.id), max(case_a.id, case_b.id))
+                if pair in existing:
+                    continue
+
+                band, reasons = score_pair(case_a, case_b)
+                link = OverlapLink(
+                    case_a_id=pair[0],
+                    case_b_id=pair[1],
+                    confidence_band=band,
+                    reasons=reasons,
+                    review_status=ReviewStatus.OPEN,
+                )
+                session.add(link)
+                session.flush()  # assign link.id
+
+                # Only actionable (medium/high) pairs raise an alert. Low-band
+                # pairs stay in the queue but do not spam the alert feed.
+                if band in (ConfidenceBand.HIGH, ConfidenceBand.MEDIUM):
+                    create_overlap_alert(
+                        session,
+                        link_id=link.id,
+                        case_no=case_a.case_no,
+                        commit=False,
+                    )
+
+                existing.add(pair)
+                created += 1
+
+    if commit:
+        session.commit()
+    return created
+
+
+def review_overlap(
+    session: Session,
+    link_id: int,
+    decision: ReviewStatus,
+    reviewer: str,
+    note: Optional[str] = None,
+) -> OverlapLink:
+    """Record a human review decision on an overlap link (FR10, FR11).
+
+    - The decision replaces ``review_status`` and stamps reviewer/time/note.
+    - A review event is appended to *both* cases; case numbers and histories
+      stay untouched and append-only.
+    - Neither case is merged, closed or disposed.
+    """
+    link = session.get(OverlapLink, link_id)
+    if not link:
+        raise NotFoundError(f"Overlap link with id {link_id} not found", details={"id": link_id})
+
+    if decision not in REVIEW_DECISIONS:
+        raise ValidationError(
+            f"Invalid review decision '{_enum_value(decision)}'. "
+            f"Allowed: {', '.join(sorted(_enum_value(d) for d in REVIEW_DECISIONS))}",
+            details={"decision": _enum_value(decision)},
+        )
+
+    now = utc_now()
+    link.review_status = decision
+    link.reviewed_by = reviewer
+    link.reviewed_at = now
+    link.note = note
+    session.add(link)
+
+    decision_text = _enum_value(decision)
+    remarks = f"Overlap #{link.id} reviewed as {decision_text} by {reviewer}"
+    if note and note.strip():
+        remarks = f"{remarks}: {note.strip()}"
+
+    for case_id in (link.case_a_id, link.case_b_id):
+        case = session.get(Case, case_id)
+        if not case:
+            continue
+        session.add(
+            CaseEvent(
+                case_id=case.id,
+                ts=now,
+                actor=reviewer,
+                bureau=case.bureau,
+                event_type=EventType.REVIEW,
+                remarks=remarks,
+            )
+        )
+        # Keep last_action consistent with FR4 (every action updates it).
+        case.last_action = f"Overlap review: {decision_text}"
+        case.last_action_date = now.date()
+        session.add(case)
+
+    session.commit()
+    session.refresh(link)
+    return link
+
+
+def get_overlap_read(session: Session, link: OverlapLink) -> Dict[str, Any]:
+    """Serialise an overlap link into the PRD Section 10 overlap object."""
+    case_a = session.get(Case, link.case_a_id)
+    case_b = session.get(Case, link.case_b_id)
+
+    def mini(case: Optional[Case]) -> Dict[str, str]:
+        if not case:
+            return {"case_no": "", "bureau": "", "status": ""}
+        return {
+            "case_no": case.case_no,
+            "bureau": _enum_value(case.bureau),
+            "status": _enum_value(case.status),
+        }
+
+    return {
+        "id": link.id,
+        "band": _enum_value(link.confidence_band),
+        "review_status": _enum_value(link.review_status),
+        "reasons": list(link.reasons or []),
+        "case_a": mini(case_a),
+        "case_b": mini(case_b),
+        "reviewed_by": link.reviewed_by,
+        "reviewed_at": link.reviewed_at,
+        "note": link.note,
+    }
+
+
+def open_overlaps_for_cases(session: Session, case_ids: List[int]) -> List[Dict[str, Any]]:
+    """Return open overlap objects touching any of the given case ids."""
+    if not case_ids:
+        return []
+    links = session.exec(
+        select(OverlapLink).where(
+            OverlapLink.review_status == ReviewStatus.OPEN,
+            (OverlapLink.case_a_id.in_(case_ids)) | (OverlapLink.case_b_id.in_(case_ids)),
+        )
+    ).all()
+    return [get_overlap_read(session, link) for link in links]
