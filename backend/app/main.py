@@ -18,7 +18,7 @@ import app.models  # noqa: F401
 from sqlmodel import Session
 from app.db import create_db_and_tables, engine
 from app.errors import register_error_handlers
-from app.routers import alerts, events
+from app.routers import alerts, dashboard, events, reports
 from app.services.alerts import refresh_alerts
 
 
@@ -44,6 +44,8 @@ register_error_handlers(app)
 # Include API routers under /api/v1
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(alerts.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 
 # Parse CORS origins from environment
 raw_cors = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174")
