@@ -9,6 +9,9 @@ from app.main import app
 from app.models import Bureau, Case, CaseCategory, CaseEvent, CaseStatus, Institution, Priority, Region
 
 
+from tests.test_auth import get_coordinator_token
+
+
 @pytest.fixture(name="client")
 def client_fixture():
     """Create in-memory SQLite database and test client with session override."""
@@ -49,6 +52,8 @@ def client_fixture():
 
     app.dependency_overrides[get_session] = get_test_session
     with TestClient(app) as test_client:
+        token = get_coordinator_token()
+        test_client.headers["Authorization"] = f"Bearer {token}"
         yield test_client
     app.dependency_overrides.clear()
     SQLModel.metadata.drop_all(engine)
@@ -68,7 +73,7 @@ def test_status_change_event(client: TestClient):
     assert data["from_status"] == "pending"
     assert data["to_status"] == "under_process"
     assert data["from_bureau"] == "RB"
-    assert data["actor"] == "demo user (demo)"
+    assert data["actor"] == "Demo Coordinator"
     assert data["ts"] is not None
 
 

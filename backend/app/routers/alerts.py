@@ -1,9 +1,11 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import Alert, AlertType, Case
+from app.models import Alert, Case
+from app.permissions import UserPayload, check_alert_action_permission
+from app.routers.auth import get_current_user
 from app.schemas import AlertListResponse, AlertRead
 from app.services.alerts import acknowledge_alert, refresh_alerts
 
@@ -22,8 +24,9 @@ def list_alerts(
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     session: Session = Depends(get_session),
+    current_user: UserPayload = Depends(get_current_user),
 ):
-    """Retrieve paginated alerts filtered by type, status, or case number."""
+    """Retrieve paginated alerts filtered by type, status, or case number. Accessible to any authenticated role."""
     # Build query joining Case to resolve case_no
     base_query = select(Alert, Case.case_no).outerjoin(Case, Alert.case_id == Case.id)
 
@@ -76,8 +79,14 @@ def list_alerts(
 def ack_alert(
     id: int,
     session: Session = Depends(get_session),
+    current_user: UserPayload = Depends(get_current_user),
 ):
-    """Acknowledge an open alert by ID."""
+    """Acknowledge an open alert by ID.
+
+    Permissions: bureau_officer, coordinator, administrator. senior_management gets FORBIDDEN.
+    """
+    check_alert_action_permission(current_user)
+
     alert = acknowledge_alert(session, id)
     case_no = None
     if alert.case_id:
@@ -106,8 +115,14 @@ def ack_alert(
 )
 def trigger_alert_refresh(
     session: Session = Depends(get_session),
+    current_user: UserPayload = Depends(get_current_user),
 ):
-    """Demo helper endpoint (addition to API contract): Triggers alert rules evaluation across all cases."""
+    """Demo helper endpoint (addition to API contract): Triggers alert rules evaluation across all cases.
+
+    Permissions: bureau_officer, coordinator, administrator. senior_management gets FORBIDDEN.
+    """
+    check_alert_action_permission(current_user)
+
     created = refresh_alerts(session)
     return {
         "status": "ok",
