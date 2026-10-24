@@ -129,6 +129,11 @@ def record_case_event(
     session.refresh(event)
     session.refresh(case)
 
+    # When an escalation event is recorded, create an escalation alert per Section 8 / FR13
+    if event_create.event_type == EventType.ESCALATION:
+        from app.services.alerts import create_escalation_alert
+        create_escalation_alert(session, case_id=case.id, remarks=event_create.remarks)
+
     return event
 
 
