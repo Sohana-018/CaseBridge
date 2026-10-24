@@ -77,3 +77,20 @@ def check_alert_action_permission(user: UserPayload) -> None:
         f"Role '{user.role}' is not permitted to perform alert actions.",
         details={"role": user.role},
     )
+
+
+def is_full_case_visible(user: UserPayload, case_bureau: str) -> bool:
+    """Check if the user has full case visibility or summary-only visibility.
+
+    Per Section 3 of PRD:
+    - bureau_officer: full details only for cases in their own bureau;
+      other bureaus' cases show summary-only (case_no, bureau, category, status, received_date).
+    - coordinator, senior_management, administrator: see full details for all cases.
+    """
+    if user.role in {"coordinator", "senior_management", "administrator"}:
+        return True
+    if user.role == "bureau_officer":
+        bureau_val = case_bureau.value if hasattr(case_bureau, "value") else str(case_bureau)
+        return bool(user.bureau and user.bureau.upper() == bureau_val.upper())
+    return False
+

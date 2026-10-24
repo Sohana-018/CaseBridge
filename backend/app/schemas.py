@@ -1,7 +1,88 @@
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
+from typing import Any, List, Optional, Union
 from pydantic import BaseModel, ConfigDict
 from app.models import Bureau, CaseCategory, CaseStatus, EventType, Priority, Region
+
+
+class InstitutionMini(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    permanent_id: str
+    name: str
+    region: str
+
+
+class InstitutionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    permanent_id: str
+    name: str
+    address: Optional[str] = None
+    region: str
+    state: Optional[str] = None
+    type: Optional[str] = None
+
+
+class InstitutionListResponse(BaseModel):
+    items: List[InstitutionRead]
+    total: int
+    page: int
+    page_size: int
+
+
+class CaseSummaryRead(BaseModel):
+    """Restricted case view visible across bureaus for Bureau Officers (Section 3)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    case_no: str
+    bureau: str
+    category: str
+    status: str
+    received_date: date
+
+
+class CaseRead(BaseModel):
+    """Full case object representation per Section 10 of PRD."""
+    model_config = ConfigDict(from_attributes=True)
+
+    case_no: str
+    institution: InstitutionMini
+    bureau: str
+    category: str
+    description: str
+    received_date: date
+    status: str
+    assigned_officer: Optional[str] = None
+    last_action: Optional[str] = None
+    last_action_date: Optional[date] = None
+    next_action: Optional[str] = None
+    expected_disposal_date: Optional[date] = None
+    overdue: bool
+    priority: str
+
+
+class CaseListResponse(BaseModel):
+    """Paginated case list response model."""
+    items: List[Union[CaseRead, CaseSummaryRead]]
+    total: int
+    page: int
+    page_size: int
+
+
+class InstitutionDetailRead(BaseModel):
+    """Institution profile with cases and open overlaps per PRD Section 10."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    permanent_id: str
+    name: str
+    address: Optional[str] = None
+    region: str
+    state: Optional[str] = None
+    type: Optional[str] = None
+    cases: List[Union[CaseRead, CaseSummaryRead]] = []
+    open_overlaps: List[Any] = []
 
 
 class EventCreate(BaseModel):
