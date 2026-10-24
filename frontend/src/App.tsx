@@ -18,7 +18,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 font-sans antialiased selection:bg-indigo-500 selection:text-white">
+      <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 font-sans antialiased selection:bg-blue-900 selection:text-white">
         <Navbar />
         <Routes>
           <Route path="/" element={<OverviewPage />} />
