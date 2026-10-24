@@ -340,3 +340,154 @@ def test_officer_summary_only_for_other_bureaus_cases(client_and_session):
     assert "description" in items_by_no["RB-2026-00001"]
     assert set(items_by_no["PG-2026-00002"].keys()) == {"case_no", "bureau", "category", "status", "received_date"}
     assert set(items_by_no["RO-2026-00003"].keys()) == {"case_no", "bureau", "category", "status", "received_date"}
+
+
+# ── POST /cases ────────────────────────────────────────────────────────────────
+
+def test_create_case_generates_case_no(client_and_session):
+    """POST /cases creates a case and auto-generates a case_no from counters."""
+    client, _ = client_and_session
+    today = date.today()
+    payload = {
+        "permanent_id": "DEMO-1001",
+        "bureau": "OC",   # OC has no pre-seeded cases in this fixture
+        "category": "infrastructure",
+        "description": "New lab safety complaint via POST",
+        "received_date": str(today),
+        "assigned_officer": "Test Officer (demo)",
+        "priority": "high",
+    }
+    res = client.post("/api/v1/cases", json=payload)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["case_no"].startswith(f"OC-{today.year}-")
+    assert data["bureau"] == "OC"
+    assert data["status"] == "pending"
+    assert data["institution"]["permanent_id"] == "DEMO-1001"
+
+
+def test_create_case_increments_counter(client_and_session):
+    """Creating two cases in the same bureau+year produces consecutive case numbers."""
+    client, _ = client_and_session
+    today = date.today()
+    payload = {
+        "permanent_id": "DEMO-1001",
+        "bureau": "OC",   # OC has no pre-seeded cases in this fixture
+        "category": "faculty",
+        "description": "First grievance",
+        "received_date": str(today),
+    }
+    res1 = client.post("/api/v1/cases", json=payload)
+    res2 = client.post("/api/v1/cases", json=payload)
+    assert res1.status_code == 201
+    assert res2.status_code == 201
+    no1 = res1.json()["case_no"]
+    no2 = res2.json()["case_no"]
+    # Both start with OC-{year}-; second should be one higher
+    assert no1 != no2
+    suffix1 = int(no1.split("-")[-1])
+    suffix2 = int(no2.split("-")[-1])
+    assert suffix2 == suffix1 + 1
+
+
+def test_create_case_unknown_institution_404(client_and_session):
+    """POST /cases returns 404 if permanent_id does not exist."""
+    client, _ = client_and_session
+    payload = {
+        "permanent_id": "DEMO-9999",
+        "bureau": "RB",
+        "category": "other",
+        "description": "Unknown institution",
+        "received_date": str(date.today()),
+    }
+    res = client.post("/api/v1/cases", json=payload)
+    assert res.status_code == 404
+
+
+def test_create_case_senior_management_forbidden(client_and_session):
+    """senior_management role cannot create cases — expects 403."""
+    client, _ = client_and_session
+    sm_token = get_auth_token("senior_management")
+    headers = {"Authorization": f"Bearer {sm_token}"}
+    payload = {
+        "permanent_id": "DEMO-1001",
+        "bureau": "RB",
+        "category": "other",
+        "description": "Should be blocked",
+        "received_date": str(date.today()),
+    }
+    res = client.post("/api/v1/cases", json=payload, headers=headers)
+    assert res.status_code == 403
+
+
+def test_create_case_officer_wrong_bureau_forbidden(client_and_session):
+    """bureau_officer may not create cases in another bureau — expects 403."""
+    client, _ = client_and_session
+    officer_token = get_auth_token("bureau_officer", bureau="RB")
+    headers = {"Authorization": f"Bearer {officer_token}"}
+    payload = {
+        "permanent_id": "DEMO-1001",
+        "bureau": "PGRC",   # different from officer's bureau
+        "category": "faculty",
+        "description": "Cross-bureau creation attempt",
+        "received_date": str(date.today()),
+    }
+    res = client.post("/api/v1/cases", json=payload, headers=headers)
+    assert res.status_code == 403
+
+
+# ── PATCH /cases/{case_no} ─────────────────────────────────────────────────────
+
+def test_patch_case_updates_fields(client_and_session):
+    """PATCH /cases/{case_no} updates next_action, assigned_officer, priority."""
+    client, _ = client_and_session
+    payload = {
+        "next_action": "Updated next action",
+        "assigned_officer": "New Officer (demo)",
+        "priority": "high",
+    }
+    res = client.patch("/api/v1/cases/RB-2026-00001", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["next_action"] == "Updated next action"
+    assert data["assigned_officer"] == "New Officer (demo)"
+    assert data["priority"] == "high"
+    # Status and bureau must not change
+    assert data["status"] == "pending"
+    assert data["bureau"] == "RB"
+
+
+def test_patch_case_partial_update(client_and_session):
+    """PATCH with only one field leaves other fields unchanged."""
+    client, _ = client_and_session
+    res = client.patch("/api/v1/cases/PG-2026-00002", json={"next_action": "Only this changes"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["next_action"] == "Only this changes"
+    assert data["assigned_officer"] == "Officer North PG (demo)"  # unchanged
+
+
+def test_patch_case_not_found_404(client_and_session):
+    """PATCH on a non-existent case_no returns 404."""
+    client, _ = client_and_session
+    res = client.patch("/api/v1/cases/XX-9999-00000", json={"next_action": "ghost"})
+    assert res.status_code == 404
+
+
+def test_patch_case_senior_management_forbidden(client_and_session):
+    """senior_management is read-only — PATCH must return 403."""
+    client, _ = client_and_session
+    sm_token = get_auth_token("senior_management")
+    headers = {"Authorization": f"Bearer {sm_token}"}
+    res = client.patch("/api/v1/cases/RB-2026-00001", json={"next_action": "blocked"}, headers=headers)
+    assert res.status_code == 403
+
+
+def test_patch_case_officer_cross_bureau_forbidden(client_and_session):
+    """bureau_officer cannot patch cases in another bureau — expects 403."""
+    client, _ = client_and_session
+    officer_token = get_auth_token("bureau_officer", bureau="RB")
+    headers = {"Authorization": f"Bearer {officer_token}"}
+    res = client.patch("/api/v1/cases/PG-2026-00002", json={"next_action": "blocked"}, headers=headers)
+    assert res.status_code == 403
+

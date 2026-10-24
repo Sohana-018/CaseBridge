@@ -1,0 +1,6 @@
+id,permanent_id,name,address,region,state,type
+1,DEMO-1042,Example Institute of Technology (demo),"Outer Ring Road, Bengaluru",South,Karnataka,Engineering
+2,DEMO-1055,National Polytechnic College (demo),"Sector 14, Gurugram",North,Haryana,Polytechnic
+3,DEMO-1078,Western Institute of Management (demo),"Shivaji Nagar, Pune",West,Maharashtra,Management
+4,DEMO-1090,Eastern Academy of Pharmaceutical Sciences (demo),"Salt Lake Sector V, Kolkata",East,West Bengal,Pharmacy
+5,DEMO-1102,Central College of Technology (demo),"MP Nagar, Bhopal",Central,Madhya Pradesh,Engineering
