@@ -46,7 +46,6 @@ export const OverviewPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // Ensure coordinator login is initialized
       await autoLogin('coordinator');
 
       const [summaryRes, workloadRes, alertsRes] = await Promise.all([
@@ -90,21 +89,21 @@ export const OverviewPage: React.FC = () => {
 
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+      {/* Page Title with short description */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Case Monitoring Overview
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Real-time cross-bureau intelligence and tracking metrics across all AICTE grievance cases.
+            Consolidated cross-bureau complaint monitoring and tracking dashboard for authorized officials.
           </p>
         </div>
 
         <button
           onClick={loadData}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 transition shadow-xs cursor-pointer"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition shadow-xs cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh Data</span>
@@ -124,108 +123,95 @@ export const OverviewPage: React.FC = () => {
 
       {!loading && !error && summary && (
         <div className="space-y-8">
-          {/* KPI Cards (Total, Pending, Under Process, Disposed, Transferred, Escalated, Overdue) */}
+          {/* KPI Cards: Large number, small label, and colored accents:
+              pending amber | under process blue | disposed green | transferred gray | escalated purple | overdue red */}
           <section aria-labelledby="kpi-heading">
             <h2 id="kpi-heading" className="sr-only">Key Performance Indicators</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
-              {/* Total Cases */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition">
+              {/* Total Cases (Navy/Slate Accent) */}
+              <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-blue-900 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</span>
-                  <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
-                    <FileText className="w-4 h-4" />
-                  </div>
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total</span>
+                  <FileText className="w-4 h-4 text-slate-400" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-slate-900">{summary.total}</div>
-                <div className="text-[11px] text-slate-500 mt-1">All recorded cases</div>
+                <div className="text-3xl font-bold text-slate-900 tracking-tight">{summary.total}</div>
+                <div className="text-xs text-slate-500 mt-1">All recorded cases</div>
               </div>
 
-              {/* Pending */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition">
+              {/* Pending (Amber Accent) */}
+              <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Pending</span>
-                  <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                    <Clock className="w-4 h-4" />
-                  </div>
+                  <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Pending</span>
+                  <Clock className="w-4 h-4 text-amber-600" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-amber-700">{summary.pending}</div>
-                <div className="text-[11px] text-slate-500 mt-1">Awaiting review</div>
+                <div className="text-3xl font-bold text-slate-900 tracking-tight">{summary.pending}</div>
+                <div className="text-xs text-slate-500 mt-1">Awaiting review</div>
               </div>
 
-              {/* Under Process */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition">
+              {/* Under Process (Blue Accent) */}
+              <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-blue-600 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Under Process</span>
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <RotateCw className="w-4 h-4" />
-                  </div>
+                  <span className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider">Under Process</span>
+                  <RotateCw className="w-4 h-4 text-blue-600" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-indigo-700">{summary.under_process}</div>
-                <div className="text-[11px] text-slate-500 mt-1">Active investigation</div>
+                <div className="text-3xl font-bold text-slate-900 tracking-tight">{summary.under_process}</div>
+                <div className="text-xs text-slate-500 mt-1">Active investigation</div>
               </div>
 
-              {/* Disposed */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition">
+              {/* Disposed (Green Accent) */}
+              <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-emerald-600 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Disposed</span>
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Disposed</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-emerald-700">{summary.disposed}</div>
-                <div className="text-[11px] text-slate-500 mt-1">Resolved & closed</div>
+                <div className="text-3xl font-bold text-slate-900 tracking-tight">{summary.disposed}</div>
+                <div className="text-xs text-slate-500 mt-1">Resolved & closed</div>
               </div>
 
-              {/* Transferred */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition">
+              {/* Transferred (Gray Accent) */}
+              <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-slate-400 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-purple-600 uppercase tracking-wider">Transferred</span>
-                  <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <ArrowRightLeft className="w-4 h-4" />
-                  </div>
+                  <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Transferred</span>
+                  <ArrowRightLeft className="w-4 h-4 text-slate-500" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-purple-700">{summary.transferred}</div>
-                <div className="text-[11px] text-slate-500 mt-1">Cross-bureau moved</div>
+                <div className="text-3xl font-bold text-slate-900 tracking-tight">{summary.transferred}</div>
+                <div className="text-xs text-slate-500 mt-1">Reassigned bureau</div>
               </div>
 
-              {/* Escalated */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md transition">
+              {/* Escalated (Purple Accent) */}
+              <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-purple-600 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-rose-600 uppercase tracking-wider">Escalated</span>
-                  <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-                    <Flame className="w-4 h-4" />
-                  </div>
+                  <span className="text-[11px] font-semibold text-purple-700 uppercase tracking-wider">Escalated</span>
+                  <Flame className="w-4 h-4 text-purple-600" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-rose-700">{summary.escalated}</div>
-                <div className="text-[11px] text-slate-500 mt-1">High attention</div>
+                <div className="text-3xl font-bold text-slate-900 tracking-tight">{summary.escalated}</div>
+                <div className="text-xs text-slate-500 mt-1">Urgent review</div>
               </div>
 
-              {/* Overdue */}
-              <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 shadow-xs hover:shadow-md transition">
+              {/* Overdue (Red Accent) */}
+              <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-red-600 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">Overdue</span>
-                  <div className="w-7 h-7 rounded-lg bg-rose-600 text-white flex items-center justify-center shadow-xs">
-                    <AlertOctagon className="w-4 h-4" />
-                  </div>
+                  <span className="text-[11px] font-semibold text-red-700 uppercase tracking-wider">Overdue</span>
+                  <AlertOctagon className="w-4 h-4 text-red-600" />
                 </div>
-                <div className="text-2xl sm:text-3xl font-black text-rose-800">{summary.overdue}</div>
-                <div className="text-[11px] text-rose-600 font-medium mt-1">Past SLA deadline</div>
+                <div className="text-3xl font-bold text-red-700 tracking-tight">{summary.overdue}</div>
+                <div className="text-xs text-slate-500 mt-1">Past SLA target</div>
               </div>
             </div>
           </section>
 
           {/* Charts & Alerts Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Workload Chart (Recharts) */}
-            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Bureau Workload Chart Card */}
+            <div className="lg:col-span-7 bg-white rounded-lg border border-slate-200 p-5 shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-md bg-blue-50 text-blue-900 flex items-center justify-center">
                     <BarChart3 className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900">Bureau Workload Distribution</h3>
-                    <p className="text-xs text-slate-500">Total, Open, and Overdue cases across Bureaus</p>
+                    <h3 className="text-sm font-bold text-slate-900">Bureau Workload Distribution</h3>
+                    <p className="text-xs text-slate-500">Distribution of Total, Open, and Overdue complaints across Bureaus</p>
                   </div>
                 </div>
               </div>
@@ -236,63 +222,63 @@ export const OverviewPage: React.FC = () => {
                   message="No case records were returned by the workload API endpoint."
                 />
               ) : (
-                <div className="h-72 w-full">
+                <div className="h-72 w-full pt-2">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={workload}
-                      margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                      margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis
                         dataKey="bureau"
                         tickLine={false}
-                        axisLine={{ stroke: '#e2e8f0' }}
-                        tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }}
+                        axisLine={{ stroke: '#cbd5e1' }}
+                        tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }}
                       />
                       <YAxis
                         tickLine={false}
                         axisLine={false}
-                        tick={{ fill: '#94a3b8', fontSize: 11 }}
+                        tick={{ fill: '#64748b', fontSize: 11 }}
                         allowDecimals={false}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: '#0f172a',
-                          borderRadius: '12px',
+                          backgroundColor: '#1e293b',
+                          borderRadius: '6px',
                           color: '#f8fafc',
                           fontSize: '12px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                           border: 'none',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                         }}
                         itemStyle={{ color: '#f8fafc', padding: '2px 0' }}
                       />
                       <Legend
                         verticalAlign="top"
                         align="right"
-                        wrapperStyle={{ paddingBottom: '16px', fontSize: '12px' }}
+                        wrapperStyle={{ paddingBottom: '12px', fontSize: '12px' }}
                       />
-                      <Bar dataKey="total" name="Total Cases" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="open" name="Open Cases" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="overdue" name="Overdue" fill="#e11d48" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="total" name="Total Cases" fill="#94a3b8" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="open" name="Open Cases" fill="#2563eb" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="overdue" name="Overdue" fill="#dc2626" radius={[2, 2, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               )}
             </div>
 
-            {/* 5 Most Recent Open Alerts */}
-            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+            {/* Recent Open Alerts Card */}
+            <div className="lg:col-span-5 bg-white rounded-lg border border-slate-200 p-5 shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-md bg-amber-50 text-amber-700 flex items-center justify-center">
                     <Bell className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900">Recent Open Alerts</h3>
-                    <p className="text-xs text-slate-500">5 most recent open alerts from GET /alerts</p>
+                    <h3 className="text-sm font-bold text-slate-900">Recent Open Alerts</h3>
+                    <p className="text-xs text-slate-500">Most recent alerts requiring bureau coordination</p>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                   {alerts.length} Active
                 </span>
               </div>
@@ -305,11 +291,11 @@ export const OverviewPage: React.FC = () => {
               ) : (
                 <div className="divide-y divide-slate-100">
                   {alerts.map((alert) => (
-                    <div key={alert.id} className="py-3.5 first:pt-0 last:pb-0">
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div key={alert.id} className="py-3 first:pt-0 last:pb-0">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <PriorityChip priority={alert.priority} />
-                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                          <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase border border-slate-200">
                             {alert.type.replace('_', ' ')}
                           </span>
                         </div>
@@ -318,14 +304,14 @@ export const OverviewPage: React.FC = () => {
                         </span>
                       </div>
 
-                      <p className="text-xs text-slate-700 leading-snug mb-2 font-medium">
+                      <p className="text-xs text-slate-700 leading-snug mb-2 font-normal">
                         {alert.message}
                       </p>
 
                       {alert.case_no && (
                         <Link
                           to={`/cases/${alert.case_no}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 group"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-900 hover:text-blue-700 group"
                         >
                           <span>Case {alert.case_no}</span>
                           <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />

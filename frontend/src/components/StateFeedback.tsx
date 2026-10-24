@@ -12,11 +12,11 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
 }) => {
   return (
     <div className={`flex flex-col items-center justify-center py-16 px-4 text-center ${className}`}>
-      <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4 animate-pulse">
-        <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+      <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-900 mb-3">
+        <Loader2 className="w-5 h-5 animate-spin text-blue-900" />
       </div>
-      <p className="text-sm font-medium text-slate-700">{message}</p>
-      <p className="text-xs text-slate-400 mt-1">Connecting to CaseBridge API</p>
+      <p className="text-sm font-semibold text-slate-700">{message}</p>
+      <p className="text-xs text-slate-400 mt-0.5">Connecting to CaseBridge API</p>
     </div>
   );
 };
@@ -35,16 +35,16 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`rounded-2xl border border-rose-200 bg-rose-50/70 p-6 sm:p-8 text-center max-w-xl mx-auto my-6 ${className}`}>
-      <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
-        <AlertTriangle className="w-6 h-6" />
+    <div className={`rounded-md border border-red-200 bg-red-50/70 p-6 text-center max-w-xl mx-auto my-6 shadow-xs ${className}`}>
+      <div className="w-10 h-10 rounded-md bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-2.5">
+        <AlertTriangle className="w-5 h-5" />
       </div>
-      <h3 className="text-base font-bold text-rose-950 mb-1">{title}</h3>
-      <p className="text-xs text-rose-700 mb-5 leading-relaxed">{message}</p>
+      <h3 className="text-sm font-bold text-red-950 mb-1">{title}</h3>
+      <p className="text-xs text-red-800 mb-4 leading-relaxed">{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold bg-red-700 text-white hover:bg-red-800 transition shadow-xs cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Try Again</span>
@@ -68,12 +68,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`flex flex-col items-center justify-center py-12 px-4 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 my-4 ${className}`}>
-      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
-        <FolderOpen className="w-6 h-6" />
+    <div className={`flex flex-col items-center justify-center py-12 px-4 text-center rounded-md border border-dashed border-slate-200 bg-white my-4 ${className}`}>
+      <div className="w-10 h-10 rounded-md bg-slate-100 text-slate-400 flex items-center justify-center mb-2.5">
+        <FolderOpen className="w-5 h-5" />
       </div>
       <h3 className="text-sm font-semibold text-slate-800 mb-1">{title}</h3>
-      <p className="text-xs text-slate-500 max-w-sm mb-4 leading-relaxed">{message}</p>
+      <p className="text-xs text-slate-500 max-w-sm mb-3 leading-relaxed">{message}</p>
       {action && <div>{action}</div>}
     </div>
   );

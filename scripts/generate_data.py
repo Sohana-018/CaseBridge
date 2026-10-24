@@ -1025,8 +1025,8 @@ def write_outputs(institutions, cases, true_overlaps, near_misses, traps, labell
 
     print(f"[+] Wrote ground truth documentation to {planted_path}")
 
-    # 4. data/labelled_pairs.csv
-    labelled_path = DATA_DIR / "labelled_pairs.csv"
+    # 4. data/seed/labelled_pairs.csv
+    labelled_path = SEED_DIR / "labelled_pairs.csv"
     with open(labelled_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["case_a", "case_b", "label", "split"])
         writer.writeheader()
