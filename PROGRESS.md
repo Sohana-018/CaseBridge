@@ -7,8 +7,13 @@
 - Phase 14: alerts (pytest, /docs check)
 - Phase 15: dashboard summary and reports (pytest; totals checked on seed data)
 - Phase 16: mock login and roles (pytest: 42 passed)
+<<<<<<< HEAD
 - Phase 4: seed_demo.py run — 5 institutions, 24 cases seeded; data/seed/institutions.csv, cases.csv, events.csv exported; data/labelled_pairs.csv generated (280 pairs: 11 related, 269 not_related)
 - Phase 5: POST /cases (auto case_no from counters), PATCH /cases/{case_no} (next_action, expected_disposal_date, assigned_officer, priority); 69 pytest passed
+=======
+- Phase 4 (Shreeshanth): seed_demo.py run — 5 institutions, 24 cases seeded; data/seed/institutions.csv, cases.csv, events.csv exported; data/labelled_pairs.csv generated (280 pairs: 11 related, 269 not_related)
+- Phase 5 (Rohitha): POST /cases (auto case_no from counters), PATCH /cases/{case_no} (next_action, expected_disposal_date, assigned_officer, priority); 69 pytest passed
+>>>>>>> 26804e2 (Resolve merge conflicts with main across PROGRESS.md and datasets)
 - Phase 7 (Frontend Core Pages & Integration):
   - In-memory auto-login on app start (`POST /api/v1/auth/mock-login` with `{"role": "coordinator"}`), sending `Authorization: Bearer <token>` on every request.
   - Overview page: 7 dynamic KPI cards from `GET /api/v1/dashboard/summary` (total, pending, under process, disposed, transferred, escalated, overdue), Recharts Bureau workload chart from `GET /api/v1/dashboard/workload`, and 5 most recent open alerts from `GET /api/v1/alerts`.
@@ -67,6 +72,5 @@
 - Engine (`services/overlap.py`) intentionally unchanged for this measurement.
 
 ## Not yet verified
-- Phase 11 & 12: overlap detection engine and /overlaps endpoints (in progress)
-- Integration with the frontend
+- Overlaps UI & investigation workflows in frontend
 - Deployment

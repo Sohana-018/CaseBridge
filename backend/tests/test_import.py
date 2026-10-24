@@ -114,7 +114,7 @@ def test_counters_are_above_imported_numbers(db_session: Session):
 
 def test_labelled_pairs_integrity_and_balance():
     """Test data/labelled_pairs.csv has >=200 rows, valid labels, balanced 50/50 splits, and cases exist in cases.csv."""
-    labelled_csv = DATA_DIR / "labelled_pairs.csv"
+    labelled_csv = SEED_DIR / "labelled_pairs.csv" if (SEED_DIR / "labelled_pairs.csv").exists() else DATA_DIR / "labelled_pairs.csv"
     cases_csv = SEED_DIR / "cases.csv"
 
     assert labelled_csv.exists(), "labelled_pairs.csv missing"
