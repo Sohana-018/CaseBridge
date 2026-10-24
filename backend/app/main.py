@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -12,11 +13,28 @@ if env_file.exists():
 else:
     load_dotenv()
 
+# Import models to ensure they are registered with SQLModel.metadata
+import app.models  # noqa: F401
+from app.db import create_db_and_tables
+from app.errors import register_error_handlers
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager creating tables on application startup."""
+    create_db_and_tables()
+    yield
+
+
 app = FastAPI(
     title="CaseBridge API",
     version="1.0.0",
     description="Integrated Dashboard for Monitoring and Tracking Institution-Related Complaint Cases",
+    lifespan=lifespan,
 )
+
+# Register shared error handlers (PRD Section 10 contract)
+register_error_handlers(app)
 
 # Parse CORS origins from environment
 raw_cors = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174")
