@@ -1,0 +1,26 @@
+permanent_id,name,address,region,state,type
+DEMO-1042,Example Institute of Technology (demo),"Outer Ring Road, Bengaluru",South,Karnataka,Engineering
+DEMO-1001,Delhi Technical Campus (demo),"12 Ring Road, Rohini, New Delhi",North,Delhi,Engineering
+DEMO-1002,Himalayan Institute of Technology (demo),"Subhash Road, Dehradun",North,Uttarakhand,Engineering
+DEMO-1003,Punjab Polytechnic Academy (demo),"GT Road, Ludhiana",North,Punjab,Polytechnic
+DEMO-1004,Haryana College of Pharmacy (demo),"NH-44, Sonipat",North,Haryana,Pharmacy
+DEMO-1005,Lucknow Management Institute (demo),"Gomti Nagar, Lucknow",North,Uttar Pradesh,Management
+DEMO-1006,Bangalore Institute of Applied Sciences (demo),"Electronics City, Bengaluru",South,Karnataka,Science
+DEMO-1007,Chennai Technological University Campus (demo),"OMR Tech Corridor, Chennai",South,Tamil Nadu,Engineering
+DEMO-1008,Kerala College of Architecture (demo),"Kochi Infopark Road, Kochi",South,Kerala,Architecture
+DEMO-1009,Hyderabad Polytechnic Institute (demo),"HITEC City, Hyderabad",South,Telangana,Polytechnic
+DEMO-1010,Mysore School of Management (demo),"Hunsur Road, Mysuru",South,Karnataka,Management
+DEMO-1011,Kolkata Engineering College (demo),"Salt Lake Sector V, Kolkata",East,West Bengal,Engineering
+DEMO-1012,Odisha Institute of Technology (demo),"Infocity, Bhubaneswar",East,Odisha,Engineering
+DEMO-1013,Patna Polytechnic College (demo),"Bailey Road, Patna",East,Bihar,Polytechnic
+DEMO-1014,Assam Pharmaceutical Academy (demo),"Jalukbari, Guwahati",East,Assam,Pharmacy
+DEMO-1015,Ranchi Management Institute (demo),"Kanke Road, Ranchi",East,Jharkhand,Management
+DEMO-1016,Mumbai Institute of Technology (demo),"Andheri East, Mumbai",West,Maharashtra,Engineering
+DEMO-1017,Gujarat Technological Academy (demo),"SG Highway, Ahmedabad",West,Gujarat,Engineering
+DEMO-1018,Pune College of Pharmacy (demo),"Kothrud, Pune",West,Maharashtra,Pharmacy
+DEMO-1019,Goa Institute of Management Studies (demo),"Panaji Marine Drive, Goa",West,Goa,Management
+DEMO-1020,Nagpur Polytechnic Institute (demo),"Wardha Road, Nagpur",West,Maharashtra,Polytechnic
+DEMO-1021,Bhopal Engineering College (demo),"Hoshangabad Road, Bhopal",Central,Madhya Pradesh,Engineering
+DEMO-1022,Indore Institute of Management (demo),"Bhawarkua, Indore",Central,Madhya Pradesh,Management
+DEMO-1023,Raipur Institute of Technology (demo),"GE Road, Raipur",Central,Chhattisgarh,Engineering
+DEMO-1024,Gwalior Polytechnic College (demo),"Jhansi Road, Gwalior",Central,Madhya Pradesh,Polytechnic
