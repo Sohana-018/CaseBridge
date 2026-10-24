@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Layers, Building2, LayoutDashboard, UserCheck } from 'lucide-react';
+import { Layers, Building2, LayoutDashboard, UserCheck, GitCompare } from 'lucide-react';
 import { getCurrentUser } from '../api/client';
 
 export const Navbar: React.FC = () => {
@@ -61,6 +61,20 @@ export const Navbar: React.FC = () => {
               <Building2 className="w-4 h-4 text-slate-500" />
               <span>Institutions</span>
             </NavLink>
+
+            <NavLink
+              to="/overlaps"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-900 font-semibold border-b-2 border-blue-900 rounded-b-none'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`
+              }
+            >
+              <GitCompare className="w-4 h-4 text-slate-500" />
+              <span>Overlap Queue</span>
+            </NavLink>
           </nav>
         </div>
 
@@ -102,6 +116,16 @@ export const Navbar: React.FC = () => {
           }
         >
           Institutions
+        </NavLink>
+        <NavLink
+          to="/overlaps"
+          className={({ isActive }) =>
+            `flex-1 text-center py-1.5 rounded text-xs font-medium ${
+              isActive ? 'bg-white text-blue-900 font-bold shadow-xs' : 'text-slate-600'
+            }`
+          }
+        >
+          Overlaps
         </NavLink>
       </div>
     </header>
