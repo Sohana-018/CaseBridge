@@ -15,15 +15,19 @@ else:
 
 # Import models to ensure they are registered with SQLModel.metadata
 import app.models  # noqa: F401
-from app.db import create_db_and_tables
+from sqlmodel import Session
+from app.db import create_db_and_tables, engine
 from app.errors import register_error_handlers
-from app.routers import events
+from app.routers import alerts, events
+from app.services.alerts import refresh_alerts
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager creating tables on application startup."""
+    """Lifecycle manager creating tables and running initial alert evaluations on startup."""
     create_db_and_tables()
+    with Session(engine) as session:
+        refresh_alerts(session)
     yield
 
 
@@ -39,6 +43,7 @@ register_error_handlers(app)
 
 # Include API routers under /api/v1
 app.include_router(events.router, prefix="/api/v1")
+app.include_router(alerts.router, prefix="/api/v1")
 
 # Parse CORS origins from environment
 raw_cors = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174")

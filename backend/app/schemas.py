@@ -28,3 +28,27 @@ class EventRead(BaseModel):
     to_status: Optional[CaseStatus] = None
     remarks: Optional[str] = None
     attachment_ref: Optional[str] = None
+
+
+class AlertRead(BaseModel):
+    """Alert response model matching PRD Section 10 contract."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    type: str
+    case_id: Optional[int] = None
+    case_no: Optional[str] = None
+    link_id: Optional[int] = None
+    message: str
+    priority: str
+    status: str
+    created_at: datetime
+    due_at: Optional[datetime] = None
+
+
+class AlertListResponse(BaseModel):
+    """Paginated alert list response model."""
+    items: list[AlertRead]
+    total: int
+    page: int
+    page_size: int
