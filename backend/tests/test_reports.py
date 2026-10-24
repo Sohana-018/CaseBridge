@@ -19,6 +19,7 @@ from app.models import (
     ReviewStatus,
 )
 from app.services.reports import get_dashboard_summary, get_dashboard_workload, get_report_by_kind
+from tests.test_auth import get_coordinator_token
 
 FIXED_TODAY = date(2026, 10, 24)
 
@@ -139,6 +140,8 @@ def client_and_session_fixture():
 
     app.dependency_overrides[get_session] = get_test_session
     with TestClient(app) as test_client:
+        token = get_coordinator_token()
+        test_client.headers["Authorization"] = f"Bearer {token}"
         with Session(engine) as session:
             yield test_client, session
     app.dependency_overrides.clear()

@@ -1,9 +1,13 @@
 from typing import List
 from fastapi import APIRouter, Depends, status
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.exceptions import HTTPException
 
 from app.db import get_session
+from app.errors import NotFoundError
+from app.models import Case
+from app.permissions import UserPayload, check_event_post_permission
+from app.routers.auth import get_current_user
 from app.schemas import EventCreate, EventRead
 from app.services.events import get_case_events, record_case_event
 
@@ -18,8 +22,9 @@ router = APIRouter(prefix="/cases", tags=["Events"])
 def get_events(
     case_no: str,
     session: Session = Depends(get_session),
+    current_user: UserPayload = Depends(get_current_user),
 ):
-    """Retrieve case event timeline, ordered oldest first."""
+    """Retrieve case event timeline, ordered oldest first. Accessible to any authenticated role."""
     return get_case_events(session=session, case_no=case_no)
 
 
@@ -33,9 +38,28 @@ def create_event(
     case_no: str,
     event_data: EventCreate,
     session: Session = Depends(get_session),
+    current_user: UserPayload = Depends(get_current_user),
 ):
-    """Append an event to a case and update case status/bureau/last_action atomically."""
-    return record_case_event(session=session, case_no=case_no, event_data=event_data)
+    """Append an event to a case.
+
+    Permissions:
+    - bureau_officer: only for cases in their own bureau.
+    - coordinator: for any case.
+    - senior_management and administrator: FORBIDDEN.
+    Actor is recorded as current_user.name.
+    """
+    case = session.exec(select(Case).where(Case.case_no == case_no)).first()
+    if not case:
+        raise NotFoundError(f"Case '{case_no}' not found", details={"case_no": case_no})
+
+    check_event_post_permission(current_user, case)
+
+    return record_case_event(
+        session=session,
+        case_no=case_no,
+        event_data=event_data,
+        actor=current_user.name,
+    )
 
 
 # Explicitly reject PUT, PATCH, DELETE on specific event IDs to enforce append-only rule (HTTP 405)
