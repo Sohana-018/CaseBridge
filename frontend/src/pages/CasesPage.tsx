@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   getCases,
+  getCurrentUser,
   type CaseItem,
   type CaseListResponse,
 } from '../api/client';
@@ -12,6 +13,7 @@ import {
   OverdueBadge,
 } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
+import { NewComplaintModal } from '../components/NewComplaintModal';
 import {
   Search,
   Building2,
@@ -25,6 +27,7 @@ import {
   FolderOpen,
   AlertOctagon,
   Clock,
+  Plus,
 } from 'lucide-react';
 
 const BUREAUS = ['RB', 'PGRC', 'RO', 'OC'];
@@ -61,6 +64,10 @@ export const CasesPage: React.FC = () => {
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNewComplaintOpen, setIsNewComplaintOpen] = useState<boolean>(false);
+
+  const currentUser = getCurrentUser();
+  const isReadOnly = currentUser?.role === 'senior_management' || currentUser?.role === 'administrator';
 
   // Keep search input in sync if URL changes externally
   useEffect(() => {
@@ -176,16 +183,47 @@ export const CasesPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Quick Refresh */}
-        <button
-          type="button"
-          onClick={fetchCasesList}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition shadow-xs cursor-pointer self-start md:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
+        {/* Action Controls */}
+        <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
+          {/* New Complaint Button */}
+          {isReadOnly ? (
+            <div className="inline-flex items-center gap-1.5" title="read-only for this role">
+              <button
+                type="button"
+                disabled={true}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80 shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5 text-slate-400" />
+                <span>New complaint</span>
+              </button>
+              <span className="text-[11px] text-slate-400 italic">
+                (read-only for this role)
+              </span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              id="new-complaint-btn"
+              onClick={() => setIsNewComplaintOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New complaint</span>
+            </button>
+          )}
+
+          {/* Quick Refresh */}
+          <button
+            type="button"
+            id="refresh-cases-btn"
+            onClick={fetchCasesList}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition shadow-xs cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Toolbar (Combinable & Clearable) */}
@@ -591,6 +629,15 @@ export const CasesPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* New Complaint Modal */}
+      <NewComplaintModal
+        isOpen={isNewComplaintOpen}
+        onClose={() => setIsNewComplaintOpen(false)}
+        onSuccess={() => {
+          fetchCasesList();
+        }}
+      />
     </main>
   );
 };

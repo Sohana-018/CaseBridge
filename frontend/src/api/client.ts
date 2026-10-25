@@ -541,6 +541,28 @@ export async function getCaseEvents(caseNo: string): Promise<CaseEvent[]> {
   return apiFetch<CaseEvent[]>(`/api/v1/cases/${encodeURIComponent(caseNo)}/events`);
 }
 
+export interface CaseCreatePayload {
+  permanent_id: string;
+  bureau: string;
+  category: string;
+  description: string;
+  received_date: string;
+  assigned_officer?: string | null;
+  next_action?: string | null;
+  expected_disposal_date?: string | null;
+  priority?: string;
+}
+
+export async function createCase(payload: CaseCreatePayload): Promise<CaseItem> {
+  return apiFetch<CaseItem>('/api/v1/cases', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function getOverlaps(params?: OverlapQueryParams): Promise<OverlapListResponse> {
   const searchParams = new URLSearchParams();
   if (params?.review_status) {

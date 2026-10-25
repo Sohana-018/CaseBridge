@@ -70,6 +70,13 @@ export const OverviewPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const handleCountsUpdate = () => {
+      loadData();
+    };
+    window.addEventListener('casebridge:refresh-counts', handleCountsUpdate);
+    return () => {
+      window.removeEventListener('casebridge:refresh-counts', handleCountsUpdate);
+    };
   }, [loadData]);
 
   const formatDateTime = (isoString?: string | null) => {
