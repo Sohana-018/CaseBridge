@@ -430,3 +430,24 @@ export async function submitOverlapReview(
   });
 }
 
+export interface ReportItem {
+  label: string;
+  count: number;
+  bucket?: string;
+  permanent_id?: string;
+  name?: string;
+}
+
+export interface ReportData {
+  kind: string;
+  items: ReportItem[];
+  total: number;
+  disposed?: number;
+  disposal_rate?: number;
+}
+
+export async function getReport(kind: string): Promise<ReportData> {
+  return apiFetch<ReportData>(`/api/v1/reports/${encodeURIComponent(kind)}`);
+}
+
+

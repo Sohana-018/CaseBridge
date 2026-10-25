@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Layers, Building2, LayoutDashboard, UserCheck, GitCompare } from 'lucide-react';
+import { Layers, Building2, LayoutDashboard, UserCheck, GitCompare, BarChart3 } from 'lucide-react';
 import { getCurrentUser } from '../api/client';
 
 export const Navbar: React.FC = () => {
@@ -90,6 +90,20 @@ export const Navbar: React.FC = () => {
               <GitCompare className="w-4 h-4 text-slate-500" />
               <span>Overlap Queue</span>
             </NavLink>
+
+            <NavLink
+              to="/reports"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-900 font-semibold border-b-2 border-blue-900 rounded-b-none'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`
+              }
+            >
+              <BarChart3 className="w-4 h-4 text-slate-500" />
+              <span>Reports</span>
+            </NavLink>
           </nav>
         </div>
 
@@ -110,12 +124,12 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Mobile nav subbar */}
-      <div className="sm:hidden flex items-center border-t border-slate-100 px-4 py-2 bg-slate-50 gap-2">
+      <div className="sm:hidden flex items-center border-t border-slate-100 px-4 py-2 bg-slate-50 gap-2 overflow-x-auto">
         <NavLink
           to="/"
           end
           className={({ isActive }) =>
-            `flex-1 text-center py-1.5 rounded text-xs font-medium ${
+            `flex-1 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-2 ${
               isActive ? 'bg-white text-blue-900 font-bold shadow-xs' : 'text-slate-600'
             }`
           }
@@ -125,7 +139,7 @@ export const Navbar: React.FC = () => {
         <NavLink
           to="/cases"
           className={({ isActive }) =>
-            `flex-1 text-center py-1.5 rounded text-xs font-medium ${
+            `flex-1 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-2 ${
               isActive ? 'bg-white text-blue-900 font-bold shadow-xs' : 'text-slate-600'
             }`
           }
@@ -135,7 +149,7 @@ export const Navbar: React.FC = () => {
         <NavLink
           to="/institutions"
           className={({ isActive }) =>
-            `flex-1 text-center py-1.5 rounded text-xs font-medium ${
+            `flex-1 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-2 ${
               isActive ? 'bg-white text-blue-900 font-bold shadow-xs' : 'text-slate-600'
             }`
           }
@@ -145,12 +159,22 @@ export const Navbar: React.FC = () => {
         <NavLink
           to="/overlaps"
           className={({ isActive }) =>
-            `flex-1 text-center py-1.5 rounded text-xs font-medium ${
+            `flex-1 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-2 ${
               isActive ? 'bg-white text-blue-900 font-bold shadow-xs' : 'text-slate-600'
             }`
           }
         >
           Overlaps
+        </NavLink>
+        <NavLink
+          to="/reports"
+          className={({ isActive }) =>
+            `flex-1 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-2 ${
+              isActive ? 'bg-white text-blue-900 font-bold shadow-xs' : 'text-slate-600'
+            }`
+          }
+        >
+          Reports
         </NavLink>
       </div>
     </header>

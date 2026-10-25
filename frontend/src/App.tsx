@@ -8,6 +8,7 @@ import { InstitutionDetailPage } from './pages/InstitutionDetailPage';
 import { CaseDetailPage } from './pages/CaseDetailPage';
 import { CasesPage } from './pages/CasesPage';
 import { OverlapQueuePage } from './pages/OverlapQueuePage';
+import { ReportsPage } from './pages/ReportsPage';
 import { autoLogin } from './api/client';
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
           <Route path="/institutions" element={<InstitutionsPage />} />
           <Route path="/institutions/:permanent_id" element={<InstitutionDetailPage />} />
           <Route path="/overlaps" element={<OverlapQueuePage />} />
+          <Route path="/reports" element={<ReportsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Footer />
