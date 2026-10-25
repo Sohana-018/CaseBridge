@@ -1,5 +1,16 @@
 import React from 'react';
-import { AlertCircle, ArrowRightLeft, CheckCircle, Clock, Flame, ShieldAlert } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRightLeft,
+  CheckCircle,
+  Clock,
+  Copy,
+  Flame,
+  HelpCircle,
+  Link2,
+  ShieldAlert,
+  XCircle,
+} from 'lucide-react';
 
 interface StatusChipProps {
   status: string;
@@ -120,3 +131,106 @@ export const OverdueBadge: React.FC<{ className?: string }> = ({ className = '' 
     </span>
   );
 };
+
+export const ConfidenceBandBadge: React.FC<{ band?: string; className?: string }> = ({
+  band,
+  className = '',
+}) => {
+  const norm = (band || 'low').toLowerCase().trim();
+
+  switch (norm) {
+    case 'high':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200 ${className}`}
+        >
+          <Flame className="w-3 h-3 text-rose-600" />
+          High Confidence
+        </span>
+      );
+    case 'medium':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 ${className}`}
+        >
+          <AlertCircle className="w-3 h-3 text-amber-600" />
+          Medium Confidence
+        </span>
+      );
+    case 'low':
+    default:
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300 ${className}`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+          Low Confidence
+        </span>
+      );
+  }
+};
+
+export const ReviewStatusBadge: React.FC<{ status?: string; className?: string }> = ({
+  status,
+  className = '',
+}) => {
+  const norm = (status || 'open').toLowerCase().trim();
+
+  switch (norm) {
+    case 'open':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200 select-none ${className}`}
+          title="Review Status: Open"
+        >
+          <Clock className="w-3 h-3 text-blue-600" />
+          Open
+        </span>
+      );
+    case 'related':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 ${className}`}
+        >
+          <Link2 className="w-3 h-3 text-indigo-600" />
+          Related
+        </span>
+      );
+    case 'duplicate':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-800 border border-purple-200 ${className}`}
+        >
+          <Copy className="w-3 h-3 text-purple-600" />
+          Duplicate
+        </span>
+      );
+    case 'not_related':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300 ${className}`}
+        >
+          <XCircle className="w-3 h-3 text-slate-500" />
+          Not Related
+        </span>
+      );
+    case 'needs_review':
+      return (
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 ${className}`}
+        >
+          <HelpCircle className="w-3 h-3 text-amber-600" />
+          Needs More Review
+        </span>
+      );
+    default:
+      return (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 ${className}`}
+        >
+          {status}
+        </span>
+      );
+  }
+};
+

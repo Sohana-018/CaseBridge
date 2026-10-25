@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 // In-memory token storage (PRD Section 3 / User Prompt #1)
 let inMemoryToken: string | null = null;
@@ -92,9 +92,65 @@ export interface CaseItem {
   priority?: string;
 }
 
+export type ConfidenceBand = 'high' | 'medium' | 'low';
+
+export type ReviewStatus =
+  | 'open'
+  | 'related'
+  | 'duplicate'
+  | 'not_related'
+  | 'needs_review';
+
+export type ReviewDecision =
+  | 'related'
+  | 'duplicate'
+  | 'not_related'
+  | 'needs_review';
+
+export interface OverlapCaseMini {
+  case_no: string;
+  bureau: string;
+  status: string;
+}
+
+export interface OverlapItem {
+  id: number;
+  band: ConfidenceBand;
+  review_status: ReviewStatus;
+  reasons: string[];
+  case_a: OverlapCaseMini;
+  case_b: OverlapCaseMini;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  note?: string | null;
+}
+
+export interface OverlapListResponse {
+  items: OverlapItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface OverlapScanResponse {
+  created: number;
+}
+
+export interface OverlapReviewPayload {
+  decision: ReviewDecision;
+  note?: string | null;
+}
+
+export interface OverlapQueryParams {
+  review_status?: ReviewStatus | '';
+  band?: ConfidenceBand | '';
+  page?: number;
+  page_size?: number;
+}
+
 export interface InstitutionDetail extends Institution {
   cases: CaseItem[];
-  open_overlaps: any[];
+  open_overlaps: OverlapItem[];
 }
 
 export interface CaseEvent {
@@ -267,5 +323,47 @@ export async function getCaseDetail(caseNo: string): Promise<CaseItem> {
 
 export async function getCaseEvents(caseNo: string): Promise<CaseEvent[]> {
   return apiFetch<CaseEvent[]>(`/api/v1/cases/${encodeURIComponent(caseNo)}/events`);
+}
+
+export async function getOverlaps(params?: OverlapQueryParams): Promise<OverlapListResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.review_status) {
+    searchParams.set('review_status', params.review_status);
+  }
+  if (params?.band) {
+    searchParams.set('band', params.band);
+  }
+  if (params?.page) {
+    searchParams.set('page', params.page.toString());
+  }
+  if (params?.page_size) {
+    searchParams.set('page_size', params.page_size.toString());
+  }
+
+  const qs = searchParams.toString();
+  return apiFetch<OverlapListResponse>(`/api/v1/overlaps${qs ? `?${qs}` : ''}`);
+}
+
+export async function getOverlapDetail(id: number): Promise<OverlapItem> {
+  return apiFetch<OverlapItem>(`/api/v1/overlaps/${id}`);
+}
+
+export async function scanOverlaps(): Promise<OverlapScanResponse> {
+  return apiFetch<OverlapScanResponse>('/api/v1/overlaps/scan', {
+    method: 'POST',
+  });
+}
+
+export async function submitOverlapReview(
+  id: number,
+  payload: OverlapReviewPayload
+): Promise<OverlapItem> {
+  return apiFetch<OverlapItem>(`/api/v1/overlaps/${id}/review`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
