@@ -251,7 +251,7 @@ export const ReportsPage: React.FC = () => {
             <span>Consolidated Complaint Reports</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Official reporting metrics derived directly from the consolidated complaint cases registry.
+            Reporting metrics derived directly from the consolidated complaint cases registry.
           </p>
         </div>
 

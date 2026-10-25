@@ -200,11 +200,11 @@ export interface RoleConfig {
 
 export const ROLE_OPTIONS: RoleConfig[] = [
   { id: 'coordinator', label: 'Coordinator', role: 'coordinator' },
-  { id: 'bureau_officer:RB', label: 'Bureau Officer – RB', role: 'bureau_officer', bureau: 'RB' },
-  { id: 'bureau_officer:PGRC', label: 'Bureau Officer – PGRC', role: 'bureau_officer', bureau: 'PGRC' },
-  { id: 'bureau_officer:RO', label: 'Bureau Officer – RO (Regional Office)', role: 'bureau_officer', bureau: 'RO' },
-  { id: 'bureau_officer:OC', label: 'Bureau Officer – OC', role: 'bureau_officer', bureau: 'OC' },
-  { id: 'senior_management', label: 'Senior Management / Competent Authority', role: 'senior_management' },
+  { id: 'bureau_officer:RB', label: 'Officer · RB', role: 'bureau_officer', bureau: 'RB' },
+  { id: 'bureau_officer:PGRC', label: 'Officer · PGRC', role: 'bureau_officer', bureau: 'PGRC' },
+  { id: 'bureau_officer:RO', label: 'Officer · RO (Regional)', role: 'bureau_officer', bureau: 'RO' },
+  { id: 'bureau_officer:OC', label: 'Officer · OC', role: 'bureau_officer', bureau: 'OC' },
+  { id: 'senior_management', label: 'Senior Mgmt / Competent Authority', role: 'senior_management' },
   { id: 'administrator', label: 'Administrator', role: 'administrator' },
 ];
 

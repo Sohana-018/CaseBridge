@@ -8,6 +8,7 @@ import {
   Flame,
   HelpCircle,
   Link2,
+  Lock,
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
@@ -80,30 +81,39 @@ export const PriorityChip: React.FC<{ priority?: string; className?: string }> =
   switch (norm) {
     case 'high':
       return (
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-red-50 text-red-800 border border-red-200 ${className}`}>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-red-50 text-red-800 border border-red-200 ${className}`}>
           <AlertCircle className="w-3 h-3 text-red-600" />
-          High
+          Priority: High
         </span>
       );
     case 'medium':
       return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200 ${className}`}>
-          Medium
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 ${className}`}>
+          Priority: Medium
         </span>
       );
     case 'low':
       return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 ${className}`}>
-          Low
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 ${className}`}>
+          Priority: Low
         </span>
       );
     default:
       return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 ${className}`}>
-          {priority}
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 ${className}`}>
+          Priority: {priority}
         </span>
       );
   }
+};
+
+export const RestrictedBadge: React.FC<{ className?: string }> = ({ className = '' }) => {
+  return (
+    <span className={`inline-flex items-center gap-1 text-slate-400 font-normal italic text-xs ${className}`}>
+      <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+      <span>Restricted</span>
+    </span>
+  );
 };
 
 export const BureauBadge: React.FC<{ bureau: string; className?: string }> = ({ bureau, className = '' }) => {
