@@ -92,6 +92,28 @@ export interface CaseItem {
   priority?: string;
 }
 
+export interface CaseQueryParams {
+  query?: string;
+  search?: string;
+  institution?: string;
+  bureau?: string;
+  region?: string;
+  category?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  overdue?: boolean | string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface CaseListResponse {
+  items: CaseItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export type ConfidenceBand = 'high' | 'medium' | 'low';
 
 export type ReviewStatus =
@@ -315,6 +337,47 @@ export async function getInstitutions(query?: string, page: number = 1, pageSize
 
 export async function getInstitutionDetail(permanentId: string): Promise<InstitutionDetail> {
   return apiFetch<InstitutionDetail>(`/api/v1/institutions/${encodeURIComponent(permanentId)}`);
+}
+
+export async function getCases(params?: CaseQueryParams): Promise<CaseListResponse> {
+  const searchParams = new URLSearchParams();
+  const searchVal = params?.query || params?.search;
+  if (searchVal && searchVal.trim()) {
+    searchParams.set('search', searchVal.trim());
+  }
+  if (params?.institution && params.institution.trim()) {
+    searchParams.set('institution', params.institution.trim());
+  }
+  if (params?.bureau && params.bureau.trim()) {
+    searchParams.set('bureau', params.bureau.trim());
+  }
+  if (params?.region && params.region.trim()) {
+    searchParams.set('region', params.region.trim());
+  }
+  if (params?.category && params.category.trim()) {
+    searchParams.set('category', params.category.trim());
+  }
+  if (params?.status && params.status.trim()) {
+    searchParams.set('status', params.status.trim());
+  }
+  if (params?.date_from && params.date_from.trim()) {
+    searchParams.set('date_from', params.date_from.trim());
+  }
+  if (params?.date_to && params.date_to.trim()) {
+    searchParams.set('date_to', params.date_to.trim());
+  }
+  if (params?.overdue !== undefined && params.overdue !== '' && params.overdue !== null) {
+    searchParams.set('overdue', String(params.overdue));
+  }
+  if (params?.page) {
+    searchParams.set('page', params.page.toString());
+  }
+  if (params?.page_size) {
+    searchParams.set('page_size', params.page_size.toString());
+  }
+
+  const qs = searchParams.toString();
+  return apiFetch<CaseListResponse>(`/api/v1/cases${qs ? `?${qs}` : ''}`);
 }
 
 export async function getCaseDetail(caseNo: string): Promise<CaseItem> {

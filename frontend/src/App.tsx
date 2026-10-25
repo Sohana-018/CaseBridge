@@ -6,6 +6,7 @@ import { OverviewPage } from './pages/OverviewPage';
 import { InstitutionsPage } from './pages/InstitutionsPage';
 import { InstitutionDetailPage } from './pages/InstitutionDetailPage';
 import { CaseDetailPage } from './pages/CaseDetailPage';
+import { CasesPage } from './pages/CasesPage';
 import { OverlapQueuePage } from './pages/OverlapQueuePage';
 import { autoLogin } from './api/client';
 
@@ -23,9 +24,10 @@ function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<OverviewPage />} />
+          <Route path="/cases" element={<CasesPage />} />
+          <Route path="/cases/:case_no" element={<CaseDetailPage />} />
           <Route path="/institutions" element={<InstitutionsPage />} />
           <Route path="/institutions/:permanent_id" element={<InstitutionDetailPage />} />
-          <Route path="/cases/:case_no" element={<CaseDetailPage />} />
           <Route path="/overlaps" element={<OverlapQueuePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

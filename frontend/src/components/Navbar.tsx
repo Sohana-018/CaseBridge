@@ -32,6 +32,7 @@ export const Navbar: React.FC = () => {
           </NavLink>
 
           {/* Navigation Links with calm, active highlight */}
+          {/* Navigation Links with calm, active highlight */}
           <nav className="hidden sm:flex items-center space-x-1">
             <NavLink
               to="/"
@@ -46,6 +47,20 @@ export const Navbar: React.FC = () => {
             >
               <LayoutDashboard className="w-4 h-4 text-slate-500" />
               <span>Overview</span>
+            </NavLink>
+
+            <NavLink
+              to="/cases"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-900 font-semibold border-b-2 border-blue-900 rounded-b-none'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`
+              }
+            >
+              <Layers className="w-4 h-4 text-slate-500" />
+              <span>Cases</span>
             </NavLink>
 
             <NavLink
@@ -106,6 +121,16 @@ export const Navbar: React.FC = () => {
           }
         >
           Overview
+        </NavLink>
+        <NavLink
+          to="/cases"
+          className={({ isActive }) =>
+            `flex-1 text-center py-1.5 rounded text-xs font-medium ${
+              isActive ? 'bg-white text-blue-900 font-bold shadow-xs' : 'text-slate-600'
+            }`
+          }
+        >
+          Cases
         </NavLink>
         <NavLink
           to="/institutions"
