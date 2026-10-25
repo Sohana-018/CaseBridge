@@ -468,7 +468,7 @@ export const CasesPage: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic text-xs">—</span>
+                        <span className="text-slate-400 italic text-xs">Details restricted to the owning bureau</span>
                       )}
                     </td>
 
@@ -498,6 +498,8 @@ export const CasesPage: React.FC = () => {
                           <User className="w-3 h-3 text-slate-400" />
                           <span>{c.assigned_officer}</span>
                         </div>
+                      ) : !c.institution ? (
+                        <span className="text-slate-400 italic text-[11px]">Details restricted to the owning bureau</span>
                       ) : (
                         <span className="text-slate-400 italic">Unassigned</span>
                       )}

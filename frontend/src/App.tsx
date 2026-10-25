@@ -13,8 +13,8 @@ import { autoLogin } from './api/client';
 
 function App() {
   useEffect(() => {
-    // 1. Auto-login on app start: POST /api/v1/auth/mock-login with {"role": "coordinator"}
-    autoLogin('coordinator').catch((err) => {
+    // Auto-login on app start (uses sessionStorage if saved, defaults to coordinator)
+    autoLogin().catch((err) => {
       console.warn('Auto-login initialization notice:', err.message);
     });
   }, []);

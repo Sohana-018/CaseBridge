@@ -76,7 +76,7 @@ export const OverlapQueuePage: React.FC = () => {
   // Synchronize current user profile reactively on mount if not yet initialized
   useEffect(() => {
     if (!getCurrentUser()) {
-      autoLogin('coordinator')
+      autoLogin()
         .then((res) => setCurrentUser(res.user))
         .catch(() => {});
     }
@@ -643,6 +643,13 @@ export const OverlapQueuePage: React.FC = () => {
 
                   {/* Review input and action buttons */}
                   <div className="space-y-3">
+                    {!isCoordinator && (
+                      <div className="flex items-center gap-2 p-2.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium">
+                        <Lock className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
+                        <span>Only coordinators can record overlap decisions.</span>
+                      </div>
+                    )}
+
                     <div>
                       <label htmlFor={`review-note-${item.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
                         {isPairReviewed ? 'Update Coordination Note (Optional):' : 'Coordination Review Note (Optional):'}
@@ -653,7 +660,11 @@ export const OverlapQueuePage: React.FC = () => {
                         value={form.note !== undefined ? form.note : item.note || ''}
                         onChange={(e) => handleNoteChange(item.id, e.target.value)}
                         disabled={form.submitting || !isCoordinator}
-                        placeholder="Add coordination instructions, e.g. Joint notice proposed, separate issues identified..."
+                        placeholder={
+                          !isCoordinator
+                            ? 'Only coordinators can record overlap decisions.'
+                            : 'Add coordination instructions, e.g. Joint notice proposed, separate issues identified...'
+                        }
                         className="w-full text-xs bg-white border border-slate-300 rounded-md p-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-900 disabled:bg-slate-100 disabled:text-slate-400"
                       />
                     </div>

@@ -46,7 +46,7 @@ export const OverviewPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await autoLogin('coordinator');
+      await autoLogin();
 
       const [summaryRes, workloadRes, alertsRes] = await Promise.all([
         getDashboardSummary(),

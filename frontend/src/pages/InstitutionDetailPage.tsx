@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getInstitutionDetail, type InstitutionDetail } from '../api/client';
+import {
+  getInstitutionDetail,
+  getCurrentUser,
+  autoLogin,
+  type InstitutionDetail,
+  type UserPayload,
+} from '../api/client';
 import {
   StatusChip,
   BureauBadge,
@@ -27,8 +33,17 @@ import {
 export const InstitutionDetailPage: React.FC = () => {
   const { permanent_id } = useParams<{ permanent_id: string }>();
   const [institution, setInstitution] = useState<InstitutionDetail | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserPayload | null>(() => getCurrentUser());
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!getCurrentUser()) {
+      autoLogin()
+        .then((res) => setCurrentUser(res.user))
+        .catch(() => {});
+    }
+  }, []);
 
   const fetchDetail = React.useCallback(async () => {
     if (!permanent_id) return;
@@ -326,6 +341,8 @@ export const InstitutionDetailPage: React.FC = () => {
                               <User className="w-3 h-3 text-slate-400" />
                               <span>{c.assigned_officer}</span>
                             </div>
+                          ) : currentUser?.role === 'bureau_officer' && currentUser?.bureau && currentUser.bureau.toUpperCase() !== c.bureau.toUpperCase() ? (
+                            <span className="text-slate-400 italic text-[11px]">Details restricted to the owning bureau</span>
                           ) : (
                             <span className="text-slate-400 italic">Unassigned</span>
                           )}
