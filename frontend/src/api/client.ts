@@ -248,6 +248,12 @@ async function rawRequest<T>(endpoint: string, options: RequestInit = {}): Promi
         const errJson = await res.json();
         if (errJson?.error?.message) {
           errorMsg = errJson.error.message;
+          if (Array.isArray(errJson?.error?.details) && errJson.error.details.length > 0) {
+            const detailMsgs = errJson.error.details.map((d: any) => d.msg || JSON.stringify(d)).join('; ');
+            errorMsg = `${errorMsg}: ${detailMsgs}`;
+          }
+        } else if (errJson?.detail) {
+          errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
         }
       } catch {
         // use default error message
@@ -449,5 +455,41 @@ export interface ReportData {
 export async function getReport(kind: string): Promise<ReportData> {
   return apiFetch<ReportData>(`/api/v1/reports/${encodeURIComponent(kind)}`);
 }
+
+export interface PostEventPayload {
+  event_type: 'status_change' | 'transfer' | 'escalation' | 'remark';
+  to_status?: string | null;
+  to_bureau?: string | null;
+  remarks?: string | null;
+  attachment_ref?: string | null;
+}
+
+export interface PatchCasePayload {
+  next_action?: string | null;
+  expected_disposal_date?: string | null;
+  assigned_officer?: string | null;
+  priority?: 'low' | 'medium' | 'high' | null;
+}
+
+export async function postCaseEvent(caseNo: string, payload: PostEventPayload): Promise<CaseEvent> {
+  return apiFetch<CaseEvent>(`/api/v1/cases/${encodeURIComponent(caseNo)}/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function patchCase(caseNo: string, payload: PatchCasePayload): Promise<CaseItem> {
+  return apiFetch<CaseItem>(`/api/v1/cases/${encodeURIComponent(caseNo)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 
 
