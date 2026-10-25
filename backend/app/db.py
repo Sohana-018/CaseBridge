@@ -24,9 +24,30 @@ engine = create_engine(
 )
 
 
-def create_db_and_tables() -> None:
-    """Create all SQLModel database tables."""
-    SQLModel.metadata.create_all(engine)
+def create_db_and_tables(target_engine=None) -> None:
+    """Create all SQLModel database tables and migrate missing columns if needed."""
+    eng = target_engine or engine
+    SQLModel.metadata.create_all(eng)
+
+    try:
+        from sqlalchemy import text
+        with eng.connect() as conn:
+            rows = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+            existing_cols = {r[1] for r in rows}
+            if existing_cols:
+                if "username" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR"))
+                if "hashed_password" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN hashed_password VARCHAR"))
+                if "email" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
+                if "is_active" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+                if "created_at" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME"))
+                conn.commit()
+    except Exception:
+        pass
 
 
 def get_session() -> Generator[Session, None, None]:

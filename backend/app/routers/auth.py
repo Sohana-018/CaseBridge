@@ -1,17 +1,18 @@
-# NOTE: This authentication system uses mock login and signed demo JWTs.
-# Per PRD Section 3: "Auth is mock: pick a role at login, a token carries role and bureau.
-# This is a demo; it is not real security."
-
 from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Header
 import jwt
 from pydantic import BaseModel
+from sqlalchemy import func
+from sqlmodel import Session, select
 
+from app.auth_utils import verify_password
+from app.db import get_session
 from app.errors import ForbiddenError, ValidationError
+from app.models import User
 from app.permissions import UserPayload
 
 # Load environment variables
@@ -41,14 +42,21 @@ class LoginRequest(BaseModel):
     name: Optional[str] = None
 
 
+class RealLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 class LoginResponse(BaseModel):
     token: str
     user: UserPayload
 
 
 def create_token(user: UserPayload) -> str:
-    """Generate a signed JWT token containing role, bureau, and name (Demo Token)."""
+    """Generate a signed JWT token containing role, bureau, name, and username."""
     payload = {
+        "sub": user.username or user.name,
+        "username": user.username,
         "role": user.role,
         "bureau": user.bureau,
         "name": user.name,
@@ -79,12 +87,56 @@ def get_current_user(
             role=decoded["role"],
             bureau=decoded.get("bureau"),
             name=decoded.get("name", "Demo User"),
+            username=decoded.get("username") or decoded.get("sub"),
         )
     except Exception as e:
         raise ForbiddenError(
             f"Invalid or expired authentication token: {str(e)}",
             details={"error": str(e)},
         )
+
+
+@router.post(
+    "/auth/login",
+    response_model=LoginResponse,
+    summary="Real User Authentication with username & password",
+)
+def login_with_credentials(
+    request: RealLoginRequest,
+    session: Session = Depends(get_session),
+):
+    """Authenticate with username and password, returning a signed JWT token."""
+    uname = request.username.strip().lower()
+    if not uname or not request.password:
+        raise ValidationError("Username and password are required")
+
+    user = session.exec(select(User).where(func.lower(User.username) == uname)).first()
+    if not user or not user.hashed_password:
+        raise ForbiddenError("Invalid username or password", details={"username": request.username})
+
+    if not verify_password(request.password, user.hashed_password):
+        raise ForbiddenError("Invalid username or password", details={"username": request.username})
+
+    if not user.is_active:
+        raise ForbiddenError(
+            "Account has been deactivated. Please contact an administrator.",
+            details={"username": request.username},
+        )
+
+    bureau_str = user.bureau.value if hasattr(user.bureau, "value") and user.bureau else (str(user.bureau) if user.bureau else None)
+
+    user_payload = UserPayload(
+        username=user.username,
+        name=user.name,
+        role=user.role,
+        bureau=bureau_str,
+    )
+    token = create_token(user_payload)
+
+    return LoginResponse(
+        token=token,
+        user=user_payload,
+    )
 
 
 @router.post(
@@ -135,6 +187,7 @@ def mock_login(request: LoginRequest):
         role=role,
         bureau=bureau,
         name=name,
+        username=role,
     )
     token = create_token(user)
 
@@ -142,6 +195,57 @@ def mock_login(request: LoginRequest):
         token=token,
         user=user,
     )
+
+
+@router.get(
+    "/auth/demo-accounts",
+    response_model=List[Dict[str, Any]],
+    summary="Get pre-seeded demo accounts for one-click judging demo",
+)
+def get_demo_accounts():
+    """List available demo credentials for fast login during evaluation."""
+    return [
+        {
+            "username": "admin",
+            "name": "System Administrator",
+            "role": "administrator",
+            "bureau": None,
+            "badge": "Admin",
+            "password_hint": "admin123",
+        },
+        {
+            "username": "coordinator",
+            "name": "Central Grievance Coordinator",
+            "role": "coordinator",
+            "bureau": None,
+            "badge": "Coordinator",
+            "password_hint": "coord123",
+        },
+        {
+            "username": "officer_rb",
+            "name": "Regulation Bureau Officer",
+            "role": "bureau_officer",
+            "bureau": "RB",
+            "badge": "RB Officer",
+            "password_hint": "officer123",
+        },
+        {
+            "username": "officer_pgrc",
+            "name": "PGRC Bureau Officer",
+            "role": "bureau_officer",
+            "bureau": "PGRC",
+            "badge": "PGRC Officer",
+            "password_hint": "officer123",
+        },
+        {
+            "username": "management",
+            "name": "Senior Management Executive",
+            "role": "senior_management",
+            "bureau": None,
+            "badge": "Management (Read-only)",
+            "password_hint": "mgmt123",
+        },
+    ]
 
 
 @router.get(

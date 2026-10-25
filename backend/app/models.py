@@ -204,9 +204,14 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    username: Optional[str] = Field(default=None, unique=True, index=True)
     name: str
     role: str = Field(index=True)
     bureau: Optional[Bureau] = None
+    hashed_password: Optional[str] = None
+    email: Optional[str] = None
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class Counter(SQLModel, table=True):
