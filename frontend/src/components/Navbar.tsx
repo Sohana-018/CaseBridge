@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Layers,
   Building2,
@@ -8,37 +8,22 @@ import {
   GitCompare,
   BarChart3,
   ShieldAlert,
-  ChevronDown,
   LogOut,
   LogIn,
 } from 'lucide-react';
 import {
   getCurrentUser,
-  getSelectedRoleId,
-  switchRole,
-  autoLogin,
   logout,
-  ROLE_OPTIONS,
   type UserPayload,
 } from '../api/client';
 
-function getRoleBadgeLabel(u: UserPayload | null, selectedId: string): string {
-  if (u) {
-    if (u.role === 'coordinator') return 'Coordinator';
-    if (u.role === 'bureau_officer') return `Officer · ${u.bureau || 'Bureau'}`;
-    if (u.role === 'senior_management') return 'Senior Mgmt';
-    if (u.role === 'administrator') return 'Administrator';
-    return u.role;
-  }
-  const matched = ROLE_OPTIONS.find((opt) => opt.id === selectedId);
-  if (matched) {
-    if (matched.role === 'coordinator') return 'Coordinator';
-    if (matched.role === 'bureau_officer') return `Officer · ${matched.bureau || 'Bureau'}`;
-    if (matched.role === 'senior_management') return 'Senior Mgmt';
-    if (matched.role === 'administrator') return 'Administrator';
-    return matched.label;
-  }
-  return 'Coordinator';
+function getRoleBadgeLabel(u: UserPayload | null): string {
+  if (!u) return '';
+  if (u.role === 'coordinator') return 'Coordinator';
+  if (u.role === 'bureau_officer') return `Officer · ${u.bureau || 'Bureau'}`;
+  if (u.role === 'senior_management') return 'Senior Mgmt';
+  if (u.role === 'administrator') return 'Administrator';
+  return u.role;
 }
 
 const BASE_NAV_LINKS = [
@@ -51,42 +36,20 @@ const BASE_NAV_LINKS = [
 
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedRoleId, setSelectedRoleIdState] = useState<string>(() => getSelectedRoleId());
+  const location = useLocation();
   const [user, setUser] = useState<UserPayload | null>(() => getCurrentUser());
-  const [isSwitching, setIsSwitching] = useState<boolean>(false);
 
   useEffect(() => {
-    const current = getCurrentUser();
-    if (current) {
-      setUser(current);
-    } else {
-      autoLogin()
-        .then((res) => setUser(res.user))
-        .catch(() => {});
-    }
-  }, [selectedRoleId]);
-
-  const handleRoleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newId = e.target.value;
-    setSelectedRoleIdState(newId);
-    setIsSwitching(true);
-    try {
-      const res = await switchRole(newId);
-      setUser(res.user);
-      // Reload current page to re-fetch data with new role permissions
-      window.location.reload();
-    } catch (err: unknown) {
-      console.error('Role switch failed:', err);
-      setIsSwitching(false);
-    }
-  };
+    setUser(getCurrentUser());
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
+    setUser(null);
     navigate('/login');
   };
 
-  const badgeLabel = getRoleBadgeLabel(user, selectedRoleId);
+  const badgeLabel = getRoleBadgeLabel(user);
   const isAdmin = user?.role === 'administrator';
 
   return (
@@ -154,32 +117,15 @@ export const Navbar: React.FC = () => {
           </nav>
         </div>
 
-        {/* Right side: merged role control + prototype badge + sign in/logout */}
+        {/* Right side: role badge + prototype badge + sign in/logout */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Desktop: icon + label + select (merged single control) */}
-          <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
-            <UserCheck className="w-3.5 h-3.5 text-blue-800 flex-shrink-0" aria-hidden="true" />
-            <label htmlFor="navbar-role-select" className="text-xs text-slate-500 font-semibold whitespace-nowrap">
-              Role:
-            </label>
-            <div className="relative inline-block">
-              <select
-                id="navbar-role-select"
-                aria-label={`Switch active role. Current: ${badgeLabel}`}
-                value={selectedRoleId}
-                onChange={handleRoleChange}
-                disabled={isSwitching}
-                className="text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-md pl-2.5 pr-7 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-700 cursor-pointer shadow-xs transition appearance-none"
-              >
-                {ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-blue-600 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+          {/* Active Role Badge (read-only indicator of current logged-in identity) */}
+          {user && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-900 border border-blue-200 text-xs font-semibold shadow-2xs">
+              <UserCheck className="w-3.5 h-3.5 text-blue-800 flex-shrink-0" aria-hidden="true" />
+              <span className="max-w-[120px] sm:max-w-none truncate">{badgeLabel}</span>
             </div>
-          </div>
+          )}
 
           {/* Prototype · Synthetic data badge (visible at xl+) */}
           <div className="hidden xl:flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 text-[11px] font-semibold border border-amber-200 whitespace-nowrap flex-shrink-0">
@@ -207,34 +153,6 @@ export const Navbar: React.FC = () => {
               </NavLink>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Mobile: role switcher strip */}
-      <div className="sm:hidden flex items-center justify-between border-t border-slate-200 px-4 py-2 bg-slate-100/80 gap-2">
-        <label
-          htmlFor="navbar-role-select-mobile"
-          className="text-xs text-slate-600 font-semibold flex items-center gap-1.5 whitespace-nowrap"
-        >
-          <UserCheck className="w-3.5 h-3.5 text-blue-900" aria-hidden="true" />
-          <span>Role:</span>
-        </label>
-        <div className="relative flex-1 max-w-[260px]">
-          <select
-            id="navbar-role-select-mobile"
-            aria-label="Switch active role"
-            value={selectedRoleId}
-            onChange={handleRoleChange}
-            disabled={isSwitching}
-            className="w-full text-xs font-semibold bg-white text-blue-900 border border-blue-200 rounded pl-2 pr-6 py-1 focus:outline-hidden cursor-pointer shadow-xs appearance-none"
-          >
-            {ROLE_OPTIONS.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-500 pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2" />
         </div>
       </div>
 
