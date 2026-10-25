@@ -189,27 +189,93 @@ export interface CaseEvent {
   attachment_ref?: string | null;
 }
 
+const SESSION_STORAGE_ROLE_KEY = 'casebridge_selected_role';
+
+export interface RoleConfig {
+  id: string;
+  label: string;
+  role: string;
+  bureau?: string | null;
+}
+
+export const ROLE_OPTIONS: RoleConfig[] = [
+  { id: 'coordinator', label: 'Coordinator', role: 'coordinator' },
+  { id: 'bureau_officer:RB', label: 'Bureau Officer – RB', role: 'bureau_officer', bureau: 'RB' },
+  { id: 'bureau_officer:PGRC', label: 'Bureau Officer – PGRC', role: 'bureau_officer', bureau: 'PGRC' },
+  { id: 'bureau_officer:RO', label: 'Bureau Officer – RO (Regional Office)', role: 'bureau_officer', bureau: 'RO' },
+  { id: 'bureau_officer:OC', label: 'Bureau Officer – OC', role: 'bureau_officer', bureau: 'OC' },
+  { id: 'senior_management', label: 'Senior Management / Competent Authority', role: 'senior_management' },
+  { id: 'administrator', label: 'Administrator', role: 'administrator' },
+];
+
+export function getSelectedRoleId(): string {
+  try {
+    const saved = sessionStorage.getItem(SESSION_STORAGE_ROLE_KEY);
+    if (saved && ROLE_OPTIONS.some((opt) => opt.id === saved)) {
+      return saved;
+    }
+  } catch {
+    // sessionStorage unavailable
+  }
+  return 'coordinator';
+}
+
+export function setSelectedRoleId(roleId: string): void {
+  try {
+    sessionStorage.setItem(SESSION_STORAGE_ROLE_KEY, roleId);
+  } catch {
+    // ignore storage issues
+  }
+}
+
 /**
  * Perform auto-login on app start or demand.
- * Obtains demo coordinator JWT token and keeps it in memory.
+ * Uses sessionStorage if role is not explicitly provided, defaulting to coordinator.
  */
-export async function autoLogin(role: string = 'coordinator'): Promise<LoginResponse> {
-  if (inMemoryToken && currentUserProfile) {
+export async function autoLogin(role?: string, bureau?: string | null): Promise<LoginResponse> {
+  let targetRole = role;
+  let targetBureau = bureau;
+
+  if (!targetRole) {
+    const roleId = getSelectedRoleId();
+    const matched = ROLE_OPTIONS.find((opt) => opt.id === roleId) || ROLE_OPTIONS[0];
+    targetRole = matched.role;
+    targetBureau = matched.bureau;
+  }
+
+  if (
+    inMemoryToken &&
+    currentUserProfile &&
+    currentUserProfile.role === targetRole &&
+    (currentUserProfile.bureau || null) === (targetBureau || null)
+  ) {
     return { token: inMemoryToken, user: currentUserProfile };
   }
 
   if (loginPromise) {
     await loginPromise;
-    return { token: inMemoryToken!, user: currentUserProfile! };
+    if (
+      inMemoryToken &&
+      currentUserProfile &&
+      currentUserProfile.role === targetRole &&
+      (currentUserProfile.bureau || null) === (targetBureau || null)
+    ) {
+      return { token: inMemoryToken, user: currentUserProfile };
+    }
   }
 
   loginPromise = (async () => {
+    const bodyPayload: Record<string, string> = { role: targetRole! };
+    if (targetBureau) {
+      bodyPayload.bureau = targetBureau;
+    }
+
     const res = await rawRequest<LoginResponse>('/api/v1/auth/mock-login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(bodyPayload),
     });
 
     inMemoryToken = res.token;
@@ -223,6 +289,22 @@ export async function autoLogin(role: string = 'coordinator'): Promise<LoginResp
   } finally {
     loginPromise = null;
   }
+}
+
+/**
+ * Switch role: stores selection in sessionStorage, clears current token, and logs in.
+ */
+export async function switchRole(roleId: string): Promise<LoginResponse> {
+  const target = ROLE_OPTIONS.find((opt) => opt.id === roleId);
+  if (!target) {
+    throw new Error(`Unknown role option: ${roleId}`);
+  }
+
+  setSelectedRoleId(target.id);
+  inMemoryToken = null;
+  currentUserProfile = null;
+
+  return await autoLogin(target.role, target.bureau);
 }
 
 export function getCurrentUser(): UserPayload | null {
@@ -246,12 +328,18 @@ async function rawRequest<T>(endpoint: string, options: RequestInit = {}): Promi
       let errorMsg = `Request failed with HTTP ${res.status}`;
       try {
         const errJson = await res.json();
-        if (errJson?.error?.message) {
+        if (typeof errJson?.error?.message === 'string') {
           errorMsg = errJson.error.message;
           if (Array.isArray(errJson?.error?.details) && errJson.error.details.length > 0) {
-            const detailMsgs = errJson.error.details.map((d: any) => d.msg || JSON.stringify(d)).join('; ');
+            const detailMsgs = errJson.error.details
+              .map((d: any) => (typeof d === 'string' ? d : d.msg || JSON.stringify(d)))
+              .join('; ');
             errorMsg = `${errorMsg}: ${detailMsgs}`;
           }
+        } else if (typeof errJson?.error === 'string') {
+          errorMsg = errJson.error;
+        } else if (typeof errJson?.message === 'string') {
+          errorMsg = errJson.message;
         } else if (errJson?.detail) {
           errorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
         }
@@ -262,16 +350,32 @@ async function rawRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     }
     return await res.json();
   } catch (err: unknown) {
-    // Attempt IPv4 fallback if localhost connection failed
-    if (primaryUrl.includes('localhost:8000')) {
+    // Attempt IPv4 fallback only if connection/network failed
+    if (err instanceof TypeError && primaryUrl.includes('localhost:8000')) {
       try {
         const fallbackUrl = primaryUrl.replace('localhost:8000', '127.0.0.1:8000');
         const fallbackRes = await fetch(fallbackUrl, { ...options, headers });
         if (fallbackRes.ok) {
           return await fallbackRes.json();
         }
-      } catch {
-        // Fall through to original error
+        let fbErrorMsg = `Request failed with HTTP ${fallbackRes.status}`;
+        try {
+          const errJson = await fallbackRes.json();
+          if (typeof errJson?.error?.message === 'string') {
+            fbErrorMsg = errJson.error.message;
+          } else if (typeof errJson?.error === 'string') {
+            fbErrorMsg = errJson.error;
+          } else if (typeof errJson?.message === 'string') {
+            fbErrorMsg = errJson.message;
+          } else if (errJson?.detail) {
+            fbErrorMsg = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(fbErrorMsg);
+      } catch (fbErr) {
+        throw fbErr;
       }
     }
     throw err;

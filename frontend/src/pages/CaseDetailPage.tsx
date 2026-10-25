@@ -5,8 +5,11 @@ import {
   getCaseEvents,
   postCaseEvent,
   patchCase,
+  getCurrentUser,
+  autoLogin,
   type CaseItem,
   type CaseEvent,
+  type UserPayload,
 } from '../api/client';
 import { StatusChip, BureauBadge, PriorityChip, OverdueBadge } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
@@ -42,8 +45,17 @@ export const CaseDetailPage: React.FC = () => {
   const { case_no } = useParams<{ case_no: string }>();
   const [caseItem, setCaseItem] = useState<CaseItem | null>(null);
   const [events, setEvents] = useState<CaseEvent[]>([]);
+  const [currentUser, setCurrentUser] = useState<UserPayload | null>(() => getCurrentUser());
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!getCurrentUser()) {
+      autoLogin()
+        .then((res) => setCurrentUser(res.user))
+        .catch(() => {});
+    }
+  }, []);
 
   // Actions dialog states
   const [activeDialog, setActiveDialog] = useState<
@@ -311,6 +323,11 @@ export const CaseDetailPage: React.FC = () => {
   };
 
   const isDisposed = caseItem?.status === 'disposed';
+  const isReadOnlyRole = currentUser?.role === 'senior_management' || currentUser?.role === 'administrator';
+  const isOfficerDiffBureau =
+    currentUser?.role === 'bureau_officer' &&
+    Boolean(currentUser?.bureau && caseItem?.bureau && currentUser.bureau.toUpperCase() !== caseItem.bureau.toUpperCase());
+  const isRestricted = isOfficerDiffBureau;
 
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -354,7 +371,13 @@ export const CaseDetailPage: React.FC = () => {
                   </span>
                   <BureauBadge bureau={caseItem.bureau} />
                   <StatusChip status={caseItem.status} />
-                  <PriorityChip priority={caseItem.priority} />
+                  {caseItem.priority ? (
+                    <PriorityChip priority={caseItem.priority} />
+                  ) : isRestricted ? (
+                    <span className="text-slate-400 italic text-[11px] px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                      Details restricted to the owning bureau
+                    </span>
+                  ) : null}
                   {caseItem.overdue && <OverdueBadge />}
                 </div>
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">
@@ -368,10 +391,17 @@ export const CaseDetailPage: React.FC = () => {
                   <span>SLA target exceeded. Operational escalation active.</span>
                 </div>
               )}
+
+              {isRestricted && (
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2 rounded-md text-xs font-medium self-start sm:self-auto">
+                  <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                  <span>Cross-bureau view ({caseItem.bureau}): Details restricted to the owning bureau</span>
+                </div>
+              )}
             </div>
 
             {/* Institution Affiliation Link Card */}
-            {caseItem.institution && (
+            {caseItem.institution ? (
               <div className="my-5 p-3.5 rounded-md bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-md bg-blue-100 text-blue-900 flex items-center justify-center flex-shrink-0">
@@ -398,6 +428,11 @@ export const CaseDetailPage: React.FC = () => {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
+            ) : (
+              <div className="my-5 p-3.5 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-500 italic flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-slate-400" />
+                <span>Affiliated Institution: Details restricted to the owning bureau</span>
+              </div>
             )}
 
             {/* Complaint Description */}
@@ -407,7 +442,11 @@ export const CaseDetailPage: React.FC = () => {
                 <span>Grievance Summary & Description</span>
               </h2>
               <div className="p-3.5 rounded-md bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed font-normal">
-                {caseItem.description || 'No detailed description recorded.'}
+                {caseItem.description ? (
+                  caseItem.description
+                ) : (
+                  <span className="italic text-slate-500">Details restricted to the owning bureau</span>
+                )}
               </div>
             </div>
 
@@ -425,7 +464,13 @@ export const CaseDetailPage: React.FC = () => {
                   <span>ASSIGNED OFFICER</span>
                 </div>
                 <div className="font-bold text-slate-800 text-sm">
-                  {caseItem.assigned_officer || 'Unassigned'}
+                  {caseItem.assigned_officer ? (
+                    caseItem.assigned_officer
+                  ) : isRestricted ? (
+                    <span className="italic font-normal text-slate-400">Details restricted to the owning bureau</span>
+                  ) : (
+                    'Unassigned'
+                  )}
                 </div>
                 <div className="text-slate-500 mt-0.5">Handling official</div>
               </div>
@@ -445,7 +490,13 @@ export const CaseDetailPage: React.FC = () => {
                   <span>EXPECTED DISPOSAL</span>
                 </div>
                 <div className={`font-bold text-sm ${caseItem.overdue ? 'text-red-700' : 'text-slate-800'}`}>
-                  {caseItem.expected_disposal_date || 'Not scheduled'}
+                  {caseItem.expected_disposal_date ? (
+                    caseItem.expected_disposal_date
+                  ) : isRestricted ? (
+                    <span className="italic font-normal text-slate-400">Details restricted to the owning bureau</span>
+                  ) : (
+                    'Not scheduled'
+                  )}
                 </div>
                 <div className="text-slate-500 mt-0.5">
                   {caseItem.overdue ? 'Overdue target' : 'Target SLA deadline'}
@@ -489,7 +540,7 @@ export const CaseDetailPage: React.FC = () => {
                 </p>
               </div>
 
-              {isDisposed && (
+              {isDisposed && !isReadOnlyRole && !isOfficerDiffBureau && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold self-start sm:self-auto">
                   <Lock className="w-3.5 h-3.5 text-amber-600" />
                   <span>Disposed Case · Only Remarks Allowed</span>
@@ -517,83 +568,100 @@ export const CaseDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Action Buttons Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {/* 1. Change Status */}
-              <button
-                type="button"
-                onClick={() => openDialog('status')}
-                disabled={isDisposed}
-                title={isDisposed ? 'Disposed cases cannot change status.' : 'Change case workflow status'}
-                className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                  isDisposed
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                    : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
-                }`}
-              >
-                <Activity className="w-4 h-4 text-blue-700" />
-                <span>Change Status</span>
-              </button>
+            {/* Role-based permissions notice / buttons */}
+            {isReadOnlyRole ? (
+              <div className="p-4 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center gap-2.5">
+                <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span>
+                  Actions panel is read-only for this role ({currentUser?.role === 'senior_management' ? 'Senior Management' : 'Administrator'}).
+                </span>
+              </div>
+            ) : isOfficerDiffBureau ? (
+              <div className="p-4 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center gap-2.5">
+                <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span>
+                  Case actions are restricted to the owning bureau ({caseItem.bureau}). Details restricted to the owning bureau.
+                </span>
+              </div>
+            ) : (
+              /* Action Buttons Grid for Coordinator and Own Bureau Officer */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {/* 1. Change Status */}
+                <button
+                  type="button"
+                  onClick={() => openDialog('status')}
+                  disabled={isDisposed}
+                  title={isDisposed ? 'Disposed cases cannot change status.' : 'Change case workflow status'}
+                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
+                    isDisposed
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                      : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
+                  }`}
+                >
+                  <Activity className="w-4 h-4 text-blue-700" />
+                  <span>Change Status</span>
+                </button>
 
-              {/* 2. Transfer */}
-              <button
-                type="button"
-                onClick={() => openDialog('transfer')}
-                disabled={isDisposed}
-                title={isDisposed ? 'Disposed cases cannot be transferred.' : 'Transfer to another Bureau'}
-                className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                  isDisposed
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                    : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
-                }`}
-              >
-                <ArrowRightLeft className="w-4 h-4 text-teal-700" />
-                <span>Transfer Bureau</span>
-              </button>
+                {/* 2. Transfer */}
+                <button
+                  type="button"
+                  onClick={() => openDialog('transfer')}
+                  disabled={isDisposed}
+                  title={isDisposed ? 'Disposed cases cannot be transferred.' : 'Transfer to another Bureau'}
+                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
+                    isDisposed
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                      : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
+                  }`}
+                >
+                  <ArrowRightLeft className="w-4 h-4 text-teal-700" />
+                  <span>Transfer Bureau</span>
+                </button>
 
-              {/* 3. Escalate */}
-              <button
-                type="button"
-                onClick={() => openDialog('escalate')}
-                disabled={isDisposed}
-                title={isDisposed ? 'Disposed cases cannot be escalated.' : 'Escalate case to senior management'}
-                className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                  isDisposed
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                    : 'bg-white border-slate-300 text-purple-900 hover:bg-purple-50 hover:border-purple-600 cursor-pointer'
-                }`}
-              >
-                <Flame className="w-4 h-4 text-purple-600" />
-                <span>Escalate</span>
-              </button>
+                {/* 3. Escalate */}
+                <button
+                  type="button"
+                  onClick={() => openDialog('escalate')}
+                  disabled={isDisposed}
+                  title={isDisposed ? 'Disposed cases cannot be escalated.' : 'Escalate case to senior management'}
+                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
+                    isDisposed
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                      : 'bg-white border-slate-300 text-purple-900 hover:bg-purple-50 hover:border-purple-600 cursor-pointer'
+                  }`}
+                >
+                  <Flame className="w-4 h-4 text-purple-600" />
+                  <span>Escalate</span>
+                </button>
 
-              {/* 4. Add Remark */}
-              <button
-                type="button"
-                onClick={() => openDialog('remark')}
-                title="Append an official note or remark to timeline"
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 transition shadow-xs cursor-pointer"
-              >
-                <MessageSquare className="w-4 h-4 text-slate-600" />
-                <span>Add Remark</span>
-              </button>
+                {/* 4. Add Remark */}
+                <button
+                  type="button"
+                  onClick={() => openDialog('remark')}
+                  title="Append an official note or remark to timeline"
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 transition shadow-xs cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4 text-slate-600" />
+                  <span>Add Remark</span>
+                </button>
 
-              {/* 5. Edit Details */}
-              <button
-                type="button"
-                onClick={() => openDialog('edit_details')}
-                disabled={isDisposed}
-                title={isDisposed ? 'Disposed cases cannot be modified.' : 'Directly patch schedule, officer, and priority'}
-                className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                  isDisposed
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                    : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
-                }`}
-              >
-                <Edit3 className="w-4 h-4 text-amber-700" />
-                <span>Edit Details</span>
-              </button>
-            </div>
+                {/* 5. Edit Details */}
+                <button
+                  type="button"
+                  onClick={() => openDialog('edit_details')}
+                  disabled={isDisposed}
+                  title={isDisposed ? 'Disposed cases cannot be modified.' : 'Directly patch schedule, officer, and priority'}
+                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
+                    isDisposed
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                      : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
+                  }`}
+                >
+                  <Edit3 className="w-4 h-4 text-amber-700" />
+                  <span>Edit Details</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Timeline Section */}
@@ -616,10 +684,21 @@ export const CaseDetailPage: React.FC = () => {
               </span>
             </div>
 
+            {isRestricted && (
+              <div className="mb-4 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                <span>Cross-bureau Case: Detailed remarks restricted to the owning bureau ({caseItem.bureau}).</span>
+              </div>
+            )}
+
             {events.length === 0 ? (
               <EmptyState
                 title="No events logged"
-                message="No chronological events have been appended to this case yet."
+                message={
+                  isRestricted
+                    ? 'Details restricted to the owning bureau.'
+                    : 'No chronological events have been appended to this case yet.'
+                }
               />
             ) : (
               <div className="relative pl-6 border-l-2 border-slate-300 space-y-6 my-4 ml-4">
@@ -676,7 +755,9 @@ export const CaseDetailPage: React.FC = () => {
                         {evt.remarks ? (
                           <p>{evt.remarks}</p>
                         ) : (
-                          <p className="text-slate-400 italic">No additional remarks recorded.</p>
+                          <p className="text-slate-400 italic">
+                            {isRestricted ? 'Details restricted to the owning bureau' : 'No additional remarks recorded.'}
+                          </p>
                         )}
                       </div>
                     </div>
