@@ -1,10 +1,26 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { Layers, Building2, LayoutDashboard, UserCheck, GitCompare, BarChart3 } from 'lucide-react';
-import { getCurrentUser } from '../api/client';
+import { NavLink, useNavigate } from 'react-router-dom';
+import {
+  Layers,
+  Building2,
+  LayoutDashboard,
+  UserCheck,
+  GitCompare,
+  BarChart3,
+  ShieldAlert,
+  LogOut,
+  LogIn,
+} from 'lucide-react';
+import { getCurrentUser, logout } from '../api/client';
 
 export const Navbar: React.FC = () => {
+  const navigate = useNavigate();
   const user = getCurrentUser();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-50 shadow-xs">
@@ -13,7 +29,7 @@ export const Navbar: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand: Title + Subtitle */}
-        <div className="flex items-center space-x-8">
+        <div className="flex items-center space-x-6">
           <NavLink to="/" className="flex items-center space-x-3 group">
             <div className="w-9 h-9 rounded-lg bg-blue-900 flex items-center justify-center text-white shadow-xs">
               <Layers className="w-5 h-5 text-blue-100" />
@@ -31,7 +47,6 @@ export const Navbar: React.FC = () => {
             </div>
           </NavLink>
 
-          {/* Navigation Links with calm, active highlight */}
           {/* Navigation Links with calm, active highlight */}
           <nav className="hidden sm:flex items-center space-x-1">
             <NavLink
@@ -104,22 +119,76 @@ export const Navbar: React.FC = () => {
               <BarChart3 className="w-4 h-4 text-slate-500" />
               <span>Reports</span>
             </NavLink>
+
+            {user?.role === 'administrator' && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-amber-50 text-amber-900 font-bold border-b-2 border-amber-600 rounded-b-none'
+                      : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50/50'
+                  }`
+                }
+              >
+                <ShieldAlert className="w-4 h-4 text-amber-600" />
+                <span>Admin</span>
+              </NavLink>
+            )}
           </nav>
         </div>
 
-        {/* Right side: Role badge */}
+        {/* Right side: Role badge & Auth controls */}
         <div className="flex items-center space-x-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-xs">
-            <UserCheck className="w-3.5 h-3.5 text-blue-900" />
-            <span className="text-slate-500">Role:</span>
-            <span className="font-semibold text-slate-800 capitalize">
-              {user?.role || 'Coordinator'}
-            </span>
-          </div>
+          {user ? (
+            <>
+              <div className="hidden lg:flex flex-col text-right">
+                <span className="text-xs font-bold text-slate-900 truncate max-w-[140px]">
+                  {user.name}
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {user.username ? `@${user.username}` : user.role}
+                </span>
+              </div>
 
-          <div className="hidden md:flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium border border-slate-200">
-            <span>Official Portal</span>
-          </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-xs">
+                <UserCheck className="w-3.5 h-3.5 text-blue-900" />
+                <span className="font-semibold text-slate-800 capitalize">
+                  {user.role.replace('_', ' ')}
+                </span>
+                {user.bureau && (
+                  <span className="ml-0.5 px-1 py-0.2 rounded bg-blue-100 text-blue-900 font-bold text-[10px]">
+                    {user.bureau}
+                  </span>
+                )}
+              </div>
+
+              <NavLink
+                to="/login"
+                className="hidden sm:inline-flex items-center text-xs font-semibold px-2 py-1.5 text-slate-600 hover:text-blue-900 hover:bg-slate-100 rounded-md transition"
+                title="Switch persona or account"
+              >
+                Switch
+              </NavLink>
+
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 border border-slate-200 transition cursor-pointer"
+                title="Sign out of CaseBridge"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </>
+          ) : (
+            <NavLink
+              to="/login"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-md text-xs font-bold shadow-xs transition"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </NavLink>
+          )}
         </div>
       </div>
 
@@ -176,6 +245,18 @@ export const Navbar: React.FC = () => {
         >
           Reports
         </NavLink>
+        {user?.role === 'administrator' && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `flex-1 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-2 ${
+                isActive ? 'bg-amber-100 text-amber-900 font-bold shadow-xs' : 'text-amber-700'
+              }`
+            }
+          >
+            Admin
+          </NavLink>
+        )}
       </div>
     </header>
   );

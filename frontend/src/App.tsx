@@ -9,14 +9,18 @@ import { CaseDetailPage } from './pages/CaseDetailPage';
 import { CasesPage } from './pages/CasesPage';
 import { OverlapQueuePage } from './pages/OverlapQueuePage';
 import { ReportsPage } from './pages/ReportsPage';
-import { autoLogin } from './api/client';
+import { LoginPage } from './pages/LoginPage';
+import { AdminPage } from './pages/AdminPage';
+import { autoLogin, getCurrentUser } from './api/client';
 
 function App() {
   useEffect(() => {
-    // 1. Auto-login on app start: POST /api/v1/auth/mock-login with {"role": "coordinator"}
-    autoLogin('coordinator').catch((err) => {
-      console.warn('Auto-login initialization notice:', err.message);
-    });
+    // If no existing saved user session in localStorage, initialize default coordinator session
+    if (!getCurrentUser()) {
+      autoLogin('coordinator').catch((err) => {
+        console.warn('Auto-login initialization notice:', err.message);
+      });
+    }
   }, []);
 
   return (
@@ -31,6 +35,8 @@ function App() {
           <Route path="/institutions/:permanent_id" element={<InstitutionDetailPage />} />
           <Route path="/overlaps" element={<OverlapQueuePage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Footer />

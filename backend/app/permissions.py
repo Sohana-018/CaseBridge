@@ -30,6 +30,16 @@ class UserPayload(BaseModel):
     name: str
     role: str
     bureau: Optional[str] = None
+    username: Optional[str] = None
+
+
+def check_admin_permission(user: UserPayload) -> None:
+    """Enforce administrator-only access control."""
+    if user.role != "administrator":
+        raise ForbiddenError(
+            f"Administrator access required. Role '{user.role}' is not authorized.",
+            details={"role": user.role},
+        )
 
 
 def check_event_post_permission(user: UserPayload, case: Case) -> None:

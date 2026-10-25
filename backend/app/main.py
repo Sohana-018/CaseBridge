@@ -18,15 +18,17 @@ import app.models  # noqa: F401
 from sqlmodel import Session
 from app.db import create_db_and_tables, engine
 from app.errors import register_error_handlers
-from app.routers import alerts, auth, cases, dashboard, events, institutions, overlaps, reports
+from app.auth_utils import seed_default_users_and_config
+from app.routers import admin, alerts, auth, cases, dashboard, events, institutions, overlaps, reports
 from app.services.alerts import refresh_alerts
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager creating tables and running initial alert evaluations on startup."""
+    """Lifecycle manager creating tables, seeding users/config, and running alert evaluations."""
     create_db_and_tables()
     with Session(engine) as session:
+        seed_default_users_and_config(session)
         refresh_alerts(session)
     yield
 
@@ -43,6 +45,7 @@ register_error_handlers(app)
 
 # Include API routers under /api/v1
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 app.include_router(institutions.router, prefix="/api/v1")
 app.include_router(cases.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")

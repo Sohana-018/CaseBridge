@@ -1,14 +1,26 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
-// In-memory token storage (PRD Section 3 / User Prompt #1)
-let inMemoryToken: string | null = null;
+const STORAGE_KEY_TOKEN = 'casebridge_token';
+const STORAGE_KEY_USER = 'casebridge_user';
+
+// Token storage synchronized with localStorage
+let inMemoryToken: string | null = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_TOKEN) : null;
 let currentUserProfile: UserPayload | null = null;
+try {
+  const cachedUser = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_USER) : null;
+  if (cachedUser) {
+    currentUserProfile = JSON.parse(cachedUser);
+  }
+} catch {
+  // ignore json error
+}
 let loginPromise: Promise<string> | null = null;
 
 export interface UserPayload {
   name: string;
   role: string;
   bureau?: string | null;
+  username?: string | null;
 }
 
 export interface LoginResponse {
@@ -214,6 +226,10 @@ export async function autoLogin(role: string = 'coordinator'): Promise<LoginResp
 
     inMemoryToken = res.token;
     currentUserProfile = res.user;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_TOKEN, res.token);
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(res.user));
+    }
     return res.token;
   })();
 
@@ -222,6 +238,33 @@ export async function autoLogin(role: string = 'coordinator'): Promise<LoginResp
     return { token: inMemoryToken!, user: currentUserProfile! };
   } finally {
     loginPromise = null;
+  }
+}
+
+export async function loginWithCredentials(username: string, password: string): Promise<LoginResponse> {
+  const res = await rawRequest<LoginResponse>('/api/v1/auth/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
+
+  inMemoryToken = res.token;
+  currentUserProfile = res.user;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_TOKEN, res.token);
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(res.user));
+  }
+  return res;
+}
+
+export function logout(): void {
+  inMemoryToken = null;
+  currentUserProfile = null;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEY_TOKEN);
+    localStorage.removeItem(STORAGE_KEY_USER);
   }
 }
 
@@ -488,6 +531,138 @@ export async function patchCase(caseNo: string, payload: PatchCasePayload): Prom
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+  });
+}
+
+// ============================================================================
+// Real Auth & Admin Types and Endpoints (Phase 16)
+// ============================================================================
+
+export interface DemoAccount {
+  username: string;
+  name: string;
+  role: string;
+  bureau?: string | null;
+  badge: string;
+  password_hint: string;
+}
+
+export interface AdminUser {
+  id: number;
+  username?: string | null;
+  name: string;
+  role: string;
+  bureau?: string | null;
+  email?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CreateAdminUserPayload {
+  username: string;
+  name: string;
+  role: string;
+  bureau?: string | null;
+  email?: string | null;
+  password: string;
+}
+
+export interface AdminConfigItem {
+  key: string;
+  value: string;
+}
+
+export interface AdminAuditLog {
+  id: number;
+  case_id: number;
+  case_no?: string | null;
+  ts: string;
+  actor: string;
+  bureau: string;
+  event_type: string;
+  from_bureau?: string | null;
+  to_bureau?: string | null;
+  from_status?: string | null;
+  to_status?: string | null;
+  remarks?: string | null;
+}
+
+export interface SystemHealthSummary {
+  total_users: number;
+  total_cases: number;
+  total_institutions: number;
+  total_overlaps: number;
+  open_overlaps: number;
+  open_alerts: number;
+  unassigned_cases: number;
+  cases_missing_deadline: number;
+  overdue_cases: number;
+  db_status: string;
+}
+
+export async function getDemoAccounts(): Promise<DemoAccount[]> {
+  return rawRequest<DemoAccount[]>('/api/v1/auth/demo-accounts');
+}
+
+export async function getAdminUsers(): Promise<AdminUser[]> {
+  return apiFetch<AdminUser[]>('/api/v1/admin/users');
+}
+
+export async function createAdminUser(payload: CreateAdminUserPayload): Promise<AdminUser> {
+  return apiFetch<AdminUser>('/api/v1/admin/users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function toggleAdminUserStatus(userId: number, isActive: boolean): Promise<AdminUser> {
+  return apiFetch<AdminUser>(`/api/v1/admin/users/${userId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ is_active: isActive }),
+  });
+}
+
+export async function resetAdminUserPassword(userId: number, newPassword: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/api/v1/admin/users/${userId}/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ new_password: newPassword }),
+  });
+}
+
+export async function getAdminConfig(): Promise<AdminConfigItem[]> {
+  return apiFetch<AdminConfigItem[]>('/api/v1/admin/config');
+}
+
+export async function updateAdminConfig(configs: Record<string, string>): Promise<{ message: string; updated: number }> {
+  return apiFetch<{ message: string; updated: number }>('/api/v1/admin/config', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ configs }),
+  });
+}
+
+export async function getAdminAuditLogs(limit: number = 100): Promise<AdminAuditLog[]> {
+  return apiFetch<AdminAuditLog[]>(`/api/v1/admin/audit-logs?limit=${limit}`);
+}
+
+export async function getAdminHealthSummary(): Promise<SystemHealthSummary> {
+  return apiFetch<SystemHealthSummary>('/api/v1/admin/health-summary');
+}
+
+export async function triggerAdminOverlapScan(): Promise<{ message: string; created: number }> {
+  return apiFetch<{ message: string; created: number }>('/api/v1/admin/scan-overlaps', {
+    method: 'POST',
   });
 }
 

@@ -66,6 +66,40 @@
 - `docs/eval.md` records construction, counts, results and limitations.
 - Engine (`services/overlap.py`) intentionally unchanged for this measurement.
 
-## Not yet verified
-- Overlaps UI & investigation workflows in frontend
-- Deployment
+## Verified — Phase 13 & 15 (Frontend Overlap Queue & Reports UI)
+- PR #12 merged:
+  - `/overlaps` review queue UI with side-by-side comparison, explainable reason chips, and human review actions (duplicate / related / not_related / needs_review).
+  - `/reports` dashboard with Bureau, status, region, ageing, disposal rate, and overlap outcomes with Recharts charts and data breakdown.
+  - `/cases` directory with search and combinable filters.
+
+## Verified — Phase 16 (Real Auth & Admin Console)
+- **Database & Security**:
+  - `User` table migrated with `username`, `hashed_password` (bcrypt), `email`, `is_active`, and `created_at`.
+  - Default system accounts initialized:
+    - `admin` (`admin123`) — System Administrator
+    - `coordinator` (`coord123`) — Central Grievance Coordinator
+    - `officer_rb` (`officer123`) — Regulation Bureau Officer
+    - `officer_pgrc` (`officer123`) — PGRC Bureau Officer
+    - `management` (`mgmt123`) — Senior Management
+- **Backend Endpoints (`/api/v1/auth` & `/api/v1/admin`)**:
+  - `POST /api/v1/auth/login` (real bcrypt credential verification returning signed JWT token).
+  - `GET /api/v1/auth/demo-accounts` (quick-access persona profiles for fast demo/evaluation).
+  - `GET /api/v1/admin/users` & `POST /api/v1/admin/users` (user directory and role management).
+  - `PATCH /api/v1/admin/users/{id}/status` (activate / deactivate user accounts).
+  - `POST /api/v1/admin/users/{id}/reset-password` (administrative password reset).
+  - `GET /api/v1/admin/config` & `PUT /api/v1/admin/config` (live system config editor: SLA warn days, breach horizon, etc.).
+  - `GET /api/v1/admin/audit-logs` (chronological audit log of sensitive events).
+  - `GET /api/v1/admin/health-summary` (data quality checks: unassigned cases, missing disposal dates, overdue cases).
+  - `POST /api/v1/admin/scan-overlaps` (admin overlap detection engine trigger).
+  - Protected with role-based permission checks (`administrator` required for admin endpoints).
+- **Frontend Pages & Features**:
+  - `LoginPage.tsx` (`/login`): Clean government-style login portal with username/password inputs and 1-click Quick Demo login pills for all 5 roles.
+  - `AdminPage.tsx` (`/admin`): 4-tab governance console (Health & Governance, User Management, System Configuration, and Audit Trail).
+  - `Navbar.tsx`: Displays logged-in user name, role badge, Admin nav link (only for administrators), and Logout / Switch User controls.
+- **Verification**:
+  - Full backend test suite: **102 passed** (`pytest`).
+  - Frontend production build (`npm run build`): **0 errors**.
+
+## Not yet verified / Upcoming
+- Final deployment configuration (Phase 18)
+- Demo video recording & rehearse (Phase 18)
