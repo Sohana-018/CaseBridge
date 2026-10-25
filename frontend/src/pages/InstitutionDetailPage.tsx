@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getInstitutionDetail, type InstitutionDetail } from '../api/client';
-import { StatusChip, BureauBadge, OverdueBadge, PriorityChip } from '../components/Badges';
+import {
+  StatusChip,
+  BureauBadge,
+  OverdueBadge,
+  PriorityChip,
+  ConfidenceBandBadge,
+} from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import {
   Building2,
@@ -13,6 +19,9 @@ import {
   FolderOpen,
   Briefcase,
   Layers,
+  AlertTriangle,
+  GitCompare,
+  ArrowRight,
 } from 'lucide-react';
 
 export const InstitutionDetailPage: React.FC = () => {
@@ -139,6 +148,106 @@ export const InstitutionDetailPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Open Overlaps Section - Coordination Required (hidden if none) */}
+          {institution.open_overlaps && institution.open_overlaps.length > 0 && (
+            <div className="bg-white rounded-lg border border-amber-200 overflow-hidden shadow-xs">
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50/40 px-6 py-4 border-b border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-amber-700" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">
+                      Potential Overlapping Cases – Coordination Required
+                    </h2>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Cross-bureau complaint cases identified for this institution requiring joint review.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 self-start sm:self-auto">
+                  {institution.open_overlaps.length} {institution.open_overlaps.length === 1 ? 'Open Overlap' : 'Open Overlaps'}
+                </span>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {institution.open_overlaps.map((overlap) => (
+                  <div
+                    key={overlap.id}
+                    className="p-5 sm:p-6 hover:bg-slate-50/60 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-3 flex-1">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="text-xs font-mono font-bold text-slate-500 uppercase tracking-wide">
+                          Pair #{overlap.id}
+                        </span>
+                        <ConfidenceBandBadge band={overlap.band} />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                        {/* Case A */}
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-md border border-slate-200">
+                          <Link
+                            to={`/cases/${overlap.case_a.case_no}`}
+                            className="font-mono font-bold text-xs text-blue-900 hover:underline flex items-center gap-1.5"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-blue-800" />
+                            <span>{overlap.case_a.case_no}</span>
+                          </Link>
+                          <BureauBadge bureau={overlap.case_a.bureau} />
+                          <StatusChip status={overlap.case_a.status} />
+                        </div>
+
+                        <div className="flex items-center text-slate-400 font-bold text-xs">
+                          <GitCompare className="w-4 h-4 mx-auto rotate-90 sm:rotate-0 text-slate-400" />
+                        </div>
+
+                        {/* Case B */}
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-md border border-slate-200">
+                          <Link
+                            to={`/cases/${overlap.case_b.case_no}`}
+                            className="font-mono font-bold text-xs text-blue-900 hover:underline flex items-center gap-1.5"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-blue-800" />
+                            <span>{overlap.case_b.case_no}</span>
+                          </Link>
+                          <BureauBadge bureau={overlap.case_b.bureau} />
+                          <StatusChip status={overlap.case_b.status} />
+                        </div>
+                      </div>
+
+                      {/* Overlap Reasons / Signals */}
+                      {overlap.reasons && overlap.reasons.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[11px] text-slate-500">
+                          <span className="font-semibold text-slate-600">Signals:</span>
+                          {overlap.reasons.map((reason, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] border border-slate-200"
+                            >
+                              {reason}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Link to Overlap Queue entry */}
+                    <div className="lg:self-center flex-shrink-0">
+                      <Link
+                        to={`/overlaps#overlap-${overlap.id}`}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs"
+                      >
+                        <span>Review in Overlap Queue</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Associated Cases Section */}
           <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs">

@@ -522,6 +522,7 @@ export const OverlapQueuePage: React.FC = () => {
             return (
               <article
                 key={item.id}
+                id={`overlap-${item.id}`}
                 aria-labelledby={`pair-heading-${item.id}`}
                 className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-xs hover:border-slate-300 transition-colors"
               >
