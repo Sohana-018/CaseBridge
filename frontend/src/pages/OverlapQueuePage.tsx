@@ -23,6 +23,7 @@ import {
   StatusChip,
   PriorityChip,
   OverdueBadge,
+  RestrictedBadge,
 } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import {
@@ -51,7 +52,7 @@ export const OverlapQueuePage: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedStatus, setSelectedStatus] = useState<ReviewStatus | ''>('open');
-  const [selectedBand, setSelectedBand] = useState<ConfidenceBand | ''>('');
+  const [selectedBand, setSelectedBand] = useState<ConfidenceBand | ''>('high');
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +73,9 @@ export const OverlapQueuePage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserPayload | null>(() => getCurrentUser());
   const isCoordinator = currentUser?.role === 'coordinator';
   const canScan = currentUser?.role === 'coordinator' || currentUser?.role === 'administrator';
+  const isOfficerOtherBureau = (bureau: string) =>
+    currentUser?.role === 'bureau_officer' &&
+    Boolean(currentUser?.bureau && bureau && currentUser.bureau.toUpperCase() !== bureau.toUpperCase());
 
   // Synchronize current user profile reactively on mount if not yet initialized
   useEffect(() => {
@@ -292,19 +296,19 @@ export const OverlapQueuePage: React.FC = () => {
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Page Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
+          Overlap Review Queue
+        </h1>
+        <p className="text-sm text-slate-500">
+          Internal coordination review for potential cross-bureau case overlaps concerning the same institution.
+        </p>
+      </div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              Overlap Review Queue
-            </h1>
-            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200">
-              {total} Flagged
-            </span>
-          </div>
-          <p className="text-sm text-slate-500">
-            Internal coordination review for potential cross-bureau case overlaps concerning the same institution.
-          </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200">
+            {total} Flagged
+          </span>
         </div>
 
         {/* Action Controls */}
@@ -529,9 +533,12 @@ export const OverlapQueuePage: React.FC = () => {
                 {/* Pair Header Bar */}
                 <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span id={`pair-heading-${item.id}`} className="font-mono font-bold text-sm text-slate-900">
+                    <span className="font-mono text-xs font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
                       Pair #{item.id}
                     </span>
+                    <h3 id={`pair-heading-${item.id}`} className="font-semibold text-sm text-slate-900">
+                      Potential Overlapping Cases – Coordination Required
+                    </h3>
                     <ConfidenceBandBadge band={item.band} />
                     <ReviewStatusBadge status={item.review_status} />
                   </div>
@@ -547,11 +554,11 @@ export const OverlapQueuePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Explainable Reasons Strip */}
+                {/* Why Flagged Strip */}
                 <div className="px-5 py-3 bg-white border-b border-slate-100 flex items-start sm:items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mr-1">
                     <Sparkles className="w-3.5 h-3.5 text-blue-900" />
-                    <span>Signals:</span>
+                    <span>Why flagged:</span>
                   </div>
                   {item.reasons && item.reasons.length > 0 ? (
                     item.reasons.map((reason, idx) => (
@@ -568,9 +575,46 @@ export const OverlapQueuePage: React.FC = () => {
                   )}
                 </div>
 
+                {/* Same Institution Strip */}
+                {(() => {
+                  const inst =
+                    caseDetails[item.case_a.case_no]?.institution ||
+                    caseDetails[item.case_b.case_no]?.institution;
+                  const isRestrictedPair =
+                    !inst &&
+                    isOfficerOtherBureau(item.case_a.bureau) &&
+                    isOfficerOtherBureau(item.case_b.bureau);
+
+                  return (
+                    <div className="px-5 py-2.5 bg-slate-50/70 border-b border-slate-200 text-xs flex items-center gap-1.5 flex-wrap">
+                      <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <span className="font-medium text-slate-600">Same institution:</span>
+                      {inst ? (
+                        <div className="inline-flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            to={`/institutions/${inst.permanent_id}`}
+                            className="font-semibold text-slate-900 hover:text-blue-900 hover:underline"
+                            title={inst.name}
+                          >
+                            {inst.name}
+                          </Link>
+                          <span className="text-slate-400">·</span>
+                          <span className="font-mono text-blue-900 font-medium">{inst.permanent_id}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-600">{inst.region}</span>
+                        </div>
+                      ) : isRestrictedPair ? (
+                        <RestrictedBadge />
+                      ) : (
+                        <span className="text-slate-400 italic">Loading institution...</span>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Side-by-Side Comparison Grid */}
                 <div className="p-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
                     {/* Case A Panel */}
                     <CaseComparisonColumn
                       caseMini={item.case_a}
@@ -579,6 +623,7 @@ export const OverlapQueuePage: React.FC = () => {
                       isLoading={caseLoading[item.case_a.case_no]}
                       errorMsg={caseErrors[item.case_a.case_no]}
                       onRetry={() => retryCaseFetch(item.case_a.case_no)}
+                      isRestricted={isOfficerOtherBureau(item.case_a.bureau)}
                     />
 
                     {/* Case B Panel */}
@@ -589,6 +634,7 @@ export const OverlapQueuePage: React.FC = () => {
                       isLoading={caseLoading[item.case_b.case_no]}
                       errorMsg={caseErrors[item.case_b.case_no]}
                       onRetry={() => retryCaseFetch(item.case_b.case_no)}
+                      isRestricted={isOfficerOtherBureau(item.case_b.bureau)}
                     />
                   </div>
                 </div>
@@ -635,21 +681,12 @@ export const OverlapQueuePage: React.FC = () => {
                   {!isCoordinator && (
                     <div className="mb-3 flex items-center gap-2 text-xs text-amber-800 bg-amber-50/80 border border-amber-200 p-2.5 rounded-md">
                       <Lock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                      <span>
-                        Role permission notice: Only users with the <strong>Coordinator</strong> role can submit review decisions. Your current role is <strong>{currentUser?.role || 'Guest'}</strong>.
-                      </span>
+                      <span>Only coordinators can record overlap decisions.</span>
                     </div>
                   )}
 
                   {/* Review input and action buttons */}
                   <div className="space-y-3">
-                    {!isCoordinator && (
-                      <div className="flex items-center gap-2 p-2.5 rounded bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium">
-                        <Lock className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
-                        <span>Only coordinators can record overlap decisions.</span>
-                      </div>
-                    )}
-
                     <div>
                       <label htmlFor={`review-note-${item.id}`} className="block text-xs font-semibold text-slate-700 mb-1">
                         {isPairReviewed ? 'Update Coordination Note (Optional):' : 'Coordination Review Note (Optional):'}
@@ -660,11 +697,7 @@ export const OverlapQueuePage: React.FC = () => {
                         value={form.note !== undefined ? form.note : item.note || ''}
                         onChange={(e) => handleNoteChange(item.id, e.target.value)}
                         disabled={form.submitting || !isCoordinator}
-                        placeholder={
-                          !isCoordinator
-                            ? 'Only coordinators can record overlap decisions.'
-                            : 'Add coordination instructions, e.g. Joint notice proposed, separate issues identified...'
-                        }
+                        placeholder="Add a coordination note (optional)"
                         className="w-full text-xs bg-white border border-slate-300 rounded-md p-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-900 disabled:bg-slate-100 disabled:text-slate-400"
                       />
                     </div>
@@ -780,6 +813,7 @@ interface CaseColumnProps {
   isLoading?: boolean;
   errorMsg?: string;
   onRetry: () => void;
+  isRestricted?: boolean;
 }
 
 const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
@@ -789,30 +823,37 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
   isLoading,
   errorMsg,
   onRetry,
+  isRestricted: isRestrictedProp,
 }) => {
+  const isRestricted = Boolean(
+    isRestrictedProp || (detail && detail.description === undefined && detail.assigned_officer === undefined)
+  );
+
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-2xs flex flex-col justify-between">
-      <div>
-        {/* Header: Label, Case No link, Bureau, Status */}
-        <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-2xs flex flex-col justify-between h-full">
+      <div className="flex-1 flex flex-col">
+        {/* Header: Label, Case No, Bureau, Status, Priority */}
+        <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
               {label}
             </span>
-            <Link
-              to={`/cases/${caseMini.case_no}`}
-              className="font-mono font-bold text-sm text-blue-900 hover:underline flex items-center gap-1 group"
-              title={`View full case detail for ${caseMini.case_no}`}
-            >
-              <span>{caseMini.case_no}</span>
-              <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-900" />
-            </Link>
+            <span className="font-mono font-bold text-sm text-slate-900">
+              {caseMini.case_no}
+            </span>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
             <BureauBadge bureau={caseMini.bureau} />
             <StatusChip status={caseMini.status} />
-            {detail?.priority && <PriorityChip priority={detail.priority} />}
+            {detail?.priority ? (
+              <PriorityChip priority={detail.priority} />
+            ) : isRestricted ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-200 italic">
+                <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                <span>Priority: Restricted</span>
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -842,29 +883,7 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
 
         {/* Resolved Case Details */}
         {!isLoading && !errorMsg && detail && (
-          <div className="space-y-3 text-xs">
-            {/* Institution Profile info */}
-            {detail.institution && (
-              <div className="p-2.5 rounded bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium mb-0.5">
-                  <Building2 className="w-3 h-3 text-slate-400" />
-                  <span>Institution:</span>
-                </div>
-                <Link
-                  to={`/institutions/${detail.institution.permanent_id}`}
-                  className="font-semibold text-slate-900 hover:text-blue-900 hover:underline block truncate"
-                  title={detail.institution.name}
-                >
-                  {detail.institution.name}
-                </Link>
-                <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
-                  <span className="font-mono text-blue-900">{detail.institution.permanent_id}</span>
-                  <span>•</span>
-                  <span>{detail.institution.region} Region</span>
-                </div>
-              </div>
-            )}
-
+          <div className="space-y-3 text-xs flex-1 flex flex-col justify-between">
             {/* Key Metadata Table */}
             <dl className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-xs">
               <div>
@@ -884,27 +903,41 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
                 <dt className="text-[11px] text-slate-500">Assigned Officer:</dt>
                 <dd className="font-medium text-slate-800 flex items-center gap-1 truncate">
                   <User className="w-3 h-3 text-slate-400" />
-                  <span>{detail.assigned_officer || <span className="text-slate-400 italic">Unassigned</span>}</span>
+                  {isRestricted ? (
+                    <RestrictedBadge />
+                  ) : (
+                    <span>{detail.assigned_officer || <span className="text-slate-400 italic">Unassigned</span>}</span>
+                  )}
                 </dd>
               </div>
 
               <div>
                 <dt className="text-[11px] text-slate-500">Due / Expected Disposal:</dt>
                 <dd className="font-medium text-slate-800 flex items-center gap-1">
-                  <span>{detail.expected_disposal_date || '—'}</span>
-                  {detail.overdue && <OverdueBadge className="scale-90" />}
+                  {isRestricted ? (
+                    <RestrictedBadge />
+                  ) : (
+                    <>
+                      <span>{detail.expected_disposal_date || '—'}</span>
+                      {detail.overdue && <OverdueBadge className="scale-90" />}
+                    </>
+                  )}
                 </dd>
               </div>
             </dl>
 
             {/* Full Complaint Description */}
-            <div>
+            <div className="mt-2">
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <FileText className="w-3 h-3 text-slate-400" />
                 <span>Complaint Description:</span>
               </div>
               <div className="p-2.5 rounded bg-slate-50 border border-slate-200 text-slate-700 text-xs leading-relaxed max-h-32 overflow-y-auto">
-                {detail.description || <span className="text-slate-400 italic">No description provided.</span>}
+                {isRestricted ? (
+                  <RestrictedBadge />
+                ) : (
+                  detail.description || <span className="text-slate-400 italic">No description provided</span>
+                )}
               </div>
             </div>
           </div>
@@ -920,13 +953,12 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
       </div>
 
       {/* Case Link Footer */}
-      <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className="text-[11px] text-slate-400 font-mono">Case ID: {caseMini.case_no}</span>
+      <div className="pt-3 mt-auto border-t border-slate-100 flex items-center justify-end text-xs">
         <Link
           to={`/cases/${caseMini.case_no}`}
           className="font-semibold text-blue-900 hover:text-blue-700 flex items-center gap-1 group text-xs"
         >
-          <span>Open Case File</span>
+          <span>Open case</span>
           <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
         </Link>
       </div>
