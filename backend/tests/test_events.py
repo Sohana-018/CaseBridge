@@ -9,7 +9,7 @@ from app.main import app
 from app.models import Bureau, Case, CaseCategory, CaseEvent, CaseStatus, Institution, Priority, Region
 
 
-from tests.test_auth import get_coordinator_token
+from tests.test_auth import get_auth_token, get_coordinator_token
 
 
 @pytest.fixture(name="client")
@@ -228,3 +228,17 @@ def test_put_and_delete_return_405(client: TestClient):
 
     res_del_item = client.delete("/api/v1/cases/RB-2026-00001/events/1")
     assert res_del_item.status_code == 405
+
+
+def test_event_post_permission_check_before_body_validation(client: TestClient):
+    """Item 13: Permission checks must run before request body validation.
+    senior_management and administrator are forbidden from appending events.
+    Sending invalid body ({}) must return 403 FORBIDDEN, not 422.
+    """
+    for forbidden_role in ["senior_management", "administrator"]:
+        token = get_auth_token(forbidden_role)
+        headers = {"Authorization": f"Bearer {token}"}
+        res = client.post("/api/v1/cases/RB-2026-00001/events", json={}, headers=headers)
+        assert res.status_code == 403
+        data = res.json()
+        assert data["error"]["code"] == "FORBIDDEN"

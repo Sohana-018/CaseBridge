@@ -162,11 +162,30 @@ def list_cases(
     )
 
 
+def require_case_create_permission(current_user: UserPayload = Depends(get_current_user)) -> UserPayload:
+    if current_user.role == "senior_management":
+        raise ForbiddenError(
+            "Role 'senior_management' cannot create cases.",
+            details={"role": current_user.role},
+        )
+    return current_user
+
+
+def require_case_patch_permission(current_user: UserPayload = Depends(get_current_user)) -> UserPayload:
+    if current_user.role == "senior_management":
+        raise ForbiddenError(
+            "Role 'senior_management' is read-only and cannot patch cases.",
+            details={"role": current_user.role},
+        )
+    return current_user
+
+
 @router.post(
     "",
     response_model=CaseRead,
     status_code=201,
     summary="Create a new case (case_no auto-generated)",
+    dependencies=[Depends(require_case_create_permission)],
 )
 def create_case(
     body: CaseCreate,
@@ -353,6 +372,7 @@ def get_case(
     "/{case_no}",
     response_model=CaseRead,
     summary="Update editable case fields",
+    dependencies=[Depends(require_case_patch_permission)],
 )
 def patch_case(
     case_no: str,
