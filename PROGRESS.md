@@ -116,9 +116,27 @@
   - `AdminPage.tsx` (`/admin`): 4-tab governance console (Health & Governance, User Management, System Configuration, and Audit Trail).
   - `Navbar.tsx`: Displays logged-in user name, role badge, Admin nav link (only for administrators), and Logout / Switch User controls.
 - **Verification**:
-  - Full backend test suite: **102 passed** (`pytest`).
+  - Full backend test suite: **113 passed** (`pytest`).
   - Frontend production build (`npm run build`): **0 errors**.
+  - Frontend lint (`npm run lint`): **0 errors**.
+
+## Verified — Review Items 1–15 & Security / Architecture Hardening
+- **Item 1 (Dependency)**: `bcrypt>=4.1.0` added to `backend/requirements.txt` and verified in clean environment.
+- **Item 2 (Auth Bypass & Security)**: `POST /auth/mock-login` and `/auth/demo-accounts` gated behind `ALLOW_DEMO_LOGIN=true` (default false); `mock-login` strictly prohibits granting `administrator` role. `JWT_SECRET` fails fast at startup if unset (dev fallback permitted only when `ENV=dev`). JWT token expiry reduced to 12 hours. Route-level `require_admin` dependency applied to `/admin` endpoints.
+- **Item 3 (Frontend Auth & Protection)**: Silent auto-login removed. Protected routes (`ProtectedRoute.tsx`) redirect unauthenticated users to `/login` and non-admins attempting to access `/admin` to `/`. HTTP 401 interceptor clears stored tokens and redirects to `/login`.
+- **Item 4 (Eval Honesty Disclosures)**: Disclosed in `docs/eval.md` and `PROGRESS.md` that exploratory sweeps over all 986 pairs occurred prior to splitting (test split is not strictly held out); disclosed confirmatory status of fresh-seed check; disclosed 64 missed low-overlap paraphrases; disclosed deviation from plan regarding RapidFuzz vs TF-IDF cosine.
+- **Item 5 (Overlap Code Parameterization)**: Replaced hardcoded literal `0.14` in `overlap.py` with `sim_medium` parameter.
+- **Item 6 (Manual-Verification List)**: Implemented `find_manual_verification_items` identifying cases with missing or conflicting permanent IDs. Added `GET /api/v1/overlaps/manual-verification` (restricted to coordinator/admin), admin governance summary badge, and queue table.
+- **Item 7 (CSV Report Export)**: Implemented `export_report_csv` for all 7 report kinds (`GET /api/v1/reports/{kind}/csv`). Added frontend export button in `ReportsPage.tsx`. Verified row sums equal report totals across all kinds and checked SQL parity.
+- **Item 8 (Consecutive Case Numbers at Scale)**: Added test generating 100 consecutive cases for RB in 2026 asserting strictly unbroken sequence (`RB-2026-00001` to `RB-2026-00100`).
+- **Item 9 (Repository Cleanup)**: Removed obsolete `data/seed/labelled_pairs.csv` and unused `HomePage.tsx` / `mockData.ts`. Defaulted overlap queue band filter to all bands.
+- **Item 10 (Deployment Manifests - Phase 18)**: Created `render.yaml` (FastAPI backend with `ENV=prod`, `ALLOW_DEMO_LOGIN=false`, `CORS_ORIGINS`, non-committed secret generation), `frontend/vercel.json` (SPA client rewrite rule), and `docs/deployment.md` documenting environment variables and build steps.
+- **Item 11 (Received Date Validation)**: Added `received_date` validation rejecting future dates (`<= date.today()`) returning HTTP 422 on both `POST /cases` and `PATCH /cases/{case_no}`.
+- **Item 12 (Actionable Open Overlaps Metric)**: Gated `open_overlaps` metric in dashboard summary and admin health check to count only High and Medium confidence bands (excluding informational Low-band pairs). Updated Overview and Institution Detail UI indicators.
+- **Item 13 (Permission Check Ordering)**: Enforced FastAPI route-level dependency guards (`dependencies=[Depends(...)]`) on write operations (`POST /cases`, `PATCH /cases/{case_no}`, `POST /cases/{case_no}/events`, `POST /overlaps/{id}/review`), guaranteeing HTTP 403 Forbidden is returned for unauthorized roles even if the request body is malformed or empty (`{}`).
+- **Item 14 (Authentication Token Errors)**: Implemented `UnauthorizedError` returning HTTP 401 `UNAUTHORIZED` with `{ "detail": "...", "code": "UNAUTHORIZED" }` for missing, expired, or malformed credentials.
+- **Item 15 (200-Case Seed Re-measurement)**: Scanned 200-case demo seed: evaluated 535 candidate pairs (30 High, 45 Medium, 460 Low). Medium alerts dropped from 210 down to 45 (well below 210). Demo pair `PG-2026-00104 / RB-2026-00219` preserved in High band with 0.23 text similarity. Recorded in `docs/eval.md`.
 
 ## Not yet verified / Upcoming
-- Final deployment configuration (Phase 18)
-- Demo video recording & rehearse (Phase 18)
+- Live hosting deployment execution & smoke tests on Render + Vercel
+- Final demo recording walkthrough video
