@@ -57,16 +57,19 @@
 - Tuned Overlap Engine (`backend/app/services/overlap.py`):
   - Category alone -> Low; Medium requires a text similarity signal.
   - TF-IDF vectorizer fit once on all descriptions, cached and invalidated on corpus changes.
-  - Similarity = TF-IDF cosine only. RapidFuzz kept only for reference code matching in `check_shared_reference`.
+  - Deviation from original plan: RapidFuzz token-set similarity was dropped (text similarity uses TF-IDF cosine only; RapidFuzz retained solely for reference code matching in `check_shared_reference`).
   - Bands: High (shared reference OR sim >= 0.16 + same/related category), Medium (sim >= 0.14), Low (same institution + different Bureau).
   - Fixed vectorizer: `ngram_range=(1, 2), stop_words="english", min_df=1`.
-- Measured results on institution-level split (23 Dev, 22 Test held out):
-  - Development (504 pairs): **P=0.860, R=0.533, F1=0.658** (TP=49, FP=8, FN=43, TN=404)
-  - Held-out test (482 pairs, run once): **P=0.893, R=0.761, F1=0.822** (TP=67, FP=8, FN=21, TN=386)
-  - All pairs (986 pairs): **P=0.879, R=0.644, F1=0.744** (TP=116, FP=16, FN=64, TN=790)
+- Methodology Disclosures & Measured results:
+  - Exploratory threshold sweeps over all 986 pairs (including test split) were run before the split was established; therefore, the test split is **NOT strictly held out**.
+  - Development (504 pairs): **P=0.860, R=0.533, F1=0.658** (TP=49, FP=8, FN=43, TN=404). Dev recall of 0.533 only just satisfies the $\ge 0.50$ operational constraint.
+  - Test split (482 pairs): **P=0.893, R=0.761, F1=0.822** (TP=67, FP=8, FN=21, TN=386).
+  - All pairs (986 pairs): **P=0.879, R=0.644, F1=0.744** (TP=116, FP=16, FN=64, TN=790).
+  - Missed pairs: **64 of 180 related pairs** (35.6%) are missed (scored Low) as zero-similarity paraphrases where cases share an underlying issue with no lexical overlap.
   - False positives slashed from **439 down to 16** (a 96.4% reduction).
   - Baseline: P=0.183, R=1.000, F1=0.309 (TP=180, FP=806).
-- Fresh-seed stability check (`data/eval_fresh/`, seed `20261025`):
+- Confirmatory Result via Fresh-Seed Check (`data/eval_fresh/`, seed `20261025`):
+  - Generated *after* thresholds were frozen; serves as the true confirmatory run, with the caveat that it uses the same generator logic and templates as the primary corpus.
   - Dev: P=0.911, R=0.783, F1=0.842 (TP=72, FP=7, FN=20, TN=414)
   - Test: P=0.929, R=0.739, F1=0.823 (TP=65, FP=5, FN=23, TN=394)
   - All: P=0.919, R=0.761, F1=0.833 (TP=137, FP=12, FN=43, TN=808)

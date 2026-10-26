@@ -18,18 +18,17 @@ Built by `scripts/generate_issue_dataset.py` (seed `20261024`):
    - Deliberate low-overlap paraphrases with near-zero shared phrasing.
 4. **Label assignment**: `related` $\iff$ both cases share `issue_id`. Category, bureau, and similarity are never used to assign labels.
 
-### 1.2 Evaluation & Tuning Protocol
-- **Institution-Level Split**: 45 institutions are partitioned into 23 Development (504 pairs) and 22 Test (482 pairs, held out) using fixed `seed=42`. Saved to `data/eval/institution_split.json`.
-- **Unsupervised TF-IDF Representation**: Vectorizer is fit once across all corpus descriptions with fixed settings: `TfidfVectorizer(ngram_range=(1, 2), stop_words="english", min_df=1)`. Fitting unsupervised TF-IDF across all descriptions (dev + test) is standard and valid because it uses no ground-truth labels. The cache is automatically invalidated if the corpus changes.
-- **Tuning Objective (Defined Pre-Run)**:
-  *Objective: Highest precision on Dev with recall $\ge 0.50$* (maximizing precision over detectable text-signal pairs, recognizing that ~26% of synthetic ground-truth pairs are deliberately low-overlap paraphrases with 0.0 cosine similarity).
-  *Sanity Check (not part of objective)*: Central demo pair `PG-2026-00104 / RB-2026-00219` remains High.
-- **Tuned Thresholds**:
+### 1.2 Evaluation & Tuning Protocol (Honest Methodology & Disclosures)
+- **Institution-Level Split**: 45 institutions are partitioned into 23 Development (504 pairs) and 22 Test (482 pairs) using fixed `seed=42`. Saved to `data/eval/institution_split.json`.
+- **Exploratory Sweeps & Test Split Disclosure**: Exploratory threshold sweeps over all 986 pairs (including the test institutions) were run before the split was established. Therefore, the test split is **NOT strictly held out** in an untouched, pre-registered sense.
+- **Confirmatory Result via Fresh-Seed Run (20261025)**: Because exploratory sweeps touched the full 986-pair dataset, the fresh-seed dataset (`data/eval_fresh/`, seed `20261025`) generated *after* thresholds were frozen serves as the true confirmatory result. Caveat: it uses the same generator logic and templated phrasing as the original set.
+- **Deviation from Plan (Similarity Metric)**: Rapidfuzz token-set similarity was dropped from text similarity scoring. Text similarity uses TF-IDF cosine similarity exclusively. Rapidfuzz is retained only for reference code substring matching in `check_shared_reference`.
+- **Recall Limitation & Missed Paraphrases**: 64 of 180 related pairs (35.6%) are missed (scoring Low) because they are zero-similarity or near-zero paraphrases beyond surface lexical overlap. Development recall of **0.533** only just meets the $\ge 0.50$ operational constraint.
+- **Unsupervised TF-IDF Representation**: Vectorizer is fit once across all corpus descriptions with fixed settings: `TfidfVectorizer(ngram_range=(1, 2), stop_words="english", min_df=1)`. Fitting unsupervised TF-IDF across all descriptions is valid because it uses no ground-truth labels. The cache is automatically invalidated if the corpus changes.
+- **Frozen Thresholds**:
   - $T_{high} = 0.16$ (with same/related category, or shared reference)
   - $T_{med} = 0.14$ (text similarity alone)
   - Category alone $\rightarrow$ Low.
-- **Test Split Run**: Held-out test split evaluated **exactly once**.
-- **Fresh-Seed Check**: Generated into a separate folder `data/eval_fresh/` (seed `20261025`) without touching `data/eval/`.
 
 ---
 
@@ -42,7 +41,7 @@ Positive prediction = Confidence band **Medium or High** (sim $\ge 0.14$).
 | Dataset / Split | Precision | Recall | F1 | TP | FP | FN | TN | Total Pairs |
 |---|---|---|---|---|---|---|---|---|
 | **Development Split (23 insts)** | **0.860** | **0.533** | **0.658** | **49** | **8** | **43** | **404** | 504 |
-| **Test Split (22 insts, held out)** | **0.893** | **0.761** | **0.822** | **67** | **8** | **21** | **386** | 482 |
+| **Test Split (22 insts)** | **0.893** | **0.761** | **0.822** | **67** | **8** | **21** | **386** | 482 |
 | **All Scored Pairs (45 insts)** | **0.879** | **0.644** | **0.744** | **116** | **16** | **64** | **790** | 986 |
 | *Previous Engine (All Pairs)* | *0.276* | *0.928* | *0.425* | *167* | *439* | *13* | *367* | 986 |
 | *Baseline (flag all cross-bureau)* | *0.183* | *1.000* | *0.309* | *180* | *806* | *0* | *0* | 986 |
@@ -71,7 +70,7 @@ Positive prediction = Confidence band **Medium or High** (sim $\ge 0.14$).
 - **Non-candidate**: 33 pairs
 - **Related pairs by band**: High=30, Medium=19, Low/missed=43
 
-### 3.3 Test Split — Held Out (482 pairs)
+### 3.3 Test Split (482 pairs)
 - **High**: 44 pairs (TP=39, FP=5) — 88.6% precision
 - **Medium**: 31 pairs (TP=28, FP=3) — 90.3% precision
 - **Low**: 391 pairs (FN=21, TN=370)
@@ -86,18 +85,19 @@ Positive prediction = Confidence band **Medium or High** (sim $\ge 0.14$).
 - **Same category, different issue**: **8** (reduced from 250 previously, because category alone now scores Low; only pairs with genuine text similarity $\ge 0.14$ are flagged).
 - **Different category, text similarity**: **8** (unrelated complaints that coincidentally share vocabulary framing).
 
-### 4.2 False Negatives: 64
+### 4.2 False Negatives: 64 Missed Pairs (35.6% of Ground-Truth Related Pairs)
 - **Excluded by candidate filters**: **0** (no valid overlaps were filtered out by candidate rules).
-- **Scored Low**: **64** (deliberately constructed low-overlap paraphrases where cases share an underlying issue but have near-zero vocabulary overlap).
+- **Scored Low**: **64 of 180 related pairs are missed** due to zero-similarity paraphrases where cases share an underlying issue but have near-zero vocabulary overlap.
+- **Constraint Margin**: Development set recall is **0.533**, which only just meets the $\ge 0.50$ minimum operational recall constraint.
 
 ---
 
-## 5. Fresh-Seed Stability Check (`data/eval_fresh/`)
+## 5. Confirmatory Result — Fresh-Seed Stability Check (`data/eval_fresh/`)
 
-A fresh synthetic dataset was generated with seed `20261025` into `data/eval_fresh/` to verify threshold stability without overwriting `data/eval/`.
+A fresh synthetic dataset was generated with seed `20261025` into `data/eval_fresh/` after thresholds were frozen to serve as the confirmatory evaluation, given that exploratory sweeps had previously touched all 986 pairs of the primary set.
 
 > [!NOTE]
-> **Disclosure on Realism vs Stability**: The fresh-seed corpus uses the same generator logic and templated wording as the primary evaluation set. Consequently, this check verifies **threshold stability across random generations**, not generalization to completely novel or out-of-domain phrasing.
+> **Methodology Caveat on Confirmatory Run**: While the fresh-seed (20261025) dataset confirms threshold stability across independently generated cases, it uses the same generator logic and templated wording as the primary set. It demonstrates parameter stability under the generator's distribution, not robustness against completely novel external natural language distributions.
 
 ### Fresh-Seed Results (1000 pairs, seed 20261025)
 - **Development Split**: Precision = **0.911**, Recall = **0.783**, F1 = **0.842** (TP=72, FP=7, FN=20, TN=414)
