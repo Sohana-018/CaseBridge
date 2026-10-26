@@ -238,7 +238,7 @@ def score_pair(
         reasons.append("shared_reference")
 
     similarity = text_similarity(case_a.description, case_b.description, vectorizer=vectorizer)
-    if similarity >= 0.14:
+    if similarity >= sim_medium:
         reasons.append(f"text_similarity {similarity:.2f}")
 
     days_apart = abs((case_a.received_date - case_b.received_date).days)
