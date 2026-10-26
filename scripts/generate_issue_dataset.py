@@ -273,9 +273,23 @@ def build_institutions() -> List[Dict[str, object]]:
     return institutions
 
 
+import argparse
+
 def main() -> None:
-    rng = random.Random(SEED)
-    EVAL_DIR.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser(description="Generate synthetic evaluation dataset.")
+    parser.add_argument("--output-dir", type=Path, default=EVAL_DIR)
+    parser.add_argument("--db-path", type=Path, default=EVAL_DB)
+    parser.add_argument("--labelled-path", type=Path, default=LABELLED_PATH)
+    parser.add_argument("--seed", type=int, default=SEED)
+    args = parser.parse_args()
+
+    out_dir: Path = args.output_dir
+    db_path: Path = args.db_path
+    labelled_path: Path = args.labelled_path
+    seed: int = args.seed
+
+    rng = random.Random(seed)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     institutions = build_institutions()
     generated: List[GeneratedCase] = []
@@ -456,7 +470,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Write CSVs
     # ------------------------------------------------------------------
-    with open(EVAL_DIR / "institutions.csv", "w", newline="", encoding="utf-8") as f:
+    with open(out_dir / "institutions.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["id", "permanent_id", "name", "address", "region", "state", "type"])
         for inst_id, inst in institution_rows:
@@ -465,7 +479,7 @@ def main() -> None:
                 inst["region"].value, inst["state"], inst["type"],
             ])
 
-    with open(EVAL_DIR / "cases.csv", "w", newline="", encoding="utf-8") as f:
+    with open(out_dir / "cases.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
             "id", "case_no", "institution_id", "bureau", "category", "description",
@@ -482,13 +496,13 @@ def main() -> None:
                 case.priority.value, case.created_at.isoformat(),
             ])
 
-    with open(EVAL_DIR / "hidden_issues.csv", "w", newline="", encoding="utf-8") as f:
+    with open(out_dir / "hidden_issues.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["case_no", "issue_id", "issue_topic"])
         for case in sorted(generated, key=lambda c: c.case_no):
             writer.writerow([case.case_no, case.issue_id, case.issue_topic])
 
-    with open(LABELLED_PATH, "w", newline="", encoding="utf-8") as f:
+    with open(labelled_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["case_a", "case_b", "label"])
         writer.writerows(pair_rows)
@@ -496,10 +510,10 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Build the evaluation database (no issue_id column anywhere).
     # ------------------------------------------------------------------
-    if EVAL_DB.exists():
-        EVAL_DB.unlink()
+    if db_path.exists():
+        db_path.unlink()
     engine = create_engine(
-        f"sqlite:///{EVAL_DB.as_posix()}", connect_args={"check_same_thread": False}
+        f"sqlite:///{db_path.as_posix()}", connect_args={"check_same_thread": False}
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
@@ -550,9 +564,9 @@ def main() -> None:
     print(f"  hard negatives (same category, different issue): {hard_same_category_negative}")
     print(f"  related pairs involving a low-overlap paraphrase: {related_with_low_overlap}")
     print()
-    print(f"  database: {EVAL_DB}")
-    print(f"  labels:   {LABELLED_PATH}")
-    print(f"  issue map (hidden): {EVAL_DIR / 'hidden_issues.csv'}")
+    print(f"  database: {db_path}")
+    print(f"  labels:   {labelled_path}")
+    print(f"  issue map (hidden): {out_dir / 'hidden_issues.csv'}")
     print("  Note: labels come only from issue_id; metadata was never used to label.")
 
 

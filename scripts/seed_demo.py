@@ -35,6 +35,7 @@ from app.models import (
     Region,
 )
 from app.services.alerts import refresh_alerts
+from app.services.overlap import detect_overlaps
 
 
 def seed_demo() -> None:
@@ -508,6 +509,11 @@ def seed_demo() -> None:
         print("[CaseBridge] Evaluating active alert rules across all cases...")
         alert_count = refresh_alerts(session, today=today)
         print(f"[+] Evaluated alert rules: {alert_count} alert(s) processed/created.")
+
+        # 4. Run overlap detection scan
+        print("[CaseBridge] Running overlap detection scan...")
+        overlap_count = detect_overlaps(session, commit=True)
+        print(f"[+] Evaluated overlap links: {overlap_count} new overlap link(s) created.")
 
     print("[CaseBridge] Demo seed completed successfully.")
 

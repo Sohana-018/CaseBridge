@@ -13,8 +13,9 @@ All data is synthetic demo data.
 
 from __future__ import annotations
 
+import hashlib
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from rapidfuzz import fuzz
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -36,12 +37,13 @@ from app.models import (
 from app.services.alerts import create_overlap_alert
 
 # ---------------------------------------------------------------------------
-# Demo-tuned thresholds (PRD Section 9.4).
-# Tuned on the development split of data/labelled_pairs.csv only; see
-# docs/eval.md for the protocol and the test-split numbers.
+# Tuned thresholds (docs/eval.md).
+# Tuned on the development split of data/labelled_pairs.csv (institution-level split):
+# High requires shared reference OR (sim >= 0.16 AND same/related category).
+# Medium requires sim >= 0.14 (category alone gives Low).
 # ---------------------------------------------------------------------------
-SIMILARITY_HIGH = 0.50
-SIMILARITY_MEDIUM = 0.50
+SIMILARITY_HIGH = 0.16
+SIMILARITY_MEDIUM = 0.14
 CANDIDATE_MAX_DAYS = 365
 DATE_PROXIMITY_DAYS = 90
 
@@ -66,6 +68,54 @@ REVIEW_DECISIONS = {
 _CASE_REF_RE = re.compile(r"\b([A-Z]{2,4}-\d{4}-\d{5})\b")
 # Letter style references, e.g. AICTE/RO/2026/118 (at least one slash).
 _LETTER_REF_RE = re.compile(r"\b([A-Z]{2,6}(?:/[A-Z0-9]{2,12}){1,4})\b")
+
+# Cache for the fitted TF-IDF vectorizer across descriptions.
+_CACHED_VECTORIZER: Optional[TfidfVectorizer] = None
+_CACHED_CORPUS_HASH: Optional[str] = None
+
+
+def _compute_corpus_hash(descriptions: Sequence[str]) -> str:
+    hasher = hashlib.sha256()
+    for text in descriptions:
+        hasher.update((text or "").strip().encode("utf-8", errors="ignore"))
+        hasher.update(b"\x00")
+    return hasher.hexdigest()
+
+
+def invalidate_vectorizer_cache() -> None:
+    """Invalidate the cached TF-IDF vectorizer."""
+    global _CACHED_VECTORIZER, _CACHED_CORPUS_HASH
+    _CACHED_VECTORIZER = None
+    _CACHED_CORPUS_HASH = None
+
+
+def get_or_fit_vectorizer(
+    descriptions: Sequence[str],
+    force_refit: bool = False,
+) -> TfidfVectorizer:
+    """Return a cached TfidfVectorizer or fit a new one if the corpus changed.
+
+    Fixed settings: ngram_range=(1, 2), stop_words='english', min_df=1.
+    Fitting unsupervised TF-IDF across the corpus (unsupervised representation)
+    is standard because it uses no labels.
+    """
+    global _CACHED_VECTORIZER, _CACHED_CORPUS_HASH
+    current_hash = _compute_corpus_hash(descriptions)
+    if not force_refit and _CACHED_VECTORIZER is not None and _CACHED_CORPUS_HASH == current_hash:
+        return _CACHED_VECTORIZER
+
+    vectorizer = TfidfVectorizer(
+        ngram_range=(1, 2),
+        stop_words="english",
+        min_df=1,
+    )
+    valid_texts = [d for d in descriptions if (d or "").strip()]
+    if not valid_texts:
+        valid_texts = ["case complaint inquiry"]
+    vectorizer.fit(valid_texts)
+    _CACHED_VECTORIZER = vectorizer
+    _CACHED_CORPUS_HASH = current_hash
+    return vectorizer
 
 
 def _enum_value(value: Any) -> str:
@@ -103,49 +153,74 @@ def extract_references(text: Optional[str]) -> set[str]:
     return set(_CASE_REF_RE.findall(upper)) | set(_LETTER_REF_RE.findall(upper))
 
 
-def text_similarity(text_a: Optional[str], text_b: Optional[str]) -> float:
-    """Combined text similarity in [0, 1].
+def check_shared_reference(text_a: Optional[str], text_b: Optional[str]) -> bool:
+    """Check if two texts share an explicit case or letter reference.
 
-    Takes the higher of TF-IDF cosine similarity and rapidfuzz token-set
-    ratio, as required by PRD Section 9. Falls back to 0.0 when the two
-    short texts produce an empty vocabulary.
+    Uses exact matching on extracted reference tokens, plus RapidFuzz token matching
+    for slight typo variations on reference codes.
     """
-    a = text_a or ""
-    b = text_b or ""
-    if not a.strip() or not b.strip():
+    refs_a = extract_references(text_a)
+    refs_b = extract_references(text_b)
+    if not refs_a or not refs_b:
+        return False
+    if refs_a & refs_b:
+        return True
+    for ra in refs_a:
+        for rb in refs_b:
+            if fuzz.ratio(ra, rb) >= 90:
+                return True
+    return False
+
+
+def text_similarity(
+    text_a: Optional[str],
+    text_b: Optional[str],
+    vectorizer: Optional[TfidfVectorizer] = None,
+) -> float:
+    """TF-IDF cosine similarity in [0, 1].
+
+    Uses the fitted corpus vectorizer if provided; falls back to fitting
+    on the pair if none is provided or if tokens are out-of-vocabulary.
+    """
+    a = (text_a or "").strip()
+    b = (text_b or "").strip()
+    if not a or not b:
         return 0.0
+    if a.lower() == b.lower():
+        return 1.0
 
-    cosine = 0.0
-    for stop_words in ("english", None):
+    if vectorizer is not None:
         try:
-            vectorizer = TfidfVectorizer(min_df=1, stop_words=stop_words)
-            matrix = vectorizer.fit_transform([a, b])
-            cosine = float(cosine_similarity(matrix[0:1], matrix[1:2])[0][0])
-            break
-        except ValueError:
-            # Empty vocabulary (e.g. only stop words); retry without stop words.
-            cosine = 0.0
+            tfidf = vectorizer.transform([a, b])
+            if tfidf[0].nnz > 0 and tfidf[1].nnz > 0:
+                cos = float(cosine_similarity(tfidf[0:1], tfidf[1:2])[0][0])
+                return max(0.0, min(1.0, cos))
+        except Exception:
+            pass
 
+    # Fallback: fit on the pair directly
     try:
-        fuzzy = fuzz.token_set_ratio(a, b) / 100.0
-    except Exception:  # pragma: no cover - rapidfuzz is pure Python
-        fuzzy = 0.0
-
-    return max(cosine, float(fuzzy))
+        fallback_vec = TfidfVectorizer(ngram_range=(1, 2), stop_words="english", min_df=1)
+        matrix = fallback_vec.fit_transform([a, b])
+        cos = float(cosine_similarity(matrix[0:1], matrix[1:2])[0][0])
+        return max(0.0, min(1.0, cos))
+    except ValueError:
+        return 0.0
 
 
 def score_pair(
     case_a: Case,
     case_b: Case,
+    vectorizer: Optional[TfidfVectorizer] = None,
     sim_high: float = SIMILARITY_HIGH,
     sim_medium: float = SIMILARITY_MEDIUM,
 ) -> Tuple[ConfidenceBand, List[str]]:
     """Score one candidate pair, returning (band, explainable reasons).
 
-    Band rules (PRD Section 9.4, demo-tuned thresholds):
-    - high:   shared reference, or same category and similarity >= sim_high
-    - medium: same/related category, or similarity >= sim_medium
-    - low:    same institution and different bureau only
+    Band rules:
+    - High:   shared_reference OR (sim >= sim_high AND (same_category OR related_category))
+    - Medium: sim >= sim_medium
+    - Low:    same institution and different bureau only (category alone gives Low)
     """
     if case_a.institution_id != case_b.institution_id:
         raise ValidationError("Overlap pairs must belong to the same institution.")
@@ -158,22 +233,22 @@ def score_pair(
     if cat_reason:
         reasons.append(cat_reason)
 
-    shared = extract_references(case_a.description) & extract_references(case_b.description)
+    shared = check_shared_reference(case_a.description, case_b.description)
     if shared:
         reasons.append("shared_reference")
 
-    similarity = text_similarity(case_a.description, case_b.description)
-    if similarity >= 0.30:
+    similarity = text_similarity(case_a.description, case_b.description, vectorizer=vectorizer)
+    if similarity >= 0.14:
         reasons.append(f"text_similarity {similarity:.2f}")
 
     days_apart = abs((case_a.received_date - case_b.received_date).days)
     if days_apart <= DATE_PROXIMITY_DAYS:
         reasons.append(f"date_proximity {days_apart} days")
 
-    same_category = _norm_category(case_a.category) == _norm_category(case_b.category)
-    if shared or (same_category and similarity >= sim_high):
+    is_cat_related = cat_reason is not None
+    if shared or (similarity >= sim_high and is_cat_related):
         band = ConfidenceBand.HIGH
-    elif cat_reason or similarity >= sim_medium:
+    elif similarity >= sim_medium:
         band = ConfidenceBand.MEDIUM
     else:
         band = ConfidenceBand.LOW
@@ -209,8 +284,14 @@ def detect_overlaps(session: Session, commit: bool = True) -> int:
     ).all()
 
     by_institution: Dict[int, List[Case]] = {}
+    all_cases: List[Case] = []
     for case, _inst in rows:
         by_institution.setdefault(case.institution_id, []).append(case)
+        all_cases.append(case)
+
+    # Rebuild or reuse cached vectorizer across all case descriptions in DB
+    descriptions = [c.description or "" for c in all_cases]
+    vectorizer = get_or_fit_vectorizer(descriptions)
 
     existing = {(link.case_a_id, link.case_b_id) for link in session.exec(select(OverlapLink)).all()}
 
@@ -226,7 +307,7 @@ def detect_overlaps(session: Session, commit: bool = True) -> int:
                 if pair in existing:
                     continue
 
-                band, reasons = score_pair(case_a, case_b)
+                band, reasons = score_pair(case_a, case_b, vectorizer=vectorizer)
                 link = OverlapLink(
                     case_a_id=pair[0],
                     case_b_id=pair[1],

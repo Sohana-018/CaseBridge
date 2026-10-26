@@ -202,9 +202,9 @@ def test_scan_filters_and_is_idempotent(client_and_session):
     high = client.get("/api/v1/overlaps?band=high", headers=AUTH).json()
     assert high["total"] == 1
     medium = client.get("/api/v1/overlaps?band=medium", headers=AUTH).json()
-    assert medium["total"] == 2
+    assert medium["total"] == 1
     low = client.get("/api/v1/overlaps?band=low", headers=AUTH).json()
-    assert low["total"] == 2
+    assert low["total"] == 3
 
     page_two = client.get("/api/v1/overlaps?page=2&page_size=2", headers=AUTH).json()
     assert page_two["page"] == 2
@@ -237,14 +237,14 @@ def test_scan_alerts_only_for_actionable_bands(client_and_session):
     client.post("/api/v1/overlaps/scan", headers=AUTH)
 
     alerts = session.exec(select(Alert).where(Alert.type == AlertType.OVERLAP)).all()
-    # 1 high + 2 medium links -> 3 alerts; low-band links stay alert-free.
-    assert len(alerts) == 3
+    # 1 high + 1 medium links -> 2 alerts; low-band links stay alert-free.
+    assert len(alerts) == 2
     assert all(alert.status == "open" for alert in alerts)
     assert all(alert.link_id for alert in alerts)
 
     # Duplicate scan does not create duplicate alerts.
     client.post("/api/v1/overlaps/scan", headers=AUTH)
-    assert len(session.exec(select(Alert).where(Alert.type == AlertType.OVERLAP)).all()) == 3
+    assert len(session.exec(select(Alert).where(Alert.type == AlertType.OVERLAP)).all()) == 2
 
 
 def test_review_writes_appended_events_on_both_cases(client_and_session):
