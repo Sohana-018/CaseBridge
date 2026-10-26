@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlmodel import Session, select
 
 from app.errors import NotFoundError
-from app.models import Bureau, Case, CaseStatus, Institution, OverlapLink, Region, ReviewStatus
+from app.models import Bureau, Case, CaseStatus, ConfidenceBand, Institution, OverlapLink, Region, ReviewStatus
 
 
 def get_cases_data(session: Session) -> List[Tuple[Case, Optional[Institution]]]:
@@ -24,7 +24,7 @@ def get_dashboard_summary(session: Session, today: Optional[date] = None) -> Dic
     """Calculate overview dashboard KPI counts per PRD Section 10 & FR15.
 
     overdue is derived: expected_disposal_date < today and status != disposed.
-    open_overlaps: count of overlap_links with review_status "open".
+    open_overlaps: count of overlap_links with review_status "open" and band in (high, medium).
     """
     if today is None:
         today = date.today()
@@ -48,7 +48,10 @@ def get_dashboard_summary(session: Session, today: Optional[date] = None) -> Dic
     open_overlaps = len(
         list(
             session.exec(
-                select(OverlapLink).where(OverlapLink.review_status == ReviewStatus.OPEN)
+                select(OverlapLink).where(
+                    OverlapLink.review_status == ReviewStatus.OPEN,
+                    OverlapLink.confidence_band.in_([ConfidenceBand.HIGH, ConfidenceBand.MEDIUM]),
+                )
             ).all()
         )
     )

@@ -124,14 +124,21 @@ def client_and_session_fixture():
         session.refresh(case_1)
         session.refresh(case_2)
 
-        # 1 Open Overlap link between case 1 and case 2
+        # 1 Open Overlap link (HIGH) between case 1 and case 2
         link = OverlapLink(
             case_a_id=case_1.id,
             case_b_id=case_2.id,
             confidence_band=ConfidenceBand.HIGH,
             review_status=ReviewStatus.OPEN,
         )
-        session.add(link)
+        # 1 Open Overlap link (LOW) between case 4 and case 5 - must NOT count towards open_overlaps
+        link_low = OverlapLink(
+            case_a_id=case_4.id,
+            case_b_id=case_5.id,
+            confidence_band=ConfidenceBand.LOW,
+            review_status=ReviewStatus.OPEN,
+        )
+        session.add_all([link, link_low])
         session.commit()
 
     def get_test_session():
@@ -315,7 +322,7 @@ def test_export_report_csv_all_kinds_and_sql_parity(client_and_session):
     assert sql_open_cases == 4
 
     sql_overlap_links = session.exec(select(func.count(OverlapLink.id))).one()
-    assert sql_overlap_links == 1
+    assert sql_overlap_links == 2
 
     kinds = ["bureau", "status", "region", "institution", "ageing", "disposal", "overlap_outcomes"]
 

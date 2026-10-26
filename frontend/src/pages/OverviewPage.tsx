@@ -23,6 +23,7 @@ import {
   BarChart3,
   RefreshCw,
   ShieldAlert,
+  GitCompare,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -145,7 +146,7 @@ export const OverviewPage: React.FC = () => {
               pending amber | under process blue | disposed green | transferred gray | escalated purple | overdue red */}
           <section aria-labelledby="kpi-heading">
             <h2 id="kpi-heading" className="sr-only">Key Performance Indicators</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
               {/* Total Cases (Navy/Slate Accent) */}
               <div className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-blue-900 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
@@ -215,6 +216,20 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-3xl font-bold text-red-700 tracking-tight">{summary.overdue}</div>
                 <div className="text-xs text-slate-500 mt-1">Past SLA target</div>
               </div>
+
+              {/* Open Overlaps (High + Medium) */}
+              <Link
+                to="/overlaps"
+                className="p-4 rounded-lg bg-white border border-slate-200 border-t-4 border-t-indigo-600 shadow-xs hover:border-indigo-300 transition block"
+                title="Open overlaps (High + Medium)"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider">Overlaps</span>
+                  <GitCompare className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div className="text-3xl font-bold text-slate-900 tracking-tight">{summary.open_overlaps}</div>
+                <div className="text-xs text-slate-500 mt-1" title="Open overlaps (High + Medium)">Open overlaps (High + Medium)</div>
+              </Link>
             </div>
           </section>
 
