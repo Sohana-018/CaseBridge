@@ -112,9 +112,35 @@ def test_admin_access_forbidden_for_non_admin(client: TestClient):
             if method == "GET":
                 res = client.get(endpoint, headers=headers)
             else:
-                res = client.post(endpoint, headers=headers, json={"username": "dummy"})
+                res = client.post(endpoint, headers=headers, json={})
             assert res.status_code == 403, f"Role {role} should be forbidden on {method} {endpoint}, got {res.status_code}"
             assert res.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_admin_permission_check_runs_before_body_validation(client: TestClient):
+    """Ensure non-admin receives 403 Forbidden before body validation on all write endpoints."""
+    token = get_token("coordinator")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Empty body on POST /admin/users (schema requires username, name, role, password)
+    res = client.post("/api/v1/admin/users", headers=headers, json={})
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FORBIDDEN"
+
+    # Empty body on PATCH /admin/users/1/status (schema requires is_active)
+    res = client.patch("/api/v1/admin/users/1/status", headers=headers, json={})
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FORBIDDEN"
+
+    # Empty body on POST /admin/users/1/reset-password (schema requires new_password)
+    res = client.post("/api/v1/admin/users/1/reset-password", headers=headers, json={})
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FORBIDDEN"
+
+    # Empty body on PUT /admin/config (schema requires configs)
+    res = client.put("/api/v1/admin/config", headers=headers, json={})
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FORBIDDEN"
 
 
 

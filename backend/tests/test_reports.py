@@ -156,7 +156,36 @@ def client_and_session_fixture():
 
 
 def test_dashboard_summary_matches_hand_counts(client_and_session):
-    """Test dashboard summary matches hand-counted values."""
+    """Test dashboard summary matches hand-counted values derived directly from fixture cases:
+
+    Fixture Cases Derivation:
+    - case_1: RB, PENDING, North, age 5d, expected +20d (open, not overdue)
+    - case_2: RB, UNDER_PROCESS, North, age 20d, expected -2d (open, OVERDUE)
+    - case_3: PGRC, DISPOSED, South, age 45d, expected -10d (disposed, not overdue)
+    - case_4: RO, TRANSFERRED, South, age 50d, expected +10d (open, not overdue)
+    - case_5: OC, ESCALATED, South, age 100d, expected -5d (open, OVERDUE)
+    - case_6: PGRC, DISPOSED, North, age 15d, expected -1d (disposed, not overdue)
+
+    Derived Counts:
+    - Total cases = 6 (case_1 through case_6)
+    - Pending = 1 (case_1)
+    - Under process = 1 (case_2)
+    - Disposed = 2 (case_3 and case_6)
+    - Transferred = 1 (case_4)
+    - Escalated = 1 (case_5)
+    - Overdue = 2 (case_2 and case_5; case_3/6 are past expected date but excluded because status == DISPOSED)
+
+    Derivation of open_overlaps (Why 2 became 1):
+    The fixture populates 2 open OverlapLink rows:
+      1. link: case_1 <-> case_2, confidence_band=HIGH, review_status=OPEN
+      2. link_low: case_4 <-> case_5, confidence_band=LOW, review_status=OPEN
+    Raw SQL count of open links is 2. However, the dashboard open_overlaps KPI is defined
+    in PRD Section 9.4 and Review Item 12 to count only ACTIONABLE overlaps:
+      confidence_band IN (ConfidenceBand.HIGH, ConfidenceBand.MEDIUM)
+    Low-band overlaps are informatory (same institution, cross-bureau) and do not warrant
+    dashboard alerts or inclusion in open_overlaps.
+    Thus, link_low is excluded: open_overlaps = 1 (HIGH only). 2 became 1.
+    """
     client, session = client_and_session
 
     summary = get_dashboard_summary(session, today=FIXED_TODAY)
@@ -167,7 +196,7 @@ def test_dashboard_summary_matches_hand_counts(client_and_session):
     assert summary["transferred"] == 1
     assert summary["escalated"] == 1
     assert summary["overdue"] == 2  # case_2 and case_5
-    assert summary["open_overlaps"] == 1
+    assert summary["open_overlaps"] == 1  # Actionable High/Medium only (link_low excluded)
 
     # Also test API endpoint
     res = client.get("/api/v1/dashboard/summary")
@@ -188,25 +217,45 @@ def test_sums_equal_total(client_and_session):
     assert rep_status["total"] == total
     assert rep_region["total"] == total
 
-    # Sum of bureau counts
+    # Sum of bureau counts: RB (2) + PGRC (2) + RO (1) + OC (1) = 6
     bureau_sum = sum(item["count"] for item in rep_bureau["items"])
     assert bureau_sum == total
 
-    # Sum of status counts
+    # Sum of status counts: pending (1) + under_process (1) + disposed (2) + transferred (1) + escalated (1) = 6
     status_sum = sum(item["count"] for item in rep_status["items"])
     assert status_sum == total
 
-    # Sum of region counts
+    # Sum of region counts: North (3: case_1, case_2, case_6) + South (3: case_3, case_4, case_5) = 6
     region_sum = sum(item["count"] for item in rep_region["items"])
     assert region_sum == total
 
 
 def test_ageing_buckets_sum_to_open_cases(client_and_session):
-    """Test that ageing buckets sum to the number of open (non-disposed) cases."""
+    """Test that ageing buckets sum to the number of open (non-disposed) cases.
+
+    Derivation of open_cases_count (Why 5 became 4):
+    Total cases = 6.
+    Disposed cases = 2 (case_3 and case_6).
+    Open cases = Total (6) - Disposed (2) = 4:
+      - case_1 (PENDING)
+      - case_2 (UNDER_PROCESS)
+      - case_4 (TRANSFERRED)
+      - case_5 (ESCALATED)
+    A naive count assuming only case_3 was disposed would yield 6 - 1 = 5 open cases.
+    However, case_6 is ALSO disposed (CaseStatus.DISPOSED).
+    Therefore, the true number of open cases is 4. 5 became 4.
+
+    Derivation of Ageing Buckets for the 4 Open Cases (today = FIXED_TODAY):
+      - 0-7 days:   case_1 (received FIXED_TODAY - 5d, age 5)   => count = 1
+      - 8-30 days:  case_2 (received FIXED_TODAY - 20d, age 20) => count = 1
+      - 31-90 days: case_4 (received FIXED_TODAY - 50d, age 50) => count = 1
+      - 90+ days:   case_5 (received FIXED_TODAY - 100d, age 100) => count = 1
+      Sum = 1 + 1 + 1 + 1 = 4.
+    """
     client, session = client_and_session
 
     rep_ageing = get_report_by_kind(session, "ageing", today=FIXED_TODAY)
-    open_cases_count = 4  # total 6 minus 2 disposed
+    open_cases_count = 4  # total 6 minus 2 disposed (case_3 and case_6)
 
     assert rep_ageing["total"] == open_cases_count
 
