@@ -10,6 +10,7 @@ Loads institutions.csv and cases.csv into the database.
 
 import csv
 from datetime import date, datetime, timezone
+import os
 from pathlib import Path
 import sys
 from typing import Optional
@@ -20,6 +21,9 @@ ROOT_DIR = SCRIPT_DIR.parent
 BACKEND_DIR = ROOT_DIR / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+
+# Default to backend/casebridge.db regardless of the caller's working directory.
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{(BACKEND_DIR / 'casebridge.db').as_posix()}")
 
 from sqlmodel import Session, select
 
@@ -37,6 +41,7 @@ from app.models import (
     Region,
 )
 from app.services.alerts import refresh_alerts
+from app.services.overlap import detect_overlaps
 
 FIXED_TODAY = date(2026, 10, 24)
 SEED_DIR = ROOT_DIR / "data" / "seed"
@@ -213,6 +218,10 @@ def import_csv(
         alert_count = refresh_alerts(session, today=today)
         print(f"[Import] Evaluated alert rules ({alert_count} alert(s) processed/created).")
 
+        # 5. Run overlap scan
+        overlap_count = detect_overlaps(session, commit=True)
+        print(f"[Import] Evaluated overlap links ({overlap_count} new overlap link(s) created).")
+
         return {
             "institutions_created": inst_created,
             "institutions_skipped": inst_skipped,
@@ -220,6 +229,7 @@ def import_csv(
             "cases_skipped": cases_skipped,
             "counters_synced": len(max_counters),
             "alerts_created": alert_count,
+            "overlaps_created": overlap_count,
         }
 
     finally:

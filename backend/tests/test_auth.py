@@ -88,8 +88,31 @@ def client_fixture():
     SQLModel.metadata.drop_all(engine)
 
 
-def test_each_role_can_login(client: TestClient):
-    """Test that each valid role can log in through POST /api/v1/auth/mock-login."""
+def test_mock_login_disabled_by_default(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    """Test that mock-login and demo-accounts are rejected with 403 when ALLOW_DEMO_LOGIN is unset or false."""
+    monkeypatch.delenv("ALLOW_DEMO_LOGIN", raising=False)
+    res = client.post("/api/v1/auth/mock-login", json={"role": "coordinator"})
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FORBIDDEN"
+
+    res_demo = client.get("/api/v1/auth/demo-accounts")
+    assert res_demo.status_code == 403
+    assert res_demo.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_mock_login_admin_impossible_even_when_demo_enabled(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    """Test that administrator role can NEVER be issued via mock-login even with ALLOW_DEMO_LOGIN=true."""
+    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")
+    res = client.post("/api/v1/auth/mock-login", json={"role": "administrator"})
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FORBIDDEN"
+    assert "Administrator" in res.json()["error"]["message"]
+
+
+def test_each_role_can_login(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    """Test that non-admin roles can log in through POST /api/v1/auth/mock-login when ALLOW_DEMO_LOGIN=true."""
+    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")
+
     # 1. bureau_officer with bureau
     res1 = client.post("/api/v1/auth/mock-login", json={"role": "bureau_officer", "bureau": "RB"})
     assert res1.status_code == 200
@@ -113,16 +136,21 @@ def test_each_role_can_login(client: TestClient):
     assert "token" in data3
     assert data3["user"]["role"] == "senior_management"
 
-    # 4. administrator
+    # 4. administrator via mock-login must be rejected with 403
     res4 = client.post("/api/v1/auth/mock-login", json={"role": "administrator"})
-    assert res4.status_code == 200
-    data4 = res4.json()
-    assert "token" in data4
-    assert data4["user"]["role"] == "administrator"
+    assert res4.status_code == 403
+
+    # 5. demo-accounts returns list when enabled
+    res5 = client.get("/api/v1/auth/demo-accounts")
+    assert res5.status_code == 200
+    accounts = res5.json()
+    assert len(accounts) >= 5
+    assert all("password_hint" in acc for acc in accounts)
 
 
-def test_officer_without_bureau_fails(client: TestClient):
+def test_officer_without_bureau_fails(client: TestClient, monkeypatch: pytest.MonkeyPatch):
     """Test that a bureau_officer login without a bureau returns 422 VALIDATION_ERROR."""
+    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")
     res = client.post("/api/v1/auth/mock-login", json={"role": "bureau_officer"})
     assert res.status_code == 422
     data = res.json()
@@ -134,8 +162,9 @@ def test_officer_without_bureau_fails(client: TestClient):
     assert res_empty.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-def test_invalid_role_fails(client: TestClient):
+def test_invalid_role_fails(client: TestClient, monkeypatch: pytest.MonkeyPatch):
     """Test that an invalid role or unknown bureau returns 422 VALIDATION_ERROR."""
+    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")
     res_bad_role = client.post("/api/v1/auth/mock-login", json={"role": "invalid_role"})
     assert res_bad_role.status_code == 422
     assert res_bad_role.json()["error"]["code"] == "VALIDATION_ERROR"

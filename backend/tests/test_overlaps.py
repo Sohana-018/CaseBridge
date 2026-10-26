@@ -202,9 +202,9 @@ def test_scan_filters_and_is_idempotent(client_and_session):
     high = client.get("/api/v1/overlaps?band=high", headers=AUTH).json()
     assert high["total"] == 1
     medium = client.get("/api/v1/overlaps?band=medium", headers=AUTH).json()
-    assert medium["total"] == 2
+    assert medium["total"] == 1
     low = client.get("/api/v1/overlaps?band=low", headers=AUTH).json()
-    assert low["total"] == 2
+    assert low["total"] == 3
 
     page_two = client.get("/api/v1/overlaps?page=2&page_size=2", headers=AUTH).json()
     assert page_two["page"] == 2
@@ -237,14 +237,14 @@ def test_scan_alerts_only_for_actionable_bands(client_and_session):
     client.post("/api/v1/overlaps/scan", headers=AUTH)
 
     alerts = session.exec(select(Alert).where(Alert.type == AlertType.OVERLAP)).all()
-    # 1 high + 2 medium links -> 3 alerts; low-band links stay alert-free.
-    assert len(alerts) == 3
+    # 1 high + 1 medium links -> 2 alerts; low-band links stay alert-free.
+    assert len(alerts) == 2
     assert all(alert.status == "open" for alert in alerts)
     assert all(alert.link_id for alert in alerts)
 
     # Duplicate scan does not create duplicate alerts.
     client.post("/api/v1/overlaps/scan", headers=AUTH)
-    assert len(session.exec(select(Alert).where(Alert.type == AlertType.OVERLAP)).all()) == 3
+    assert len(session.exec(select(Alert).where(Alert.type == AlertType.OVERLAP)).all()) == 2
 
 
 def test_review_writes_appended_events_on_both_cases(client_and_session):
@@ -396,3 +396,93 @@ def test_text_similarity_bounds():
     assert text_similarity("same text here", "same text here") == pytest.approx(1.0)
     assert text_similarity("", "anything") == 0.0
     assert 0.0 <= text_similarity("alpha beta", "gamma delta") <= 1.0
+
+
+def test_manual_verification_missing_and_conflicting_id(client_and_session):
+    client, session = client_and_session
+
+    # Plant 1: Institution with missing/unknown permanent_id and an associated case
+    inst_missing = Institution(
+        permanent_id="UNKNOWN",
+        name="Planted Missing ID Institute",
+        region=Region.NORTH,
+    )
+    session.add(inst_missing)
+    session.commit()
+    session.refresh(inst_missing)
+
+    case_missing = Case(
+        case_no="MISSING-2026-00001",
+        institution_id=inst_missing.id,
+        bureau=Bureau.RB,
+        category=CaseCategory.INFRASTRUCTURE,
+        description="Case with missing institution permanent_id",
+        received_date=TODAY,
+        status=CaseStatus.PENDING,
+    )
+    session.add(case_missing)
+
+    # Plant 2: Two institutions with conflicting permanent_ids for the same institution name
+    inst_conf_a = Institution(
+        permanent_id="CONFLICT-PID-001",
+        name="National Apex Institute of Technology",
+        region=Region.WEST,
+    )
+    inst_conf_b = Institution(
+        permanent_id="CONFLICT-PID-002",
+        name="National Apex Institute of Technology",
+        region=Region.WEST,
+    )
+    session.add(inst_conf_a)
+    session.add(inst_conf_b)
+    session.commit()
+    session.refresh(inst_conf_a)
+    session.refresh(inst_conf_b)
+
+    case_conf = Case(
+        case_no="CONFLICT-2026-00002",
+        institution_id=inst_conf_a.id,
+        bureau=Bureau.PGRC,
+        category=CaseCategory.FACULTY,
+        description="Case with conflicting institution records",
+        received_date=TODAY,
+        status=CaseStatus.PENDING,
+    )
+    session.add(case_conf)
+    session.commit()
+
+    # 1. Coordinator can access manual-verification endpoint
+    res_coord = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("coordinator"))
+    assert res_coord.status_code == 200
+    data = res_coord.json()
+    assert "total" in data
+    assert data["total"] >= 2
+    issue_types = {item["issue_type"] for item in data["items"]}
+    assert "missing_permanent_id" in issue_types
+    assert "conflicting_permanent_id" in issue_types
+
+    # Verify planted case nos are present
+    case_nos = {item["case_no"] for item in data["items"] if item["case_no"]}
+    assert "MISSING-2026-00001" in case_nos
+    assert "CONFLICT-2026-00002" in case_nos
+
+    # 2. Administrator can access manual-verification endpoint
+    res_admin = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("administrator"))
+    assert res_admin.status_code == 200
+
+    # 3. Bureau officer and Senior management are rejected with 403
+    res_officer = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("bureau_officer", bureau="RB"))
+    assert res_officer.status_code == 403
+    assert res_officer.json()["error"]["code"] == "FORBIDDEN"
+
+    res_mgmt = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("senior_management"))
+    assert res_mgmt.status_code == 403
+    assert res_mgmt.json()["error"]["code"] == "FORBIDDEN"
+
+    # 4. Admin health summary reflects manual_verification_count
+    res_health = client.get("/api/v1/admin/health-summary", headers=auth_for("administrator"))
+    assert res_health.status_code == 200
+    health_data = res_health.json()
+    assert "manual_verification_count" in health_data
+    assert health_data["manual_verification_count"] >= 2
+

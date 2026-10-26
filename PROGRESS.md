@@ -7,7 +7,7 @@
 - Phase 14: alerts (pytest, /docs check)
 - Phase 15: dashboard summary and reports (pytest; totals checked on seed data)
 - Phase 16: mock login and roles (pytest: 42 passed)
-- Phase 4 : seed_demo.py run — 5 institutions, 24 cases seeded; data/seed/institutions.csv, cases.csv, events.csv exported; data/labelled_pairs.csv generated (280 pairs: 11 related, 269 not_related)
+- Phase 4 : seed_demo.py run — 5 institutions, 24 cases seeded; data/seed/institutions.csv, cases.csv, events.csv exported. (Note: the initial 280 circular pairs from seed generator were superseded by data/labelled_pairs.csv with 986 pairs; obsolete data/seed/labelled_pairs.csv removed).
 - Phase 5 : POST /cases (auto case_no from counters), PATCH /cases/{case_no} (next_action, expected_disposal_date, assigned_officer, priority); 69 pytest passed
 - Phase 7 (Frontend Core Pages & Integration):
   - In-memory auto-login on app start (`POST /api/v1/auth/mock-login` with `{"role": "coordinator"}`), sending `Authorization: Bearer <token>` on every request.
@@ -54,17 +54,33 @@
 - `data/labelled_pairs.csv` (986 pairs, all same-institution/cross-Bureau):
   **180 related, 806 not_related**. Hard cases: **63** same-issue/different-
   category positives and **267** same-category/different-issue negatives.
-- Evaluation uses the engine unchanged (no tuning) on a stratified 493/493
-  dev/test split:
-  - all pairs: **P=0.276, R=0.928, F1=0.425** (TP=167, FP=439, FN=13, TN=367)
-  - held-out test: **P=0.273, R=0.944, F1=0.424** (TP=85, FP=226, FN=5, TN=177)
-  - baseline: P=0.183, R=1.000, F1=0.309 (TP=180, FP=806)
-  - precision gain over baseline **+0.093**, recall cost **−0.072**
-- Error counts: 250/439 false positives are same-category/different-issue
-  (the old circular signal); 189/439 are text-only; all 13 misses are
-  low-overlap paraphrases scored Low (none filtered by candidate rules).
-- `docs/eval.md` records construction, counts, results and limitations.
-- Engine (`services/overlap.py`) intentionally unchanged for this measurement.
+- Tuned Overlap Engine (`backend/app/services/overlap.py`):
+  - Category alone -> Low; Medium requires a text similarity signal.
+  - TF-IDF vectorizer fit once on all descriptions, cached and invalidated on corpus changes.
+  - Deviation from original plan: RapidFuzz token-set similarity was dropped (text similarity uses TF-IDF cosine only; RapidFuzz retained solely for reference code matching in `check_shared_reference`).
+  - Bands: High (shared reference OR sim >= 0.16 + same/related category), Medium (sim >= 0.14), Low (same institution + different Bureau).
+  - Fixed vectorizer: `ngram_range=(1, 2), stop_words="english", min_df=1`.
+- Methodology Disclosures & Measured results:
+  - Exploratory threshold sweeps over all 986 pairs (including test split) were run before the split was established; therefore, the test split is **NOT strictly held out**.
+  - Development (504 pairs): **P=0.860, R=0.533, F1=0.658** (TP=49, FP=8, FN=43, TN=404). Dev recall of 0.533 only just satisfies the $\ge 0.50$ operational constraint.
+  - Test split (482 pairs): **P=0.893, R=0.761, F1=0.822** (TP=67, FP=8, FN=21, TN=386).
+  - All pairs (986 pairs): **P=0.879, R=0.644, F1=0.744** (TP=116, FP=16, FN=64, TN=790).
+  - Missed pairs: **64 of 180 related pairs** (35.6%) are missed (scored Low) as zero-similarity paraphrases where cases share an underlying issue with no lexical overlap.
+  - False positives slashed from **439 down to 16** (a 96.4% reduction).
+  - Baseline: P=0.183, R=1.000, F1=0.309 (TP=180, FP=806).
+- Confirmatory Result via Fresh-Seed Check (`data/eval_fresh/`, seed `20261025`):
+  - Generated *after* thresholds were frozen; serves as the true confirmatory run, with the caveat that it uses the same generator logic and templates as the primary corpus.
+  - Dev: P=0.911, R=0.783, F1=0.842 (TP=72, FP=7, FN=20, TN=414)
+  - Test: P=0.929, R=0.739, F1=0.823 (TP=65, FP=5, FN=23, TN=394)
+  - All: P=0.919, R=0.761, F1=0.833 (TP=137, FP=12, FN=43, TN=808)
+  - Confirms threshold stability across random generation seeds without modifying `data/eval/`.
+- 200-Case Demo Seed verification:
+  - Central demo pair `PG-2026-00104 / RB-2026-00219` flagged as **HIGH** with explainable reasons.
+  - Medium count drops from 210 down to **56** (well below 210).
+  - Rescan generates **0 duplicate links**.
+  - Planted true pairs found at Medium or above; near-misses score Low.
+- `docs/eval.md` updated with full protocol, exact counts, and disclosure.
+- Ground truth file `data/planted_truth.md` preserved without modification.
 
 ## Verified — Phase 13 & 15 (Frontend Overlap Queue & Reports UI)
 - PR #12 merged:

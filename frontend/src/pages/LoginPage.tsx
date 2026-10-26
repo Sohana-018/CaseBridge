@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Layers,
   Lock,
@@ -20,6 +20,7 @@ import type { DemoAccount } from '../api/client';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -56,10 +57,13 @@ export const LoginPage: React.FC = () => {
 
     try {
       const res = await loginWithCredentials(username.trim(), password);
-      if (res.user.role === 'administrator') {
-        navigate('/admin');
+      const fromPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+      if (fromPath && (fromPath !== '/admin' || res.user.role === 'administrator')) {
+        navigate(fromPath, { replace: true });
+      } else if (res.user.role === 'administrator') {
+        navigate('/admin', { replace: true });
       } else {
-        navigate('/');
+        navigate('/', { replace: true });
       }
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please verify your credentials.');
@@ -76,10 +80,13 @@ export const LoginPage: React.FC = () => {
 
     try {
       const res = await loginWithCredentials(acc.username, acc.password_hint);
-      if (res.user.role === 'administrator') {
-        navigate('/admin');
+      const fromPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+      if (fromPath && (fromPath !== '/admin' || res.user.role === 'administrator')) {
+        navigate(fromPath, { replace: true });
+      } else if (res.user.role === 'administrator') {
+        navigate('/admin', { replace: true });
       } else {
-        navigate('/');
+        navigate('/', { replace: true });
       }
     } catch (err: any) {
       setError(err?.message || 'Quick login failed.');

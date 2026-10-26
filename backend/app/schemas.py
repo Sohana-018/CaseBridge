@@ -113,6 +113,7 @@ class CasePatch(BaseModel):
     expected_disposal_date: Optional[date] = None
     assigned_officer: Optional[str] = None
     priority: Optional[Priority] = None
+    received_date: Optional[date] = None
 
 
 class EventCreate(BaseModel):
@@ -201,3 +202,22 @@ class OverlapScanResponse(BaseModel):
 class OverlapReviewRequest(BaseModel):
     decision: ReviewStatus
     note: Optional[str] = None
+
+
+class ManualVerificationItem(BaseModel):
+    id: str
+    case_no: Optional[str] = None
+    case_id: Optional[int] = None
+    institution_id: Optional[int] = None
+    institution_name: str
+    permanent_id: Optional[str] = None
+    issue_type: str
+    reason: str
+    bureau: Optional[str] = None
+    received_date: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ManualVerificationResponse(BaseModel):
+    total: int
+    items: List[ManualVerificationItem]

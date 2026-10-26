@@ -291,3 +291,74 @@ def test_empty_database_returns_zeros_without_errors():
             if kind == "disposal":
                 assert rep["disposal_rate"] == 0.0
                 assert rep["disposed"] == 0
+
+
+def test_export_report_csv_all_kinds_and_sql_parity(client_and_session):
+    """Test CSV export for all 7 report kinds:
+    - Verifies HTTP 200, content-type and filename header
+    - Parses CSV and verifies sum of counts equals report total
+    - Cross-checks 3 totals via direct SQL queries
+    """
+    import csv
+    import io
+    from sqlmodel import select, func
+
+    client, session = client_and_session
+
+    # 1. Direct SQL baseline recomputations
+    sql_total_cases = session.exec(select(func.count(Case.id))).one()
+    assert sql_total_cases == 6
+
+    sql_open_cases = session.exec(
+        select(func.count(Case.id)).where(Case.status != CaseStatus.DISPOSED)
+    ).one()
+    assert sql_open_cases == 4
+
+    sql_overlap_links = session.exec(select(func.count(OverlapLink.id))).one()
+    assert sql_overlap_links == 1
+
+    kinds = ["bureau", "status", "region", "institution", "ageing", "disposal", "overlap_outcomes"]
+
+    for kind in kinds:
+        # Fetch json report
+        json_res = client.get(f"/api/v1/reports/{kind}")
+        assert json_res.status_code == 200
+        json_data = json_res.json()
+        expected_total = json_data["total"]
+
+        # Fetch CSV export
+        csv_res = client.get(f"/api/v1/reports/{kind}/csv")
+        assert csv_res.status_code == 200
+        assert "text/csv" in csv_res.headers["content-type"]
+        assert f'filename="casebridge_report_{kind}.csv"' in csv_res.headers["content-disposition"]
+
+        # Parse CSV rows
+        reader = csv.DictReader(io.StringIO(csv_res.text))
+        rows = list(reader)
+
+        assert "count" in reader.fieldnames
+        assert "percentage" in reader.fieldnames
+
+        csv_sum = sum(int(row["count"]) for row in rows)
+        assert csv_sum == expected_total
+
+    # Verify specific SQL parity
+    bureau_rep = client.get("/api/v1/reports/bureau").json()
+    assert bureau_rep["total"] == sql_total_cases
+
+    ageing_rep = client.get("/api/v1/reports/ageing").json()
+    assert ageing_rep["total"] == sql_open_cases
+
+    overlap_rep = client.get("/api/v1/reports/overlap_outcomes").json()
+    assert overlap_rep["total"] == sql_overlap_links
+
+
+def test_unknown_report_csv_returns_404(client_and_session):
+    """Test unknown report kind returns 404 for CSV export."""
+    client, _ = client_and_session
+    res = client.get("/api/v1/reports/nonexistent/csv")
+    assert res.status_code == 404
+    data = res.json()
+    assert "error" in data
+    assert data["error"]["code"] == "NOT_FOUND"
+

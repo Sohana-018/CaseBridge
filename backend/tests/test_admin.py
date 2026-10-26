@@ -97,9 +97,25 @@ def test_real_login_unknown_user(client: TestClient):
 
 
 def test_admin_access_forbidden_for_non_admin(client: TestClient):
-    token = get_token("coordinator")
-    res = client.get("/api/v1/admin/users", headers={"Authorization": f"Bearer {token}"})
-    assert res.status_code == 403
+    """Ensure all non-administrator roles are rejected with 403 on admin endpoints."""
+    non_admin_roles = ["coordinator", "bureau_officer", "senior_management"]
+    admin_endpoints = [
+        ("GET", "/api/v1/admin/users"),
+        ("POST", "/api/v1/admin/users"),
+        ("GET", "/api/v1/admin/health-summary"),
+        ("GET", "/api/v1/admin/audit-logs"),
+    ]
+    for role in non_admin_roles:
+        token = get_token(role)
+        headers = {"Authorization": f"Bearer {token}"}
+        for method, endpoint in admin_endpoints:
+            if method == "GET":
+                res = client.get(endpoint, headers=headers)
+            else:
+                res = client.post(endpoint, headers=headers, json={"username": "dummy"})
+            assert res.status_code == 403, f"Role {role} should be forbidden on {method} {endpoint}, got {res.status_code}"
+            assert res.json()["error"]["code"] == "FORBIDDEN"
+
 
 
 def test_admin_list_users(client: TestClient):
