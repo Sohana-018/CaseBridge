@@ -27,11 +27,12 @@
   PRD Section 9.4, and no auto-merge/auto-close.
 - `POST /api/v1/overlaps/scan` replays detection; existing pairs (including
   reviewed ones) are never overwritten.
-- Scan on the seeded DB: **29 pairs — 1 high, 10 medium, 18 low**; 11 overlap
-  alerts created for Medium/High only. Demo pair `PG-2026-00104` /
+- Scan on the 200-case demo seed: **535 pairs — 30 high, 45 medium, 460 low**; 75 overlap
+  alerts created for Actionable Medium/High only. Demo pair `PG-2026-00104` /
   `RB-2026-00219` is High with reasons
-  `same_permanent_id`, `same_category`, `text_similarity 0.63`,
+  `same_permanent_id`, `same_category`, `text_similarity 0.23`,
   `date_proximity 14 days`.
+
 - `GET /api/v1/overlaps`, `GET /api/v1/overlaps/{id}` and
   `POST /api/v1/overlaps/{id}/review` implemented. Review decisions
   (related / duplicate / not_related / needs_review) append a `review` event to
@@ -75,10 +76,12 @@
   - All: P=0.919, R=0.761, F1=0.833 (TP=137, FP=12, FN=43, TN=808)
   - Confirms threshold stability across random generation seeds without modifying `data/eval/`.
 - 200-Case Demo Seed verification:
-  - Central demo pair `PG-2026-00104 / RB-2026-00219` flagged as **HIGH** with explainable reasons.
-  - Medium count drops from 210 down to **56** (well below 210).
+  - Central demo pair `PG-2026-00104 / RB-2026-00219` flagged as **HIGH** with explainable reasons (`text_similarity 0.23`).
+  - Candidate pairs evaluated: **535** (High: **30**, Medium: **45**, Low: **460**).
+  - Medium count drops from 210 down to **45** (substantially reduced).
   - Rescan generates **0 duplicate links**.
   - Planted true pairs found at Medium or above; near-misses score Low.
+
 - `docs/eval.md` updated with full protocol, exact counts, and disclosure.
 - Ground truth file `data/planted_truth.md` preserved without modification.
 
