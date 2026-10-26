@@ -13,7 +13,13 @@ from app.permissions import UserPayload, check_admin_permission
 from app.routers.auth import VALID_BUREAUS, VALID_ROLES, get_current_user
 from app.services.overlap import detect_overlaps
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+def require_admin(current_user: UserPayload = Depends(get_current_user)) -> UserPayload:
+    """Enforce administrator role dependency before body parsing."""
+    check_admin_permission(current_user)
+    return current_user
+
+
+router = APIRouter(prefix="/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 
 
 class AdminUserResponse(BaseModel):

@@ -21,8 +21,20 @@ env_file = BASE_DIR / ".env"
 if env_file.exists():
     load_dotenv(dotenv_path=env_file)
 
-JWT_SECRET = os.getenv("JWT_SECRET", "demo-secret-key-for-casebridge-sih26264")
+ENV = os.getenv("ENV", "dev").lower()
+_raw_secret = os.getenv("JWT_SECRET")
+if not _raw_secret:
+    if ENV == "dev":
+        _raw_secret = "dev-secret-key-for-casebridge-sih26264"
+    else:
+        raise RuntimeError("JWT_SECRET environment variable must be set in non-dev environment")
+JWT_SECRET = _raw_secret
 JWT_ALGORITHM = "HS256"
+
+
+def is_demo_login_allowed() -> bool:
+    """Return True if demo mock-login and demo credentials are enabled."""
+    return os.getenv("ALLOW_DEMO_LOGIN", "false").lower() in ("true", "1", "yes")
 
 VALID_ROLES = {
     "bureau_officer",
@@ -61,7 +73,7 @@ def create_token(user: UserPayload) -> str:
         "bureau": user.bureau,
         "name": user.name,
         "iat": datetime.now(timezone.utc),
-        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=12),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -146,7 +158,19 @@ def login_with_credentials(
 )
 def mock_login(request: LoginRequest):
     """Authenticate as a demo role and receive a signed JWT token."""
+    if not is_demo_login_allowed():
+        raise ForbiddenError(
+            "Mock login is disabled in this environment. Please authenticate at /auth/login with valid credentials.",
+            details={"allow_demo_login": False},
+        )
+
     role = request.role.strip().lower()
+
+    if role == "administrator":
+        raise ForbiddenError(
+            "Administrator role cannot be issued via mock-login. Administrator credentials required at /auth/login.",
+            details={"role": request.role},
+        )
 
     if role not in VALID_ROLES:
         raise ValidationError(
@@ -178,8 +202,6 @@ def mock_login(request: LoginRequest):
             name = "Demo Coordinator"
         elif role == "senior_management":
             name = "Senior Management (demo)"
-        elif role == "administrator":
-            name = "Demo Administrator"
     else:
         name = name.strip()
 
@@ -204,6 +226,12 @@ def mock_login(request: LoginRequest):
 )
 def get_demo_accounts():
     """List available demo credentials for fast login during evaluation."""
+    if not is_demo_login_allowed():
+        raise ForbiddenError(
+            "Demo accounts endpoint is disabled. Set ALLOW_DEMO_LOGIN=true to enable.",
+            details={"allow_demo_login": False},
+        )
+
     return [
         {
             "username": "admin",
