@@ -111,13 +111,13 @@ def ack_alert(
 @router.post(
     "/refresh",
     status_code=status.HTTP_200_OK,
-    summary="Trigger alert rules evaluation (Demo Helper)",
+    summary="Trigger alert rules evaluation",
 )
 def trigger_alert_refresh(
     session: Session = Depends(get_session),
     current_user: UserPayload = Depends(get_current_user),
 ):
-    """Demo helper endpoint (addition to API contract): Triggers alert rules evaluation across all cases.
+    """Evaluate and refresh alert rules across all active cases.
 
     Permissions: bureau_officer, coordinator, administrator. senior_management gets FORBIDDEN.
     """

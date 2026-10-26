@@ -11,7 +11,7 @@ def record_case_event(
     session: Session,
     case_no: str,
     event_data: Union[EventCreate, dict],
-    actor: str = "demo user (demo)",
+    actor: str = "System Officer",
 ) -> CaseEvent:
     """Validate request, append a case_events row, and update case fields in a single transaction.
 

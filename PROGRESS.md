@@ -16,7 +16,7 @@
   - Institution detail page: Profile from `GET /api/v1/institutions/{permanent_id}` and consolidated case list with status chips linking to case details.
   - Case detail page (`/cases/:case_no`): Case metadata from `GET /api/v1/cases/{case_no}` plus chronological event timeline from `GET /api/v1/cases/{case_no}/events` (oldest first, with who, when, event type, and remarks).
   - Cohesive government dashboard visual design (deep navy/blue primary, unified status chip and KPI palette, white cards with subtle borders, zebra/hover table rows).
-  - Loading, empty, and error states across all pages; Navbar links to Overview and Institutions with active highlights; Footer displaying "Synthetic demo data".
+  - Loading, empty, and error states across all pages; Navbar links to Overview and Institutions with active highlights; Footer displaying official grievance monitoring platform details.
   - Frontend production build (`npm run build`) and lint (`npm run lint`) pass with 0 errors.
 
 ## Verified — Phase 11 (overlap detection engine)

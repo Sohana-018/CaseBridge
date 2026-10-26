@@ -4,8 +4,6 @@
 
 CaseBridge provides internal monitoring and coordination for authorised AICTE officials. It offers a single-window view of all institution complaint cases, tracks ownership and history, and flags cross-Bureau overlaps with explainable reasoning.
 
-> **Note:** All data used across this platform is **synthetic demo data**.
-
 ---
 
 ## Repository Structure
@@ -22,8 +20,8 @@ casebridge/
     .env.example         # Example environment template
     requirements.txt     # Python dependencies
   data/
-    seed/                # Synthetic seed CSVs
-    README.md            # Synthetic data declaration
+    seed/                # Baseline seed CSVs
+    README.md            # Data directory documentation
   scripts/               # Maintenance and evaluation scripts
   frontend/
     src/
@@ -31,7 +29,6 @@ casebridge/
       components/        # Shared UI components
       pages/             # Page views
       styles/            # Global styles and Tailwind configuration
-      mock/              # Contract mock structures
     .env                 # Frontend runtime environment configuration
     .env.example         # Example environment template
   docs/

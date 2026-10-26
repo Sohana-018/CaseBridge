@@ -90,7 +90,7 @@ DEFAULT_CONFIG_ENTRIES = [
     ("sla_breach_days", "14"),
     ("max_active_cases_per_officer", "25"),
     ("auto_scan_enabled", "true"),
-    ("system_mode", "demo"),
+    ("system_mode", "operational"),
     ("organization_name", "All India Council for Technical Education (AICTE)"),
 ]
 

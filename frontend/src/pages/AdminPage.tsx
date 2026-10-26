@@ -592,7 +592,7 @@ export const AdminPage: React.FC = () => {
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
             <h3 className="font-bold text-slate-900 text-base mb-1">Configurable System Parameters</h3>
             <p className="text-xs text-slate-500 mb-6">
-              Adjust demo rules, warning horizons, and institutional thresholds ({configs.length} active parameters):
+              Adjust operational rules, warning horizons, and institutional thresholds ({configs.length} active parameters):
             </p>
 
             <div className="space-y-4">
@@ -652,15 +652,15 @@ export const AdminPage: React.FC = () => {
                   System Mode
                 </label>
                 <select
-                  value={configEdits['system_mode'] || 'demo'}
+                  value={configEdits['system_mode'] || 'operational'}
                   onChange={(e) =>
                     setConfigEdits({ ...configEdits, system_mode: e.target.value })
                   }
                   className="w-full sm:w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
                 >
-                  <option value="demo">Demo (Synthetic Data Flagged)</option>
-                  <option value="evaluation">Evaluation (Rigid Benchmarking)</option>
-                  <option value="production">Production Pilot</option>
+                  <option value="operational">Operational Monitoring</option>
+                  <option value="evaluation">Evaluation Benchmarking</option>
+                  <option value="production">Production Live</option>
                 </select>
               </div>
 

@@ -193,15 +193,15 @@ def mock_login(request: LoginRequest):
             )
         bureau = bureau_val
 
-    # Default readable demo name if not provided
+    # Default readable role name if not provided
     name = request.name
     if not name or not name.strip():
         if role == "bureau_officer":
-            name = f"{bureau} Officer (demo)"
+            name = f"{bureau} Bureau Officer"
         elif role == "coordinator":
-            name = "Demo Coordinator"
+            name = "Grievance Coordinator"
         elif role == "senior_management":
-            name = "Senior Management (demo)"
+            name = "Senior Management Executive"
     else:
         name = name.strip()
 
