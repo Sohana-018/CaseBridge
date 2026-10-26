@@ -439,6 +439,21 @@ export const AdminPage: React.FC = () => {
                     {health.overdue_cases} cases
                   </span>
                 </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50">
+                  <div className="text-xs font-semibold text-slate-700">
+                    Missing / Conflicting Permanent ID Items
+                  </div>
+                  <span
+                    className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                      (health.manual_verification_count ?? 0) > 0
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {health.manual_verification_count ?? 0} items
+                  </span>
+                </div>
               </div>
             </div>
 

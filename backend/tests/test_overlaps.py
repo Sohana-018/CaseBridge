@@ -396,3 +396,93 @@ def test_text_similarity_bounds():
     assert text_similarity("same text here", "same text here") == pytest.approx(1.0)
     assert text_similarity("", "anything") == 0.0
     assert 0.0 <= text_similarity("alpha beta", "gamma delta") <= 1.0
+
+
+def test_manual_verification_missing_and_conflicting_id(client_and_session):
+    client, session = client_and_session
+
+    # Plant 1: Institution with missing/unknown permanent_id and an associated case
+    inst_missing = Institution(
+        permanent_id="UNKNOWN",
+        name="Planted Missing ID Institute",
+        region=Region.NORTH,
+    )
+    session.add(inst_missing)
+    session.commit()
+    session.refresh(inst_missing)
+
+    case_missing = Case(
+        case_no="MISSING-2026-00001",
+        institution_id=inst_missing.id,
+        bureau=Bureau.RB,
+        category=CaseCategory.INFRASTRUCTURE,
+        description="Case with missing institution permanent_id",
+        received_date=TODAY,
+        status=CaseStatus.PENDING,
+    )
+    session.add(case_missing)
+
+    # Plant 2: Two institutions with conflicting permanent_ids for the same institution name
+    inst_conf_a = Institution(
+        permanent_id="CONFLICT-PID-001",
+        name="National Apex Institute of Technology",
+        region=Region.WEST,
+    )
+    inst_conf_b = Institution(
+        permanent_id="CONFLICT-PID-002",
+        name="National Apex Institute of Technology",
+        region=Region.WEST,
+    )
+    session.add(inst_conf_a)
+    session.add(inst_conf_b)
+    session.commit()
+    session.refresh(inst_conf_a)
+    session.refresh(inst_conf_b)
+
+    case_conf = Case(
+        case_no="CONFLICT-2026-00002",
+        institution_id=inst_conf_a.id,
+        bureau=Bureau.PGRC,
+        category=CaseCategory.FACULTY,
+        description="Case with conflicting institution records",
+        received_date=TODAY,
+        status=CaseStatus.PENDING,
+    )
+    session.add(case_conf)
+    session.commit()
+
+    # 1. Coordinator can access manual-verification endpoint
+    res_coord = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("coordinator"))
+    assert res_coord.status_code == 200
+    data = res_coord.json()
+    assert "total" in data
+    assert data["total"] >= 2
+    issue_types = {item["issue_type"] for item in data["items"]}
+    assert "missing_permanent_id" in issue_types
+    assert "conflicting_permanent_id" in issue_types
+
+    # Verify planted case nos are present
+    case_nos = {item["case_no"] for item in data["items"] if item["case_no"]}
+    assert "MISSING-2026-00001" in case_nos
+    assert "CONFLICT-2026-00002" in case_nos
+
+    # 2. Administrator can access manual-verification endpoint
+    res_admin = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("administrator"))
+    assert res_admin.status_code == 200
+
+    # 3. Bureau officer and Senior management are rejected with 403
+    res_officer = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("bureau_officer", bureau="RB"))
+    assert res_officer.status_code == 403
+    assert res_officer.json()["error"]["code"] == "FORBIDDEN"
+
+    res_mgmt = client.get("/api/v1/overlaps/manual-verification", headers=auth_for("senior_management"))
+    assert res_mgmt.status_code == 403
+    assert res_mgmt.json()["error"]["code"] == "FORBIDDEN"
+
+    # 4. Admin health summary reflects manual_verification_count
+    res_health = client.get("/api/v1/admin/health-summary", headers=auth_for("administrator"))
+    assert res_health.status_code == 200
+    health_data = res_health.json()
+    assert "manual_verification_count" in health_data
+    assert health_data["manual_verification_count"] >= 2
+

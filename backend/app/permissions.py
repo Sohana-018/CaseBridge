@@ -121,6 +121,23 @@ def check_overlap_review_permission(user: UserPayload) -> None:
     )
 
 
+def check_manual_verification_permission(user: UserPayload) -> None:
+    """Enforce permission rules for viewing the manual verification queue.
+
+    Rules:
+    - coordinator and administrator: permitted.
+    - bureau_officer and senior_management: FORBIDDEN.
+    """
+    allowed_roles = {"coordinator", "administrator"}
+    if user.role in allowed_roles:
+        return
+
+    raise ForbiddenError(
+        f"Role '{user.role}' is not permitted to access manual verification queue.",
+        details={"role": user.role},
+    )
+
+
 def is_full_case_visible(user: UserPayload, case_bureau: str) -> bool:
     """Check if the user has full case visibility or summary-only visibility.
 

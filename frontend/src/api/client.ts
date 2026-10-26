@@ -742,7 +742,31 @@ export interface SystemHealthSummary {
   unassigned_cases: number;
   cases_missing_deadline: number;
   overdue_cases: number;
+  manual_verification_count?: number;
   db_status: string;
+}
+
+export interface ManualVerificationItem {
+  id: string;
+  case_no?: string | null;
+  case_id?: number | null;
+  institution_id?: number | null;
+  institution_name: string;
+  permanent_id?: string | null;
+  issue_type: string;
+  reason: string;
+  bureau?: string | null;
+  received_date?: string | null;
+  status?: string | null;
+}
+
+export interface ManualVerificationResponse {
+  total: number;
+  items: ManualVerificationItem[];
+}
+
+export async function getManualVerificationQueue(): Promise<ManualVerificationResponse> {
+  return apiFetch<ManualVerificationResponse>('/api/v1/overlaps/manual-verification');
 }
 
 export async function getDemoAccounts(): Promise<DemoAccount[]> {

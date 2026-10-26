@@ -7,10 +7,12 @@ import {
   submitOverlapReview,
   getCaseDetail,
   getCurrentUser,
+  getManualVerificationQueue,
   type UserPayload,
   type OverlapItem,
   type OverlapListResponse,
   type CaseItem,
+  type ManualVerificationItem,
   type ConfidenceBand,
   type ReviewStatus,
   type ReviewDecision,
@@ -72,6 +74,10 @@ export const OverlapQueuePage: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserPayload | null>(() => getCurrentUser());
   const isCoordinator = currentUser?.role === 'coordinator';
   const canScan = currentUser?.role === 'coordinator' || currentUser?.role === 'administrator';
+
+  // Manual verification items (Phase 11: missing or conflicting permanent_id)
+  const [manualItems, setManualItems] = useState<ManualVerificationItem[]>([]);
+  const [manualLoading, setManualLoading] = useState<boolean>(false);
   const isOfficerOtherBureau = (bureau: string) =>
     currentUser?.role === 'bureau_officer' &&
     Boolean(currentUser?.bureau && bureau && currentUser.bureau.toUpperCase() !== bureau.toUpperCase());
@@ -105,9 +111,23 @@ export const OverlapQueuePage: React.FC = () => {
     }
   }, [selectedStatus, selectedBand, page, pageSize]);
 
+  const fetchManualQueue = useCallback(async () => {
+    if (!canScan) return;
+    setManualLoading(true);
+    try {
+      const res = await getManualVerificationQueue();
+      setManualItems(res.items || []);
+    } catch {
+      // ignore
+    } finally {
+      setManualLoading(false);
+    }
+  }, [canScan]);
+
   useEffect(() => {
     fetchQueue();
-  }, [fetchQueue]);
+    fetchManualQueue();
+  }, [fetchQueue, fetchManualQueue]);
 
   // Fetch full details for cases visible in the current overlap list
   useEffect(() => {
@@ -792,6 +812,107 @@ export const OverlapQueuePage: React.FC = () => {
             </nav>
           )}
         </div>
+      )}
+
+      {/* Manual Verification List Section (FR12 / Phase 11 Acceptance) */}
+      {canScan && (
+        <section aria-labelledby="manual-verification-heading" className="mt-10 border-t border-slate-200 pt-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <h2 id="manual-verification-heading" className="text-lg font-bold text-slate-900 tracking-tight">
+                Manual Verification Queue
+              </h2>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                manualItems.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {manualItems.length} {manualItems.length === 1 ? 'item' : 'items'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={fetchManualQueue}
+              disabled={manualLoading}
+              className="text-xs font-semibold text-blue-900 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw className={`w-3 h-3 ${manualLoading ? 'animate-spin' : ''}`} />
+              <span>Refresh list</span>
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            Per Phase 11 Acceptance: Cases and institutions with missing or conflicting permanent_id must be listed for manual coordinator verification and are never guessed by the engine.
+          </p>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            {manualLoading ? (
+              <div className="p-8 text-center text-xs text-slate-500">Checking data quality records...</div>
+            ) : manualItems.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 bg-slate-50/50">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+                No records currently require manual identity verification. All active cases resolve to valid, consistent permanent IDs.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-2.5 px-3">Case / Item</th>
+                      <th className="py-2.5 px-3">Institution Name</th>
+                      <th className="py-2.5 px-3">Permanent ID</th>
+                      <th className="py-2.5 px-3">Issue Category</th>
+                      <th className="py-2.5 px-3">Diagnostic Reason</th>
+                      <th className="py-2.5 px-3">Bureau / Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {manualItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-amber-50/40 transition">
+                        <td className="py-2.5 px-3 font-mono font-medium text-slate-900">
+                          {item.case_no ? (
+                            <Link to={`/cases/${item.case_no}`} className="text-blue-900 hover:underline">
+                              {item.case_no}
+                            </Link>
+                          ) : (
+                            <span className="text-slate-500">Inst #{item.institution_id}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-800 font-medium">
+                          {item.institution_name}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {item.permanent_id ? (
+                            <code className="text-slate-700 font-mono text-[11px] bg-slate-100 px-1 py-0.5 rounded">
+                              {item.permanent_id}
+                            </code>
+                          ) : (
+                            <span className="text-red-700 font-semibold bg-red-50 px-1.5 py-0.5 rounded text-[11px]">
+                              Missing
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
+                            item.issue_type === 'missing_permanent_id'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {item.issue_type === 'missing_permanent_id' ? 'Missing ID' : 'Conflicting ID'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-600 max-w-xs truncate" title={item.reason}>
+                          {item.reason}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-500 text-[11px]">
+                          {item.bureau || '—'} {item.received_date ? `· ${item.received_date}` : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
       )}
     </main>
   );

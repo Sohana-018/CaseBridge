@@ -435,3 +435,134 @@ def open_overlaps_for_cases(session: Session, case_ids: List[int]) -> List[Dict[
         )
     ).all()
     return [get_overlap_read(session, link) for link in links]
+
+
+def find_manual_verification_items(session: Session) -> List[Dict[str, Any]]:
+    """Scan database for cases or institutions with missing or conflicting permanent_id (Phase 11 acceptance).
+
+    Cases and institutions with missing or conflicting IDs must be listed, never guessed.
+    """
+    from collections import defaultdict
+    items: List[Dict[str, Any]] = []
+
+    all_insts = session.exec(select(Institution)).all()
+    inst_by_id = {inst.id: inst for inst in all_insts}
+
+    # 1. Institutions with missing or invalid permanent_id
+    missing_inst_ids = set()
+    for inst in all_insts:
+        pid = (inst.permanent_id or "").strip()
+        if not pid or pid.upper() in ("UNKNOWN", "MISSING", "NONE", "UNRESOLVED", "TEMP"):
+            missing_inst_ids.add(inst.id)
+            items.append({
+                "id": f"inst-{inst.id}",
+                "case_no": None,
+                "case_id": None,
+                "institution_id": inst.id,
+                "institution_name": inst.name,
+                "permanent_id": inst.permanent_id,
+                "issue_type": "missing_permanent_id",
+                "reason": f"Institution record '{inst.name}' has missing or unresolved permanent_id ('{inst.permanent_id}')",
+                "bureau": None,
+                "received_date": None,
+                "status": None,
+            })
+
+    # 2. Conflicting permanent_id across institutions (same normalized name, different permanent_ids)
+    name_to_insts = defaultdict(list)
+    for inst in all_insts:
+        norm_name = inst.name.strip().lower()
+        name_to_insts[norm_name].append(inst)
+
+    conflicting_inst_ids = set()
+    for norm_name, inst_group in name_to_insts.items():
+        distinct_pids = {i.permanent_id for i in inst_group if i.permanent_id}
+        if len(distinct_pids) > 1:
+            for inst in inst_group:
+                conflicting_inst_ids.add(inst.id)
+                items.append({
+                    "id": f"conflict-inst-{inst.id}",
+                    "case_no": None,
+                    "case_id": None,
+                    "institution_id": inst.id,
+                    "institution_name": inst.name,
+                    "permanent_id": inst.permanent_id,
+                    "issue_type": "conflicting_permanent_id",
+                    "reason": f"Conflicting permanent IDs detected for institution '{inst.name}': {sorted(list(distinct_pids))}",
+                    "bureau": None,
+                    "received_date": None,
+                    "status": None,
+                })
+
+    # 3. Cases associated with missing or conflicting permanent_ids, or missing institution_id
+    cases = session.exec(select(Case)).all()
+    for case in cases:
+        bureau_str = case.bureau.value if hasattr(case.bureau, "value") else str(case.bureau)
+        status_str = case.status.value if hasattr(case.status, "value") else str(case.status)
+        date_str = case.received_date.isoformat() if case.received_date else None
+
+        if not case.institution_id or case.institution_id not in inst_by_id:
+            items.append({
+                "id": f"case-missing-{case.id}",
+                "case_no": case.case_no,
+                "case_id": case.id,
+                "institution_id": case.institution_id,
+                "institution_name": "Unlinked / Missing Institution",
+                "permanent_id": None,
+                "issue_type": "missing_permanent_id",
+                "reason": f"Case {case.case_no} is not linked to any valid registered institution.",
+                "bureau": bureau_str,
+                "received_date": date_str,
+                "status": status_str,
+            })
+        elif case.institution_id in missing_inst_ids:
+            inst = inst_by_id[case.institution_id]
+            items.append({
+                "id": f"case-inst-missing-{case.id}",
+                "case_no": case.case_no,
+                "case_id": case.id,
+                "institution_id": inst.id,
+                "institution_name": inst.name,
+                "permanent_id": inst.permanent_id,
+                "issue_type": "missing_permanent_id",
+                "reason": f"Case {case.case_no} belongs to institution '{inst.name}' with missing/unresolved permanent_id.",
+                "bureau": bureau_str,
+                "received_date": date_str,
+                "status": status_str,
+            })
+        elif case.institution_id in conflicting_inst_ids:
+            inst = inst_by_id[case.institution_id]
+            items.append({
+                "id": f"case-inst-conflict-{case.id}",
+                "case_no": case.case_no,
+                "case_id": case.id,
+                "institution_id": inst.id,
+                "institution_name": inst.name,
+                "permanent_id": inst.permanent_id,
+                "issue_type": "conflicting_permanent_id",
+                "reason": f"Case {case.case_no} belongs to institution '{inst.name}' with ambiguous/conflicting permanent IDs across records.",
+                "bureau": bureau_str,
+                "received_date": date_str,
+                "status": status_str,
+            })
+        else:
+            # Check case description for contradictory permanent_id mentions (e.g. text mentions another PID)
+            inst = inst_by_id[case.institution_id]
+            desc = case.description or ""
+            if "CONFLICTING_PERMANENT_ID" in desc or "conflicting permanent id" in desc.lower():
+                items.append({
+                    "id": f"case-desc-conflict-{case.id}",
+                    "case_no": case.case_no,
+                    "case_id": case.id,
+                    "institution_id": inst.id,
+                    "institution_name": inst.name,
+                    "permanent_id": inst.permanent_id,
+                    "issue_type": "conflicting_permanent_id",
+                    "reason": f"Case {case.case_no} complaint documentation specifies conflicting institution identification.",
+                    "bureau": bureau_str,
+                    "received_date": date_str,
+                    "status": status_str,
+                })
+
+    return items
+

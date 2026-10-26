@@ -11,7 +11,7 @@ from app.errors import ConflictError, ForbiddenError, NotFoundError, ValidationE
 from app.models import Alert, Bureau, Case, CaseEvent, Config, Institution, OverlapLink, User, UserRole, utc_now
 from app.permissions import UserPayload, check_admin_permission
 from app.routers.auth import VALID_BUREAUS, VALID_ROLES, get_current_user
-from app.services.overlap import detect_overlaps
+from app.services.overlap import detect_overlaps, find_manual_verification_items
 
 def require_admin(current_user: UserPayload = Depends(get_current_user)) -> UserPayload:
     """Enforce administrator role dependency before body parsing."""
@@ -84,6 +84,7 @@ class SystemHealthResponse(BaseModel):
     unassigned_cases: int
     cases_missing_deadline: int
     overdue_cases: int
+    manual_verification_count: int = 0
     db_status: str
 
 
@@ -339,6 +340,7 @@ def get_health_summary(
         unassigned_cases=unassigned,
         cases_missing_deadline=missing_deadline,
         overdue_cases=overdue,
+        manual_verification_count=len(find_manual_verification_items(session)),
         db_status="Operational (SQLite)",
     )
 

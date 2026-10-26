@@ -10,17 +10,24 @@ from app.errors import NotFoundError
 from app.models import ConfidenceBand, OverlapLink, ReviewStatus
 from app.permissions import (
     UserPayload,
+    check_manual_verification_permission,
     check_overlap_review_permission,
     check_overlap_scan_permission,
 )
 from app.routers.auth import get_current_user
 from app.schemas import (
+    ManualVerificationResponse,
     OverlapListResponse,
     OverlapRead,
     OverlapReviewRequest,
     OverlapScanResponse,
 )
-from app.services.overlap import detect_overlaps, get_overlap_read, review_overlap
+from app.services.overlap import (
+    detect_overlaps,
+    find_manual_verification_items,
+    get_overlap_read,
+    review_overlap,
+)
 
 router = APIRouter(prefix="/overlaps", tags=["Overlaps"])
 
@@ -98,6 +105,25 @@ def scan_overlaps(
     check_overlap_scan_permission(current_user)
     created = detect_overlaps(session)
     return OverlapScanResponse(created=created)
+
+
+@router.get(
+    "/manual-verification",
+    response_model=ManualVerificationResponse,
+    summary="List cases and institutions requiring manual verification (missing or conflicting permanent_id)",
+)
+def get_manual_verification(
+    session: Session = Depends(get_session),
+    current_user: UserPayload = Depends(get_current_user),
+):
+    """List records with missing or conflicting permanent_ids.
+
+    Per Phase 11 acceptance criteria: missing or conflicting permanent_id must be
+    listed and never guessed. Access restricted to Coordinator and Administrator.
+    """
+    check_manual_verification_permission(current_user)
+    items = find_manual_verification_items(session)
+    return ManualVerificationResponse(total=len(items), items=items)
 
 
 @router.get(
