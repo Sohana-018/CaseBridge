@@ -486,3 +486,18 @@ def test_manual_verification_missing_and_conflicting_id(client_and_session):
     assert "manual_verification_count" in health_data
     assert health_data["manual_verification_count"] >= 2
 
+
+def test_overlap_review_permission_check_before_body_validation(client_and_session):
+    """Item 13: Permission checks must run before request body validation.
+    bureau_officer and senior_management cannot review overlaps.
+    Sending invalid body ({}) must return 403 FORBIDDEN, not 422.
+    """
+    client, _ = client_and_session
+    for role in ["bureau_officer", "senior_management"]:
+        headers = auth_for(role, bureau="RB" if role == "bureau_officer" else None)
+        res = client.post("/api/v1/overlaps/1/review", json={}, headers=headers)
+        assert res.status_code == 403
+        data = res.json()
+        assert data["error"]["code"] == "FORBIDDEN"
+
+

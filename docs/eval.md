@@ -111,12 +111,15 @@ The consistent precision (~88%–92%) across different random generations demons
 
 ## 6. Seed-at-Scan & Demo Sanity Check (200-Case Demo Seed)
 
-Running the scan on `backend/casebridge.db` (200 cases, 25 institutions):
+Running the scan on the 200-case demo seed (`data/seed/cases.csv`, 25 institutions):
 1. **Central Demo Pair**: `PG-2026-00104 / RB-2026-00219` is flagged in band **HIGH** with explainable reasons:
-   `['same_permanent_id', 'same_category', 'text_similarity 0.63', 'date_proximity 14 days']`.
-2. **Medium Band Count**: **56** (drastically reduced from **210** in the previous baseline engine, well below the target ceiling).
+   `['same_permanent_id', 'same_category', 'text_similarity 0.23', 'date_proximity 14 days']`.
+2. **Total Detected Overlap Pairs**: **535** candidate pairs evaluated.
 3. **High Band Count**: **30** (capturing planted true pairs).
-4. **Idempotence**: A second scan creates **0 duplicate links** and preserves all existing review statuses.
+4. **Medium Band Count**: **45** (substantially reduced from 210 in the untuned baseline engine).
+5. **Low Band Count**: **460** (same institution + different Bureau informatory pairs).
+6. **Idempotence**: A second scan creates **0 duplicate links** and preserves all existing review statuses.
+
 
 ---
 

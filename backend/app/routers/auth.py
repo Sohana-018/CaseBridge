@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.auth_utils import verify_password
 from app.db import get_session
-from app.errors import ForbiddenError, ValidationError
+from app.errors import ForbiddenError, UnauthorizedError, ValidationError
 from app.models import User
 from app.permissions import UserPayload
 
@@ -83,10 +83,10 @@ def get_current_user(
 ) -> UserPayload:
     """Reusable dependency to extract and verify JWT bearer token.
 
-    Returns FORBIDDEN in the shared error format if missing or invalid.
+    Returns UNAUTHORIZED (401) in the shared error format if missing or invalid.
     """
     if not authorization or not authorization.startswith("Bearer "):
-        raise ForbiddenError(
+        raise UnauthorizedError(
             "Missing or invalid authentication token. Provide Authorization: Bearer <token>",
             details={"authorization": authorization},
         )
@@ -102,7 +102,7 @@ def get_current_user(
             username=decoded.get("username") or decoded.get("sub"),
         )
     except Exception as e:
-        raise ForbiddenError(
+        raise UnauthorizedError(
             f"Invalid or expired authentication token: {str(e)}",
             details={"error": str(e)},
         )

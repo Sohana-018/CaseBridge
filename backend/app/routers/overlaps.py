@@ -143,10 +143,16 @@ def get_overlap(
     return get_overlap_read(session, link)
 
 
+def require_overlap_review_permission(current_user: UserPayload = Depends(get_current_user)) -> UserPayload:
+    check_overlap_review_permission(current_user)
+    return current_user
+
+
 @router.post(
     "/{link_id}/review",
     response_model=OverlapRead,
     summary="Record a review decision on an overlap pair",
+    dependencies=[Depends(require_overlap_review_permission)],
 )
 def review_overlap_endpoint(
     link_id: int,

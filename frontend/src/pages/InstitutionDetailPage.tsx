@@ -171,13 +171,16 @@ export const InstitutionDetailPage: React.FC = () => {
                     <h2 className="text-base font-bold text-slate-900">
                       Potential Overlapping Cases – Coordination Required
                     </h2>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      Cross-bureau complaint cases identified for this institution requiring joint review.
+                    <p className="text-xs text-slate-600 mt-0.5" title="Open overlaps (High + Medium)">
+                      Open overlaps (High + Medium) identified for this institution requiring joint review.
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 self-start sm:self-auto">
-                  {institution.open_overlaps.length} {institution.open_overlaps.length === 1 ? 'Open Overlap' : 'Open Overlaps'}
+                <span
+                  className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 self-start sm:self-auto"
+                  title="Open overlaps (High + Medium)"
+                >
+                  {institution.open_overlaps.length} Open Overlaps (High + Medium)
                 </span>
               </div>
 

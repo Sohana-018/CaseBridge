@@ -589,4 +589,21 @@ def test_patch_case_rejects_future_received_date(client_and_session):
     assert "future" in data["error"]["message"]
 
 
+def test_permission_check_runs_before_body_validation(client_and_session):
+    """Item 13: Permission checks must run before request body validation.
+    senior_management is forbidden from write endpoints — sending an invalid body (e.g. {})
+    must return 403 FORBIDDEN, not 422 VALIDATION_ERROR.
+    """
+    client, _ = client_and_session
+    sm_token = get_auth_token("senior_management")
+    headers = {"Authorization": f"Bearer {sm_token}"}
+
+    # POST /cases with empty body {}
+    post_res = client.post("/api/v1/cases", json={}, headers=headers)
+    assert post_res.status_code == 403
+    post_data = post_res.json()
+    assert post_data["error"]["code"] == "FORBIDDEN"
+
+
+
 

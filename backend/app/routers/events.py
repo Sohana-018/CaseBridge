@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from starlette.exceptions import HTTPException
 
 from app.db import get_session
-from app.errors import NotFoundError
+from app.errors import ForbiddenError, NotFoundError
 from app.models import Case
 from app.permissions import UserPayload, check_event_post_permission
 from app.routers.auth import get_current_user
@@ -12,6 +12,15 @@ from app.schemas import EventCreate, EventRead
 from app.services.events import get_case_events, record_case_event
 
 router = APIRouter(prefix="/cases", tags=["Events"])
+
+
+def require_event_post_permission(current_user: UserPayload = Depends(get_current_user)) -> UserPayload:
+    if current_user.role in ("senior_management", "administrator"):
+        raise ForbiddenError(
+            f"Role '{current_user.role}' cannot append events to cases.",
+            details={"role": current_user.role},
+        )
+    return current_user
 
 
 @router.get(
@@ -33,6 +42,7 @@ def get_events(
     response_model=EventRead,
     status_code=status.HTTP_201_CREATED,
     summary="Append a new event to a case",
+    dependencies=[Depends(require_event_post_permission)],
 )
 def create_event(
     case_no: str,

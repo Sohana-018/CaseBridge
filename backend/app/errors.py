@@ -32,6 +32,11 @@ class NotFoundError(AppException):
         super().__init__(code="NOT_FOUND", message=message, status_code=404, details=details)
 
 
+class UnauthorizedError(AppException):
+    def __init__(self, message: str = "Unauthorized", details: Optional[Dict[str, Any]] = None):
+        super().__init__(code="UNAUTHORIZED", message=message, status_code=401, details=details)
+
+
 class ForbiddenError(AppException):
     def __init__(self, message: str = "Access forbidden", details: Optional[Dict[str, Any]] = None):
         super().__init__(code="FORBIDDEN", message=message, status_code=403, details=details)
@@ -70,6 +75,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     code_map = {
+        401: "UNAUTHORIZED",
         404: "NOT_FOUND",
         403: "FORBIDDEN",
         409: "CONFLICT",

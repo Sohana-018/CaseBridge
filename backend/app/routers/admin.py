@@ -312,7 +312,11 @@ def get_health_summary(
     total_institutions = len(session.exec(select(Institution)).all())
     overlaps = session.exec(select(OverlapLink)).all()
     total_overlaps = len(overlaps)
-    open_overlaps = sum(1 for o in overlaps if (o.review_status.value if hasattr(o.review_status, "value") else str(o.review_status)) == "open")
+    open_overlaps = sum(
+        1 for o in overlaps
+        if (o.review_status.value if hasattr(o.review_status, "value") else str(o.review_status)) == "open"
+        and (o.confidence_band.value if hasattr(o.confidence_band, "value") else str(o.confidence_band)) in ["high", "medium"]
+    )
     
     alerts = session.exec(select(Alert).where(Alert.status == "open")).all()
     open_alerts = len(alerts)
