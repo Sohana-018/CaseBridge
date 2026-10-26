@@ -53,7 +53,7 @@ export const OverlapQueuePage: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedStatus, setSelectedStatus] = useState<ReviewStatus | ''>('open');
-  const [selectedBand, setSelectedBand] = useState<ConfidenceBand | ''>('high');
+  const [selectedBand, setSelectedBand] = useState<ConfidenceBand | ''>('');
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

@@ -7,7 +7,7 @@
 - Phase 14: alerts (pytest, /docs check)
 - Phase 15: dashboard summary and reports (pytest; totals checked on seed data)
 - Phase 16: mock login and roles (pytest: 42 passed)
-- Phase 4 : seed_demo.py run — 5 institutions, 24 cases seeded; data/seed/institutions.csv, cases.csv, events.csv exported; data/labelled_pairs.csv generated (280 pairs: 11 related, 269 not_related)
+- Phase 4 : seed_demo.py run — 5 institutions, 24 cases seeded; data/seed/institutions.csv, cases.csv, events.csv exported. (Note: the initial 280 circular pairs from seed generator were superseded by data/labelled_pairs.csv with 986 pairs; obsolete data/seed/labelled_pairs.csv removed).
 - Phase 5 : POST /cases (auto case_no from counters), PATCH /cases/{case_no} (next_action, expected_disposal_date, assigned_officer, priority); 69 pytest passed
 - Phase 7 (Frontend Core Pages & Integration):
   - In-memory auto-login on app start (`POST /api/v1/auth/mock-login` with `{"role": "coordinator"}`), sending `Authorization: Bearer <token>` on every request.
