@@ -644,6 +644,28 @@ export async function getReport(kind: string): Promise<ReportData> {
   return apiFetch<ReportData>(`/api/v1/reports/${encodeURIComponent(kind)}`);
 }
 
+export async function downloadReportCsv(kind: string): Promise<void> {
+  const token = inMemoryToken || (typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_TOKEN) : null);
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const url = `${API_BASE_URL}/api/v1/reports/${encodeURIComponent(kind)}/csv`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`Failed to export CSV: HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = `casebridge_report_${kind}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
 export interface PostEventPayload {
   event_type: 'status_change' | 'transfer' | 'escalation' | 'remark';
   to_status?: string | null;

@@ -1,4 +1,6 @@
+import csv
 from datetime import date
+import io
 from typing import Any, Dict, List, Optional, Tuple
 from sqlmodel import Session, select
 
@@ -214,3 +216,36 @@ def get_report_by_kind(
 
     # Fallback (unreachable due to earlier check)
     raise NotFoundError(f"Report kind '{kind}' not found", details={"kind": kind})
+
+
+def export_report_csv(
+    session: Session,
+    kind: str,
+    today: Optional[date] = None,
+) -> Tuple[str, str]:
+    """Generate CSV string and filename for any supported report kind (Phase 15)."""
+    report = get_report_by_kind(session, kind=kind, today=today)
+    normalized_kind = report["kind"]
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    total = report.get("total", 0)
+
+    if normalized_kind == "institution":
+        writer.writerow(["permanent_id", "institution_name", "count", "percentage"])
+        for item in report.get("items", []):
+            pct = round((item["count"] / total * 100), 2) if total > 0 else 0.0
+            writer.writerow([item["permanent_id"], item["name"], item["count"], f"{pct}%"])
+    elif normalized_kind == "ageing":
+        writer.writerow(["bucket", "label", "count", "percentage"])
+        for item in report.get("items", []):
+            pct = round((item["count"] / total * 100), 2) if total > 0 else 0.0
+            writer.writerow([item["bucket"], item["label"], item["count"], f"{pct}%"])
+    else:
+        writer.writerow(["label", "count", "percentage"])
+        for item in report.get("items", []):
+            pct = round((item["count"] / total * 100), 2) if total > 0 else 0.0
+            writer.writerow([item["label"], item["count"], f"{pct}%"])
+
+    filename = f"casebridge_report_{normalized_kind}.csv"
+    return output.getvalue(), filename

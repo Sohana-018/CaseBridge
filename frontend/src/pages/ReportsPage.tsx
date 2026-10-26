@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { getReport, type ReportData } from '../api/client';
+import { getReport, downloadReportCsv, type ReportData } from '../api/client';
 import { StatusChip, BureauBadge } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import {
@@ -13,6 +13,7 @@ import {
   Layers,
   MapPin,
   RefreshCw,
+  Download,
   ExternalLink,
   Percent,
 } from 'lucide-react';
@@ -255,16 +256,35 @@ export const ReportsPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchReport}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition shadow-xs cursor-pointer self-start sm:self-auto disabled:opacity-50"
-          title="Refresh current report data"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh Report</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={fetchReport}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition shadow-xs cursor-pointer disabled:opacity-50"
+            title="Refresh current report data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh Report</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await downloadReportCsv(activeKind);
+              } catch (err: any) {
+                setError(err.message || 'Failed to export CSV');
+              }
+            }}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs cursor-pointer disabled:opacity-50"
+            title="Export current report as CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs Bar */}
