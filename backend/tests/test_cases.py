@@ -491,3 +491,67 @@ def test_patch_case_officer_cross_bureau_forbidden(client_and_session):
     res = client.patch("/api/v1/cases/PG-2026-00002", json={"next_action": "blocked"}, headers=headers)
     assert res.status_code == 403
 
+
+def test_consecutive_case_number_generation_100_cases():
+    """Phase 5 requirement: create 100 cases in a loop for one Bureau (RB) and year (2026).
+    Asserts 100 unique, strictly consecutive case numbers (RB-2026-00001 through RB-2026-00100).
+    """
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        inst = Institution(
+            permanent_id="DEMO-RB-100",
+            name="RB Testing Academy",
+            region=Region.NORTH,
+        )
+        session.add(inst)
+        session.commit()
+
+    def get_test_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = get_test_session
+    try:
+        with TestClient(app) as test_client:
+            token = get_coordinator_token()
+            headers = {"Authorization": f"Bearer {token}"}
+
+            case_numbers = []
+            for i in range(1, 101):
+                payload = {
+                    "permanent_id": "DEMO-RB-100",
+                    "bureau": "RB",
+                    "category": "infrastructure",
+                    "description": f"Complaint sequence number {i}",
+                    "received_date": "2026-03-01",
+                    "assigned_officer": "Coordinator (demo)",
+                    "priority": "medium",
+                }
+                res = test_client.post("/api/v1/cases", json=payload, headers=headers)
+                assert res.status_code == 201, f"Failed at iteration {i}: {res.text}"
+                data = res.json()
+                case_numbers.append(data["case_no"])
+
+            # Assert 100 total
+            assert len(case_numbers) == 100
+
+            # Assert 100 unique
+            assert len(set(case_numbers)) == 100
+
+            # Assert strictly consecutive RB-2026-00001 through RB-2026-00100
+            for idx, c_no in enumerate(case_numbers, start=1):
+                expected_no = f"RB-2026-{idx:05d}"
+                assert c_no == expected_no, f"Expected {expected_no} but got {c_no} at index {idx}"
+
+            assert case_numbers[0] == "RB-2026-00001"
+            assert case_numbers[-1] == "RB-2026-00100"
+    finally:
+        app.dependency_overrides.clear()
+
+
