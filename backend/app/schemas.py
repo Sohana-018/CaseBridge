@@ -113,6 +113,7 @@ class CasePatch(BaseModel):
     expected_disposal_date: Optional[date] = None
     assigned_officer: Optional[str] = None
     priority: Optional[Priority] = None
+    received_date: Optional[date] = None
 
 
 class EventCreate(BaseModel):

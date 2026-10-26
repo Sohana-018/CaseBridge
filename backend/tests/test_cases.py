@@ -555,3 +555,38 @@ def test_consecutive_case_number_generation_100_cases():
         app.dependency_overrides.clear()
 
 
+def test_create_case_rejects_future_received_date(client_and_session):
+    """POST /cases with received_date in the future returns HTTP 422 VALIDATION_ERROR."""
+    client, _ = client_and_session
+    future_date = date.today() + timedelta(days=5)
+    payload = {
+        "permanent_id": "DEMO-1001",
+        "bureau": "OC",
+        "category": "infrastructure",
+        "description": "Future date complaint",
+        "received_date": str(future_date),
+    }
+    res = client.post("/api/v1/cases", json=payload)
+    assert res.status_code == 422
+    data = res.json()
+    assert "error" in data
+    assert data["error"]["code"] == "VALIDATION_ERROR"
+    assert "future" in data["error"]["message"]
+
+
+def test_patch_case_rejects_future_received_date(client_and_session):
+    """PATCH /cases/{case_no} with received_date in the future returns HTTP 422 VALIDATION_ERROR."""
+    client, _ = client_and_session
+    future_date = date.today() + timedelta(days=2)
+    res = client.patch(
+        "/api/v1/cases/RB-2026-00001",
+        json={"received_date": str(future_date)},
+    )
+    assert res.status_code == 422
+    data = res.json()
+    assert "error" in data
+    assert data["error"]["code"] == "VALIDATION_ERROR"
+    assert "future" in data["error"]["message"]
+
+
+

@@ -195,6 +195,12 @@ def create_case(
                 details={"user_bureau": current_user.bureau, "case_bureau": bureau_val},
             )
 
+    if body.received_date > date.today():
+        raise ValidationError(
+            "received_date cannot be in the future.",
+            details={"received_date": str(body.received_date)},
+        )
+
     # Resolve institution
     inst = session.exec(
         select(Institution).where(Institution.permanent_id == body.permanent_id)
@@ -401,6 +407,14 @@ def patch_case(
         changed = True
     if body.priority is not None:
         case.priority = body.priority
+        changed = True
+    if body.received_date is not None:
+        if body.received_date > date.today():
+            raise ValidationError(
+                "received_date cannot be in the future.",
+                details={"received_date": str(body.received_date)},
+            )
+        case.received_date = body.received_date
         changed = True
 
     if changed:
