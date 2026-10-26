@@ -201,7 +201,7 @@ export interface CaseEvent {
   attachment_ref?: string | null;
 }
 
-const SESSION_STORAGE_ROLE_KEY = 'casebridge_selected_role';
+const LOCAL_STORAGE_ROLE_KEY = 'casebridge_selected_role';
 
 export interface RoleConfig {
   id: string;
@@ -222,27 +222,27 @@ export const ROLE_OPTIONS: RoleConfig[] = [
 
 export function getSelectedRoleId(): string {
   try {
-    const saved = sessionStorage.getItem(SESSION_STORAGE_ROLE_KEY);
+    const saved = localStorage.getItem(LOCAL_STORAGE_ROLE_KEY);
     if (saved && ROLE_OPTIONS.some((opt) => opt.id === saved)) {
       return saved;
     }
   } catch {
-    // sessionStorage unavailable
+    // localStorage unavailable
   }
   return 'coordinator';
 }
 
 export function setSelectedRoleId(roleId: string): void {
   try {
-    sessionStorage.setItem(SESSION_STORAGE_ROLE_KEY, roleId);
+    localStorage.setItem(LOCAL_STORAGE_ROLE_KEY, roleId);
   } catch {
     // ignore storage issues
   }
 }
 
 /**
- * Perform auto-login on app start or demand.
- * Uses sessionStorage if role is not explicitly provided, defaulting to coordinator.
+ * Perform login for a demo role on demand when ALLOW_DEMO_LOGIN is enabled.
+ * Uses localStorage if role is not explicitly provided, defaulting to coordinator.
  */
 export async function autoLogin(role?: string, bureau?: string | null): Promise<LoginResponse> {
   let targetRole = role;
@@ -308,7 +308,7 @@ export async function autoLogin(role?: string, bureau?: string | null): Promise<
 }
 
 /**
- * Switch role: stores selection in sessionStorage, clears current token, and logs in.
+ * Switch role: stores selection in localStorage, clears current token, and logs in.
  */
 export async function switchRole(roleId: string): Promise<LoginResponse> {
   const target = ROLE_OPTIONS.find((opt) => opt.id === roleId);
@@ -350,7 +350,24 @@ export function logout(): void {
   }
 }
 
+export function getToken(): string | null {
+  if (!inMemoryToken && typeof window !== 'undefined') {
+    inMemoryToken = localStorage.getItem(STORAGE_KEY_TOKEN);
+  }
+  return inMemoryToken;
+}
+
 export function getCurrentUser(): UserPayload | null {
+  if (!currentUserProfile && typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY_USER);
+      if (cached) {
+        currentUserProfile = JSON.parse(cached);
+      }
+    } catch {
+      // ignore json error
+    }
+  }
   return currentUserProfile;
 }
 
@@ -368,6 +385,14 @@ async function rawRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   try {
     const res = await fetch(primaryUrl, { ...options, headers });
     if (!res.ok) {
+      if (res.status === 401) {
+        logout();
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        throw new Error('Authentication session expired or invalid. Please sign in.');
+      }
+
       let errorMsg = `Request failed with HTTP ${res.status}`;
       try {
         const errJson = await res.json();
@@ -401,6 +426,13 @@ async function rawRequest<T>(endpoint: string, options: RequestInit = {}): Promi
         if (fallbackRes.ok) {
           return await fallbackRes.json();
         }
+        if (fallbackRes.status === 401) {
+          logout();
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+          throw new Error('Authentication session expired or invalid. Please sign in.');
+        }
         let fbErrorMsg = `Request failed with HTTP ${fallbackRes.status}`;
         try {
           const errJson = await fallbackRes.json();
@@ -427,30 +459,17 @@ async function rawRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
 /**
  * Authenticated API request helper.
- * Automatically injects Bearer token in memory.
+ * Injects Bearer token from localStorage or in-memory session.
  */
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  if (!inMemoryToken) {
-    await autoLogin();
-  }
+  const token = getToken();
 
   const authHeaders: Record<string, string> = {
-    'Authorization': `Bearer ${inMemoryToken}`,
+    'Authorization': token ? `Bearer ${token}` : '',
     ...(options.headers as Record<string, string> || {}),
   };
 
-  try {
-    return await rawRequest<T>(endpoint, { ...options, headers: authHeaders });
-  } catch (err: any) {
-    // If token expired or forbidden, attempt one re-login and retry
-    if (err.message && err.message.toLowerCase().includes('token')) {
-      inMemoryToken = null;
-      await autoLogin();
-      authHeaders['Authorization'] = `Bearer ${inMemoryToken}`;
-      return await rawRequest<T>(endpoint, { ...options, headers: authHeaders });
-    }
-    throw err;
-  }
+  return await rawRequest<T>(endpoint, { ...options, headers: authHeaders });
 }
 
 // ============================================================================

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   getDashboardSummary,
   getDashboardWorkload,
   getRecentAlerts,
-  autoLogin,
   type DashboardSummary,
   type BureauWorkload,
   type AlertItem,
@@ -23,6 +22,7 @@ import {
   ArrowUpRight,
   BarChart3,
   RefreshCw,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -36,18 +36,18 @@ import {
 } from 'recharts';
 
 export const OverviewPage: React.FC = () => {
+  const location = useLocation();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [workload, setWorkload] = useState<BureauWorkload[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const deniedMessage = (location.state as { deniedMessage?: string } | null)?.deniedMessage;
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      await autoLogin();
-
       const [summaryRes, workloadRes, alertsRes] = await Promise.all([
         getDashboardSummary(),
         getDashboardWorkload(),
@@ -116,6 +116,17 @@ export const OverviewPage: React.FC = () => {
           <span>Refresh Data</span>
         </button>
       </div>
+
+      {/* Access Denied Notice if redirected from admin */}
+      {deniedMessage && (
+        <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-3 shadow-xs">
+          <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-bold text-amber-950">Unauthorized Access Attempt</h3>
+            <p className="text-xs text-amber-800 mt-0.5">{deniedMessage}</p>
+          </div>
+        </div>
+      )}
 
       {/* Loading & Error States */}
       {loading && <LoadingState message="Fetching dashboard metrics and alerts..." />}

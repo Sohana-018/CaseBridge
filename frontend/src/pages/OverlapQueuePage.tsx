@@ -7,7 +7,6 @@ import {
   submitOverlapReview,
   getCaseDetail,
   getCurrentUser,
-  autoLogin,
   type UserPayload,
   type OverlapItem,
   type OverlapListResponse,
@@ -79,11 +78,7 @@ export const OverlapQueuePage: React.FC = () => {
 
   // Synchronize current user profile reactively on mount if not yet initialized
   useEffect(() => {
-    if (!getCurrentUser()) {
-      autoLogin()
-        .then((res) => setCurrentUser(res.user))
-        .catch(() => {});
-    }
+    setCurrentUser(getCurrentUser());
   }, []);
 
   // Fetch overlap list from backend

@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom';
 import {
   getInstitutionDetail,
   getCurrentUser,
-  autoLogin,
   type InstitutionDetail,
   type UserPayload,
 } from '../api/client';
@@ -38,11 +37,7 @@ export const InstitutionDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getCurrentUser()) {
-      autoLogin()
-        .then((res) => setCurrentUser(res.user))
-        .catch(() => {});
-    }
+    setCurrentUser(getCurrentUser());
   }, []);
 
   const fetchDetail = React.useCallback(async () => {

@@ -6,7 +6,6 @@ import {
   postCaseEvent,
   patchCase,
   getCurrentUser,
-  autoLogin,
   type CaseItem,
   type CaseEvent,
   type UserPayload,
@@ -50,11 +49,7 @@ export const CaseDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getCurrentUser()) {
-      autoLogin()
-        .then((res) => setCurrentUser(res.user))
-        .catch(() => {});
-    }
+    setCurrentUser(getCurrentUser());
   }, []);
 
   // Actions dialog states
