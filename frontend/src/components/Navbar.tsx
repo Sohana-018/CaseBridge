@@ -1,30 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Layers,
   Building2,
   LayoutDashboard,
-  UserCheck,
   GitCompare,
   BarChart3,
-  ShieldAlert,
-  LogOut,
+  Shield,
   LogIn,
 } from 'lucide-react';
-import {
-  getCurrentUser,
-  logout,
-  type UserPayload,
-} from '../api/client';
-
-function getRoleBadgeLabel(u: UserPayload | null): string {
-  if (!u) return '';
-  if (u.role === 'coordinator') return 'Coordinator';
-  if (u.role === 'bureau_officer') return `Officer · ${u.bureau || 'Bureau'}`;
-  if (u.role === 'senior_management') return 'Senior Mgmt';
-  if (u.role === 'administrator') return 'Administrator';
-  return u.role;
-}
+import { getCurrentUser, type UserPayload } from '../api/client';
+import { UserMenu } from './UserMenu';
 
 const BASE_NAV_LINKS = [
   { to: '/', end: true, Icon: LayoutDashboard, label: 'Overview' },
@@ -35,7 +21,6 @@ const BASE_NAV_LINKS = [
 ] as const;
 
 export const Navbar: React.FC = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<UserPayload | null>(() => getCurrentUser());
 
@@ -43,56 +28,52 @@ export const Navbar: React.FC = () => {
     setUser(getCurrentUser());
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    logout();
-    setUser(null);
-    navigate('/login');
-  };
-
-  const badgeLabel = getRoleBadgeLabel(user);
   const isAdmin = user?.role === 'administrator';
 
   return (
-    <header className="border-b border-slate-200 bg-white sticky top-0 z-50 shadow-xs">
-      {/* Top institutional accent strip */}
-      <div className="h-1 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 w-full" />
-
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 lg:gap-4">
-        {/* Brand + Desktop navigation */}
-        <div className="flex items-center gap-3 xl:gap-6 flex-shrink-0 min-w-0">
-          <NavLink to="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-900 flex items-center justify-center text-white shadow-xs flex-shrink-0">
-              <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-blue-100" />
+    <header className="border-b border-[var(--border)] bg-white sticky top-0 z-40">
+      <div className="cb-page-container !py-0 h-16 flex items-center justify-between gap-4">
+        {/* Brand + Primary Desktop navigation */}
+        <div className="flex items-center gap-6 lg:gap-8 min-w-0">
+          <NavLink
+            to="/"
+            className="flex items-center gap-2.5 group shrink-0"
+            aria-label="CaseBridge Home"
+          >
+            <div
+              className="w-8 h-8 rounded-lg bg-[var(--brand)] flex items-center justify-center text-white shrink-0"
+              aria-hidden="true"
+            >
+              <Layers className="w-4 h-4 text-white" />
             </div>
             <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900 leading-none">
-                  CaseBridge
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-500 font-normal hidden 2xl:block mt-0.5 leading-none">
+              <span className="font-semibold text-base tracking-tight text-[var(--text)] leading-none">
+                CaseBridge
+              </span>
+              <span className="text-[11px] text-[var(--text-tertiary)] font-normal hidden xl:block mt-0.5 leading-none">
                 Institution Complaint Monitoring
               </span>
             </div>
           </NavLink>
 
-          {/* Desktop nav links */}
+          {/* Desktop primary nav */}
           {user && (
-            <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 flex-shrink-0" aria-label="Main navigation">
+            <nav className="hidden lg:flex items-center gap-1 shrink-0" aria-label="Primary">
               {BASE_NAV_LINKS.map(({ to, end, Icon, label }) => (
                 <NavLink
                   key={to}
                   to={to}
                   end={end}
+                  aria-current={location.pathname === to ? 'page' : undefined}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-md text-xs xl:text-sm font-medium whitespace-nowrap transition-colors ${
+                    `inline-flex items-center gap-2 px-3 h-16 text-sm font-medium transition-colors border-b-2 -mb-[1px] ${
                       isActive
-                        ? 'bg-blue-50 text-blue-900 font-semibold border-b-2 border-blue-900 rounded-b-none'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700'
+                        ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
+                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--border)]'
                     }`
                   }
                 >
-                  <Icon className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-slate-500 flex-shrink-0" />
+                  <Icon className="w-4 h-4 shrink-0 text-current opacity-80" aria-hidden="true" />
                   <span>{label}</span>
                 </NavLink>
               ))}
@@ -100,15 +81,16 @@ export const Navbar: React.FC = () => {
               {isAdmin && (
                 <NavLink
                   to="/admin"
+                  aria-current={location.pathname === '/admin' ? 'page' : undefined}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-md text-xs xl:text-sm font-medium whitespace-nowrap transition-colors ${
+                    `inline-flex items-center gap-2 px-3 h-16 text-sm font-medium transition-colors border-b-2 -mb-[1px] ${
                       isActive
-                        ? 'bg-amber-50 text-amber-900 font-bold border-b-2 border-amber-600 rounded-b-none'
-                        : 'text-amber-800 hover:text-amber-950 hover:bg-amber-50/70 focus-visible:outline-2 focus-visible:outline-amber-700'
+                        ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
+                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--border)]'
                     }`
                   }
                 >
-                  <ShieldAlert className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-amber-600 flex-shrink-0" />
+                  <Shield className="w-4 h-4 shrink-0 text-current opacity-80" aria-hidden="true" />
                   <span>Admin</span>
                 </NavLink>
               )}
@@ -116,59 +98,38 @@ export const Navbar: React.FC = () => {
           )}
         </div>
 
-        {/* Right side: role badge + sign in/logout */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Active Role Badge (read-only indicator of current logged-in identity) */}
-          {user && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-900 border border-blue-200 text-xs font-semibold shadow-2xs">
-              <UserCheck className="w-3.5 h-3.5 text-blue-800 flex-shrink-0" aria-hidden="true" />
-              <span className="max-w-[120px] sm:max-w-none truncate">{badgeLabel}</span>
-            </div>
+        {/* Right side: user menu or login link */}
+        <div className="flex items-center gap-3 shrink-0">
+          {user ? (
+            <UserMenu />
+          ) : (
+            <NavLink
+              to="/login"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-lg text-xs font-semibold shadow-xs transition"
+            >
+              <LogIn className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Sign In</span>
+            </NavLink>
           )}
-
-          {/* Central System Status Badge */}
-          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200 whitespace-nowrap flex-shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Central Case Registry · Active</span>
-          </div>
-
-          {/* Real Auth Quick Actions */}
-          <div className="flex items-center gap-1">
-            {user ? (
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 border border-slate-200 transition cursor-pointer"
-                title="Sign out of CaseBridge"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            ) : (
-              <NavLink
-                to="/login"
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-md text-xs font-bold shadow-xs transition"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </NavLink>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Mobile nav subbar */}
+      {/* Mobile nav bar */}
       {user && (
-        <div className="lg:hidden flex items-center border-t border-slate-100 px-4 py-2 bg-slate-50 gap-1 overflow-x-auto">
+        <nav
+          className="lg:hidden flex items-center border-t border-[var(--border)] px-4 py-1.5 bg-[var(--bg-subtle)] gap-1 overflow-x-auto"
+          aria-label="Mobile Navigation"
+        >
           {BASE_NAV_LINKS.map(({ to, end, label }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex-shrink-0 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-3 transition-colors ${
+                `shrink-0 py-1.5 px-3 rounded text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-white text-blue-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-white text-[var(--brand)] font-semibold shadow-xs border border-[var(--border)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
                 }`
               }
             >
@@ -180,17 +141,17 @@ export const Navbar: React.FC = () => {
             <NavLink
               to="/admin"
               className={({ isActive }) =>
-                `flex-shrink-0 text-center py-1.5 rounded text-xs font-bold whitespace-nowrap px-3 transition-colors ${
+                `shrink-0 py-1.5 px-3 rounded text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-amber-100 text-amber-900 shadow-xs'
-                    : 'text-amber-800 hover:text-amber-950 hover:bg-amber-50'
+                    ? 'bg-white text-[var(--brand)] font-semibold shadow-xs border border-[var(--border)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
                 }`
               }
             >
               Admin
             </NavLink>
           )}
-        </div>
+        </nav>
       )}
     </header>
   );
