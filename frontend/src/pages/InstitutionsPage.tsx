@@ -1,37 +1,105 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getInstitutions, type Institution } from '../api/client';
+import { useNavigate, Link } from 'react-router-dom';
+import {
+  getInstitutions,
+  getCases,
+  getOverlaps,
+  getInstitutionDetail,
+  type Institution,
+  type CaseItem,
+  type OverlapItem,
+  type InstitutionDetail,
+} from '../api/client';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
+import { BureauBadge, StatusChip } from '../components/Badges';
 import { useToast } from '../components/Toast';
 import {
   Search,
   Building2,
-  MapPin,
-  X,
   RefreshCw,
-  ExternalLink,
+  X,
+  AlertTriangle,
+  ArrowRight,
+  ChevronRight,
 } from 'lucide-react';
 
 const REGIONS = ['North', 'South', 'East', 'West', 'Central'];
+const TYPES = ['Engineering', 'Pharmacy', 'Management', 'Science', 'Architecture', 'Polytechnic'];
+
+// Helper to strip repetitive "(demo)" string
+function cleanInstitutionName(name?: string): string {
+  if (!name) return 'Institution';
+  return name.replace(/\s*\(\s*demo\s*\)/gi, '').trim();
+}
+
+function getRegionBadgeClass(region?: string): string {
+  const r = (region || '').toLowerCase();
+  if (r.includes('north')) return 'bg-blue-50 text-blue-800 border-blue-200';
+  if (r.includes('south')) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+  if (r.includes('east')) return 'bg-purple-50 text-purple-800 border-purple-200';
+  if (r.includes('west')) return 'bg-amber-50 text-amber-900 border-amber-200';
+  if (r.includes('central')) return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+  return 'bg-slate-100 text-slate-700 border-slate-200';
+}
+
+function getTypeBadgeClass(type?: string): string {
+  const t = (type || '').toLowerCase();
+  if (t.includes('engineering')) return 'bg-blue-100 text-blue-900 border-blue-300';
+  if (t.includes('pharmacy')) return 'bg-emerald-100 text-emerald-900 border-emerald-300';
+  if (t.includes('management')) return 'bg-purple-100 text-purple-900 border-purple-300';
+  if (t.includes('science')) return 'bg-cyan-100 text-cyan-900 border-cyan-300';
+  if (t.includes('polytechnic')) return 'bg-orange-100 text-orange-900 border-orange-300';
+  if (t.includes('architecture')) return 'bg-teal-100 text-teal-900 border-teal-300';
+  return 'bg-slate-100 text-slate-700 border-slate-300';
+}
 
 export const InstitutionsPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+
   const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [total, setTotal] = useState<number>(0);
+  const [cases, setCases] = useState<CaseItem[]>([]);
+  const [overlaps, setOverlaps] = useState<OverlapItem[]>([]);
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [submittedQuery, setSubmittedQuery] = useState<string>('');
   const [selectedRegion, setSelectedRegion] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>('');
+
+  // Loading & Error States
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInstitutionsList = useCallback(async (queryToSearch: string, isRefresh = false) => {
+  // Inspector Master-Detail selection
+  const [selectedInst, setSelectedInst] = useState<Institution | null>(null);
+  const [instDetail, setInstDetail] = useState<InstitutionDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
+
+  // Load all directory intelligence data
+  const loadDirectoryData = useCallback(async (isRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getInstitutions(queryToSearch, 1, 100);
-      setInstitutions(res.items || []);
-      setTotal(res.total || 0);
+      const [instRes, casesRes1, casesRes2, overlapsRes] = await Promise.all([
+        getInstitutions('', 1, 100),
+        getCases({ page: 1, page_size: 100 }),
+        getCases({ page: 2, page_size: 100 }),
+        getOverlaps({ review_status: 'open', page_size: 100 }),
+      ]);
+
+      const allInstitutions = instRes.items || [];
+      const allCases = [...(casesRes1.items || []), ...(casesRes2.items || [])];
+      const allOverlaps = overlapsRes.items || [];
+
+      setInstitutions(allInstitutions);
+      setCases(allCases);
+      setOverlaps(allOverlaps);
+
+      // Default select first institution if none selected
+      if (allInstitutions.length > 0 && !selectedInst) {
+        setSelectedInst(allInstitutions[0]);
+      }
+
       if (isRefresh) {
         showToast('Institutions directory refreshed', 'success');
       }
@@ -44,58 +112,177 @@ export const InstitutionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, selectedInst]);
 
   useEffect(() => {
-    fetchInstitutionsList(submittedQuery);
-  }, [submittedQuery, fetchInstitutionsList]);
+    loadDirectoryData(false);
+  }, [loadDirectoryData]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmittedQuery(searchQuery.trim());
-  };
+  // Load detailed institution profile when selection changes
+  useEffect(() => {
+    if (!selectedInst) {
+      setInstDetail(null);
+      return;
+    }
 
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    setSubmittedQuery('');
-  };
+    let isMounted = true;
+    setLoadingDetail(true);
 
+    getInstitutionDetail(selectedInst.permanent_id)
+      .then((detail) => {
+        if (isMounted) setInstDetail(detail);
+      })
+      .catch(() => {
+        // Fallback silently to in-memory case lists
+      })
+      .finally(() => {
+        if (isMounted) setLoadingDetail(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedInst]);
+
+  // Index cases by institution permanent_id
+  const casesByPID = useMemo(() => {
+    const map: Record<string, CaseItem[]> = {};
+    cases.forEach((c) => {
+      const pid = c.institution?.permanent_id;
+      if (pid) {
+        if (!map[pid]) map[pid] = [];
+        map[pid].push(c);
+      }
+    });
+    return map;
+  }, [cases]);
+
+  // Index open overlaps by permanent_id
+  const overlapsByPID = useMemo(() => {
+    const map: Record<string, OverlapItem[]> = {};
+    overlaps.forEach((item) => {
+      // Look up cases involved
+      const caseA = cases.find((c) => c.case_no === item.case_a.case_no);
+      const caseB = cases.find((c) => c.case_no === item.case_b.case_no);
+      const pidA = caseA?.institution?.permanent_id;
+      const pidB = caseB?.institution?.permanent_id;
+
+      if (pidA) {
+        if (!map[pidA]) map[pidA] = [];
+        map[pidA].push(item);
+      }
+      if (pidB && pidB !== pidA) {
+        if (!map[pidB]) map[pidB] = [];
+        map[pidB].push(item);
+      }
+    });
+    return map;
+  }, [overlaps, cases]);
+
+  // Compute 4 KPI values across all institutions
+  const kpiStats = useMemo(() => {
+    const totalRegistered = institutions.length;
+
+    let activeGrievances = 0;
+    let crossBureauOverlaps = 0;
+    let slaWatch = 0;
+
+    institutions.forEach((inst) => {
+      const instCases = casesByPID[inst.permanent_id] || [];
+      const hasActive = instCases.some((c) => c.status !== 'disposed');
+      if (hasActive) activeGrievances += 1;
+
+      const hasOverlap = (overlapsByPID[inst.permanent_id] || []).length > 0;
+      if (hasOverlap) crossBureauOverlaps += 1;
+
+      const hasSLAWatch = instCases.some(
+        (c) => c.status !== 'disposed' && (c.priority?.toLowerCase() === 'high' || c.overdue)
+      );
+      if (hasSLAWatch) slaWatch += 1;
+    });
+
+    return {
+      totalRegistered,
+      activeGrievances,
+      crossBureauOverlaps,
+      slaWatch,
+    };
+  }, [institutions, casesByPID, overlapsByPID]);
+
+  // Filter institutions dynamically by search, region, and type
   const filteredInstitutions = useMemo(() => {
-    if (!selectedRegion) return institutions;
-    return institutions.filter(
-      (inst) => inst.region?.toLowerCase() === selectedRegion.toLowerCase()
-    );
-  }, [institutions, selectedRegion]);
+    return institutions.filter((inst) => {
+      if (selectedRegion && inst.region?.toLowerCase() !== selectedRegion.toLowerCase()) {
+        return false;
+      }
+      if (selectedType && inst.type?.toLowerCase() !== selectedType.toLowerCase()) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const nameMatch = (inst.name || '').toLowerCase().includes(q);
+        const pidMatch = (inst.permanent_id || '').toLowerCase().includes(q);
+        const locMatch =
+          (inst.address || '').toLowerCase().includes(q) ||
+          (inst.state || '').toLowerCase().includes(q);
+        if (!nameMatch && !pidMatch && !locMatch) return false;
+      }
+      return true;
+    });
+  }, [institutions, selectedRegion, selectedType, searchQuery]);
+
+  // Cases for currently selected institution in inspector
+  const selectedInstCases = useMemo(() => {
+    if (!selectedInst) return [];
+    return instDetail?.cases || casesByPID[selectedInst.permanent_id] || [];
+  }, [selectedInst, instDetail, casesByPID]);
+
+  // Bureau breakdown for selected institution
+  const bureauBreakdown = useMemo(() => {
+    const counts = { RB: 0, PGRC: 0, RO: 0, OC: 0 };
+    selectedInstCases.forEach((c) => {
+      const b = (c.bureau || '').toUpperCase();
+      if (b in counts) {
+        counts[b as keyof typeof counts] += 1;
+      }
+    });
+    return counts;
+  }, [selectedInstCases]);
+
+  const selectedInstOverlaps = useMemo(() => {
+    if (!selectedInst) return [];
+    return overlapsByPID[selectedInst.permanent_id] || instDetail?.open_overlaps || [];
+  }, [selectedInst, overlapsByPID, instDetail]);
 
   return (
-    <div className="cb-page-container space-y-6">
-      {/* Page Header Pattern */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border)]">
+    <div className="cb-page-container space-y-5">
+      {/* 1. COMPACT HEADER */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--text)] tracking-tight">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Institutions Directory
             </h1>
-            <span className="text-sm text-[var(--text-secondary)] num-tabular font-medium">
-              ({total} registered)
+            <span className="text-xs text-slate-500 font-semibold num-tabular">
+              ({institutions.length} registered)
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
-            Search and inspect canonical institutions, permanent IDs, and consolidated cross-bureau records
+          <p className="text-xs text-slate-500 mt-0.5">
+            Consolidated master registry uniting canonical IDs, cross-bureau footprints, and active complaints
           </p>
         </div>
 
-        {/* Quick Refresh */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Refresh Action */}
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
-            onClick={() => fetchInstitutionsList(submittedQuery, true)}
+            onClick={() => loadDirectoryData(true)}
             disabled={loading}
             aria-label="Refresh institutions directory"
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 transition shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition shadow-2xs cursor-pointer"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-[var(--text-secondary)] ${loading ? 'animate-spin' : ''}`}
+              className={`w-3.5 h-3.5 text-slate-600 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
             <span>Refresh</span>
@@ -103,69 +290,122 @@ export const InstitutionsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Filter and Search Bar */}
+      {/* 1. COMMAND STAT STRIP (Single-row flat design, NO gradients) */}
       <section
-        aria-labelledby="institutions-search-heading"
-        className="cb-card p-4 space-y-3"
+        aria-labelledby="institutions-stat-strip-heading"
+        className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs my-4 overflow-x-auto"
       >
-        <h2 id="institutions-search-heading" className="sr-only">
-          Search and Filter Institutions
-        </h2>
+        <h2 id="institutions-stat-strip-heading" className="sr-only">Institutions Directory Key Metrics</h2>
+        <div className="flex items-center justify-between gap-4 min-w-[720px]">
+          <div className="flex items-center divide-x divide-slate-200 flex-1">
+            {/* Item 1: Total Registered */}
+            <div className="flex items-center gap-2 pr-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                Total Registered:
+              </span>
+              <span className="text-lg font-bold text-slate-900 num-tabular">
+                {kpiStats.totalRegistered}
+              </span>
+            </div>
 
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-          {/* Search Box */}
-          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2">
-            <div className="relative flex-1">
-              <label htmlFor="institutions-search-input" className="sr-only">
-                Search institutions by name or permanent ID
-              </label>
-              <Search
-                className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 -translate-y-1/2"
-                aria-hidden="true"
-              />
-              <input
-                id="institutions-search-input"
-                type="text"
-                placeholder="Search by institution name or permanent ID (e.g. DEMO-1042)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-9 pr-8 bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs sm:text-sm text-[var(--text)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text)] cursor-pointer"
-                  aria-label="Clear search input"
-                >
-                  <X className="w-4 h-4" aria-hidden="true" />
-                </button>
+            {/* Item 2: Active Grievances */}
+            <div className="flex items-center gap-2 px-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                Active Grievances:
+              </span>
+              <span className="text-lg font-bold text-blue-700 num-tabular">
+                {kpiStats.activeGrievances}
+              </span>
+            </div>
+
+            {/* Item 3: Cross-Bureau Overlaps */}
+            <div className="flex items-center gap-2 px-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                Cross-Bureau Overlaps:
+              </span>
+              <span className="text-lg font-bold text-amber-800 num-tabular">
+                {kpiStats.crossBureauOverlaps}
+              </span>
+              {kpiStats.crossBureauOverlaps > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                  Queue
+                </span>
               )}
             </div>
-            <button
-              type="submit"
-              className="h-10 px-4 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-[var(--radius-control)] text-xs font-semibold transition cursor-pointer shrink-0"
-            >
-              Search
-            </button>
-          </form>
 
-          {/* Region Filter Chips (matching Cases page chip style) */}
-          <div
-            role="region"
-            aria-label="Filter by region"
-            className="flex items-center gap-1.5 overflow-x-auto text-xs pb-1 sm:pb-0"
-          >
-            <span className="text-xs text-[var(--text-tertiary)] font-medium mr-1 whitespace-nowrap">
-              Region:
-            </span>
+            {/* Item 4: High Priority / SLA */}
+            <div className="flex items-center gap-2 pl-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                High Priority / SLA:
+              </span>
+              <span className="text-lg font-bold text-rose-700 num-tabular">
+                {kpiStats.slaWatch}
+              </span>
+              {kpiStats.slaWatch > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
+                  Watch
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Far Right Action Link */}
+          <div className="pl-4 shrink-0 border-l border-slate-200">
+            <Link
+              to="/overlaps"
+              className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
+            >
+              <span>Filter queue</span>
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. STREAMLINED FILTER TOOLBAR */}
+      <section
+        aria-labelledby="filter-toolbar-heading"
+        className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 text-xs"
+      >
+        <h2 id="filter-toolbar-heading" className="sr-only">Institutions Search and Filters</h2>
+
+        {/* Live Search Input (Dynamic onChange, no manual button) */}
+        <div className="relative flex-1">
+          <Search
+            className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+            aria-hidden="true"
+          />
+          <input
+            id="institutions-search-input"
+            type="text"
+            placeholder="Search by institution name, permanent ID (DEMO-1014), or state..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-9 pl-9 pr-8 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              aria-label="Clear search input"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        {/* Region Pills and Stream / Type Dropdown */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Region Filter Pills */}
+          <div className="flex items-center gap-1 flex-wrap">
             <button
               type="button"
               onClick={() => setSelectedRegion('')}
-              className={`px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
                 !selectedRegion
-                  ? 'bg-[var(--brand-subtle)] text-[var(--brand)] border-[#C7D7FE] font-semibold'
-                  : 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]'
+                  ? 'bg-[#1E3A8A] text-white border-[#1E3A8A]'
+                  : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
               }`}
             >
               All Regions
@@ -175,192 +415,392 @@ export const InstitutionsPage: React.FC = () => {
                 key={r}
                 type="button"
                 onClick={() => setSelectedRegion(selectedRegion === r ? '' : r)}
-                className={`px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
                   selectedRegion === r
-                    ? 'bg-[var(--brand-subtle)] text-[var(--brand)] border-[#C7D7FE] font-semibold'
-                    : 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]'
+                    ? 'bg-[#1E3A8A] text-white border-[#1E3A8A]'
+                    : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100'
                 }`}
               >
                 {r}
               </button>
             ))}
           </div>
-        </div>
 
-        {/* Active Filter Summary */}
-        {(submittedQuery || selectedRegion) && (
-          <div className="flex items-center gap-2 pt-2 border-t border-[var(--border)] flex-wrap text-xs">
-            <span className="text-xs text-[var(--text-tertiary)] font-medium">Active filters:</span>
-            {submittedQuery && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-[6px] bg-[var(--neutral-bg)] text-[var(--neutral)] font-medium">
-                <span>Query: "{submittedQuery}"</span>
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="hover:text-[var(--danger)] cursor-pointer"
-                  aria-label="Remove search query"
-                >
-                  <X className="w-3 h-3" aria-hidden="true" />
-                </button>
-              </span>
-            )}
-            {selectedRegion && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-[6px] bg-[var(--brand-subtle)] text-[var(--brand)] font-medium">
-                <span>Region: {selectedRegion}</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRegion('')}
-                  className="hover:text-[var(--danger)] cursor-pointer"
-                  aria-label="Remove region filter"
-                >
-                  <X className="w-3 h-3" aria-hidden="true" />
-                </button>
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                handleClearSearch();
-                setSelectedRegion('');
-              }}
-              className="text-xs font-semibold text-[var(--brand)] hover:underline ml-auto cursor-pointer"
+          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+
+          {/* Stream / Type Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="filter-stream-type" className="font-semibold text-slate-600 text-xs whitespace-nowrap">
+              Stream:
+            </label>
+            <select
+              id="filter-stream-type"
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="h-8 bg-slate-50 border border-slate-300 text-slate-900 rounded-lg px-2.5 text-xs font-semibold focus:bg-white cursor-pointer"
             >
-              Clear filters
-            </button>
+              <option value="">All Types</option>
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
+        </div>
       </section>
 
-      {/* Loading state */}
-      {loading && <LoadingState message="Fetching institutions from API..." />}
+      {/* Loading & Error States */}
+      {loading && <LoadingState message="Fetching institutions and cross-bureau intelligence..." />}
 
-      {/* Error state */}
       {!loading && error && (
         <ErrorState
           title="Could not load institutions"
           message={error}
-          onRetry={() => fetchInstitutionsList(submittedQuery, true)}
+          onRetry={() => loadDirectoryData(true)}
         />
       )}
 
-      {/* Empty state */}
+      {/* Empty State */}
       {!loading && !error && filteredInstitutions.length === 0 && (
         <EmptyState
-          title={submittedQuery || selectedRegion ? 'No institutions match your search' : 'No institutions found'}
-          message={
-            submittedQuery || selectedRegion
-              ? `No institution matched "${submittedQuery || selectedRegion}". Try clearing your filters.`
-              : 'There are currently no institutions registered in the database.'
-          }
+          title="No institutions match your search"
+          message="No registered institutions matched the specified search query or selected region/stream."
           action={
-            submittedQuery || selectedRegion ? (
-              <button
-                type="button"
-                onClick={() => {
-                  handleClearSearch();
-                  setSelectedRegion('');
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition cursor-pointer shadow-xs"
-              >
-                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Clear Filters</span>
-              </button>
-            ) : undefined
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedRegion('');
+                setSelectedType('');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />
+              <span>Reset Filters</span>
+            </button>
           }
         />
       )}
 
-      {/* High-Density Accessible Table */}
+      {/* 3 & 4. RESTRUCTURED TABLE + RIGHT-SIDE INSPECTOR PANEL (Master-Detail Layout) */}
       {!loading && !error && filteredInstitutions.length > 0 && (
-        <div className="cb-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-[var(--text)] border-collapse">
-              <caption className="sr-only">Canonical Institutions Directory Table</caption>
-              <thead className="sticky top-0 z-10 bg-[var(--bg-subtle)] border-b border-[var(--border)] text-xs font-medium text-[var(--text-secondary)]">
-                <tr>
-                  <th scope="col" className="px-4 py-3">Permanent ID</th>
-                  <th scope="col" className="px-4 py-3">Institution Name</th>
-                  <th scope="col" className="px-4 py-3">Region</th>
-                  <th scope="col" className="px-4 py-3">Location / State</th>
-                  <th scope="col" className="px-4 py-3">Type</th>
-                  <th scope="col" className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]">
-                {filteredInstitutions.map((inst) => (
-                  <tr
-                    key={inst.id}
-                    onClick={() => navigate(`/institutions/${inst.permanent_id}`)}
-                    className="hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer h-12"
-                  >
-                    {/* Permanent ID */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="font-mono font-medium text-xs text-[var(--brand)]">
-                        {inst.permanent_id}
-                      </span>
-                    </td>
-
-                    {/* Institution Name */}
-                    <td className="px-4 py-3 max-w-sm">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-7 h-7 rounded-lg bg-[var(--brand-subtle)] text-[var(--brand)] flex items-center justify-center shrink-0 border border-[var(--border)]"
-                          aria-hidden="true"
-                        >
-                          <Building2 className="w-3.5 h-3.5" />
-                        </div>
-                        <span className="font-medium text-xs sm:text-sm text-[var(--text)] truncate">
-                          {inst.name}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Region */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-[6px] text-xs font-medium bg-[var(--neutral-bg)] text-[var(--neutral)]">
-                        {inst.region}
-                      </span>
-                    </td>
-
-                    {/* Location */}
-                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)] max-w-xs truncate">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <MapPin className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
-                        <span className="truncate">{inst.address || inst.state || '—'}</span>
-                      </div>
-                    </td>
-
-                    {/* Type */}
-                    <td className="px-4 py-3 whitespace-nowrap text-xs text-[var(--text-secondary)]">
-                      {inst.type || 'Standard'}
-                    </td>
-
-                    {/* Action */}
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-xs">
-                      <span
-                        aria-label={`View profile of ${inst.name}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-control)] text-xs font-medium text-[var(--brand)] bg-white border border-[var(--border-input)] hover:bg-[var(--brand-subtle)] transition shadow-2xs"
-                      >
-                        <span>View</span>
-                        <ExternalLink className="w-3 h-3 text-[var(--brand)]" aria-hidden="true" />
-                      </span>
-                    </td>
+        <div className="flex flex-col lg:flex-row gap-4 items-start">
+          {/* 3. RESTRUCTURED TABLE (5 High-Density Intelligence Columns) */}
+          <div className="flex-1 min-w-0 w-full bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-900 border-collapse">
+                <caption className="sr-only">Canonical Institutions Directory Table</caption>
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Institution & Permanent ID</th>
+                    <th scope="col" className="px-4 py-3">Region & Stream</th>
+                    <th scope="col" className="px-4 py-3">Active Cases</th>
+                    <th scope="col" className="px-4 py-3">Bureau Footprint</th>
+                    <th scope="col" className="px-4 py-3 text-right">Overlap Status & Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredInstitutions.map((inst) => {
+                    const instCases = casesByPID[inst.permanent_id] || [];
+                    const activeCount = instCases.filter((c) => c.status !== 'disposed').length;
+
+                    // Unique bureaus with active or total cases
+                    const bureaus = Array.from(new Set(instCases.map((c) => (c.bureau || '').toUpperCase())));
+
+                    // Overlaps for this institution
+                    const instOverlaps = overlapsByPID[inst.permanent_id] || [];
+                    const hasOverlap = instOverlaps.length > 0;
+
+                    const isSelected = selectedInst?.id === inst.id;
+
+                    return (
+                      <tr
+                        key={inst.id}
+                        onClick={() => setSelectedInst(inst)}
+                        className={`transition cursor-pointer group ${
+                          isSelected
+                            ? 'bg-blue-50/60 border-l-4 border-l-[#1E3A8A]'
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        {/* 1. Institution & Permanent ID (Two-line cell, stripped demo text) */}
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-sm text-slate-900 group-hover:text-blue-700 leading-snug">
+                            {cleanInstitutionName(inst.name)}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1 text-slate-500 font-normal">
+                            <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                              {inst.permanent_id}
+                            </span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-[11px] text-slate-500 truncate max-w-[200px]">
+                              {inst.address || inst.state || 'India'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* 2. Region & Stream */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${getRegionBadgeClass(
+                                inst.region
+                              )}`}
+                            >
+                              {inst.region}
+                            </span>
+                            {inst.type && (
+                              <span
+                                className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${getTypeBadgeClass(
+                                  inst.type
+                                )}`}
+                              >
+                                {inst.type}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* 3. Active Cases */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {activeCount > 0 ? (
+                            <span className="font-bold text-xs text-blue-800 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full num-tabular">
+                              {activeCount} Active
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-medium">0 Cases</span>
+                          )}
+                        </td>
+
+                        {/* 4. Bureau Footprint (Tags for RB, PGRC, RO, OC) */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {bureaus.length > 0 ? (
+                            <div className="flex items-center gap-1">
+                              {bureaus.map((b) => (
+                                <span
+                                  key={b}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200"
+                                >
+                                  {b}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-xs">—</span>
+                          )}
+                        </td>
+
+                        {/* 5. Overlap Status & Action */}
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            {hasOverlap ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
+                                <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                <span>Flagged Overlap</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 text-slate-500 border border-slate-200">
+                                Clear
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedInst(inst);
+                              }}
+                              className="px-2.5 py-1 text-xs font-bold text-blue-700 hover:text-white hover:bg-[#1E3A8A] bg-blue-50 border border-blue-200 rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Inspect</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer Count */}
+            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+              <span>Showing {filteredInstitutions.length} of {institutions.length} institutions</span>
+              <span className="text-[11px] text-slate-400">Click any row to view cross-bureau breakdown</span>
+            </div>
           </div>
 
-          {/* Footer count */}
-          <div className="px-5 py-3.5 bg-[var(--bg-subtle)] border-t border-[var(--border)] flex items-center justify-between text-xs text-[var(--text-secondary)]">
-            <span>
-              Showing <strong className="text-[var(--text)] font-semibold num-tabular">{filteredInstitutions.length}</strong> of{' '}
-              <strong className="text-[var(--text)] font-semibold num-tabular">{total}</strong> total institutions
-            </span>
-            <span className="text-xs text-[var(--text-tertiary)]">
-              All records indexed by canonical Permanent ID
-            </span>
-          </div>
+          {/* 4. RIGHT-SIDE INSTITUTION INSPECTOR PANEL (Master-Detail Layout) */}
+          {selectedInst && (
+            <aside
+              aria-label="Institution Inspector Panel"
+              className="w-full lg:w-[400px] shrink-0 bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between sticky top-20 space-y-4"
+            >
+              <div className="space-y-4">
+                {/* Panel Header */}
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-700 shrink-0" />
+                    <h3 className="font-bold text-sm text-slate-900 tracking-tight">
+                      Institution Inspector
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInst(null)}
+                    className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    aria-label="Close inspector panel"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Institution Profile Info */}
+                <div className="space-y-2">
+                  <h4 className="font-bold text-base text-slate-900 leading-tight">
+                    {cleanInstitutionName(selectedInst.name)}
+                  </h4>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-blue-800 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                      PID: {selectedInst.permanent_id}
+                    </span>
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded border ${getRegionBadgeClass(
+                        selectedInst.region
+                      )}`}
+                    >
+                      {selectedInst.region} Region
+                    </span>
+                    {selectedInst.type && (
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded border ${getTypeBadgeClass(
+                          selectedInst.type
+                        )}`}
+                      >
+                        {selectedInst.type}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    Location: {selectedInst.address || selectedInst.state || 'India'}
+                  </p>
+                </div>
+
+                {/* Cross-Bureau Case Breakdown */}
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <span className="text-xs font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
+                    Cross-Bureau Case Breakdown
+                  </span>
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-center">
+                      <span className="text-[10px] font-bold text-blue-700 block">RB</span>
+                      <span className="text-lg font-bold text-blue-900 num-tabular">
+                        {bureauBreakdown.RB}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-teal-50 border border-teal-200 text-center">
+                      <span className="text-[10px] font-bold text-teal-700 block">PGRC</span>
+                      <span className="text-lg font-bold text-teal-900 num-tabular">
+                        {bureauBreakdown.PGRC}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                      <span className="text-[10px] font-bold text-amber-800 block">RO</span>
+                      <span className="text-lg font-bold text-amber-950 num-tabular">
+                        {bureauBreakdown.RO}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-purple-50 border border-purple-200 text-center">
+                      <span className="text-[10px] font-bold text-purple-700 block">OC</span>
+                      <span className="text-lg font-bold text-purple-950 num-tabular">
+                        {bureauBreakdown.OC}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Overlap Alert Banner if Flagged */}
+                {selectedInstOverlaps.length > 0 && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>{selectedInstOverlaps.length} Cross-Bureau Overlap Flag(s)</span>
+                    </div>
+                    <p className="text-[11px] text-rose-700 leading-snug">
+                      Concurrent complaints detected across different bureaus for this college.
+                    </p>
+                    <Link
+                      to="/overlaps"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 hover:text-rose-950 underline pt-1"
+                    >
+                      <span>Review in Overlap Queue</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                )}
+
+                {/* Active Grievances Preview */}
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                      Complaints ({selectedInstCases.length})
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {selectedInstCases.filter((c) => c.status !== 'disposed').length} active
+                    </span>
+                  </div>
+
+                  {loadingDetail ? (
+                    <div className="p-4 text-center text-xs text-slate-400">Loading cases...</div>
+                  ) : selectedInstCases.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-slate-400 bg-slate-50 rounded-lg">
+                      No complaints registered for this institution.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                      {selectedInstCases.slice(0, 5).map((c) => (
+                        <Link
+                          key={c.case_no}
+                          to={`/cases/${c.case_no}`}
+                          className="p-2 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-blue-50/50 hover:border-blue-300 transition block text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="font-mono font-bold text-blue-700 text-xs">
+                              {c.case_no}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <BureauBadge bureau={c.bureau} />
+                              <StatusChip status={c.status} />
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-slate-600 truncate">{c.category}</p>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Action: Open Full Institution Record */}
+              <div className="pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/institutions/${selectedInst.permanent_id}`)}
+                  className="w-full py-2.5 px-4 bg-[#1E3A8A] hover:bg-[#172554] text-white font-bold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <span>Open Full Institution Record</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </aside>
+          )}
         </div>
       )}
     </div>
