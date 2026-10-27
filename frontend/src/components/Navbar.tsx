@@ -126,6 +126,11 @@ export const Navbar: React.FC = () => {
             </div>
           )}
 
+          {/* Central System Status Badge */}
+          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200 whitespace-nowrap flex-shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Central Case Registry · Active</span>
+          </div>
 
           {/* Real Auth Quick Actions */}
           <div className="flex items-center gap-1">

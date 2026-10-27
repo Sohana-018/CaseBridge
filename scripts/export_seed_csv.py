@@ -35,10 +35,10 @@ def export_institutions(session: Session) -> int:
     out = SEED_DIR / "institutions.csv"
     with open(out, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["id", "permanent_id", "name", "address", "region", "state", "type"])
+        writer.writerow(["permanent_id", "name", "address", "region", "state", "type"])
         for r in rows:
             writer.writerow([
-                r.id, r.permanent_id, r.name, r.address,
+                r.permanent_id, r.name, r.address,
                 r.region.value if hasattr(r.region, "value") else r.region,
                 r.state, r.type,
             ])
@@ -47,19 +47,24 @@ def export_institutions(session: Session) -> int:
 
 
 def export_cases(session: Session) -> int:
+    # Build institution_id to permanent_id mapping
+    inst_rows = session.exec(select(Institution)).all()
+    id_to_pid = {inst.id: inst.permanent_id for inst in inst_rows}
+
     rows = session.exec(select(Case).order_by(Case.id)).all()
     out = SEED_DIR / "cases.csv"
     with open(out, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "id", "case_no", "institution_id", "bureau", "category", "description",
+            "case_no", "permanent_id", "bureau", "category", "description",
             "received_date", "status", "assigned_officer", "last_action",
             "last_action_date", "next_action", "expected_disposal_date",
-            "priority", "created_at",
+            "priority",
         ])
         for r in rows:
+            pid = id_to_pid.get(r.institution_id, "")
             writer.writerow([
-                r.id, r.case_no, r.institution_id,
+                r.case_no, pid,
                 r.bureau.value if hasattr(r.bureau, "value") else r.bureau,
                 r.category.value if hasattr(r.category, "value") else r.category,
                 r.description, r.received_date,
@@ -67,7 +72,6 @@ def export_cases(session: Session) -> int:
                 r.assigned_officer, r.last_action, r.last_action_date,
                 r.next_action, r.expected_disposal_date,
                 r.priority.value if hasattr(r.priority, "value") else r.priority,
-                r.created_at,
             ])
     print(f"[+] cases.csv - {len(rows)} rows -> {out}")
     return len(rows)

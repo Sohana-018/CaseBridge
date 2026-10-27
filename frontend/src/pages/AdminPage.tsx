@@ -466,15 +466,9 @@ export const AdminPage: React.FC = () => {
                     Overlap Detection Engine Trigger
                   </h3>
                 </div>
-                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                  Triggers an exhaustive multi-signal scan (Permanent ID match, category correlation,
-                  TF-IDF + RapidFuzz text similarity, reference check) across all unreviewed pairs.
-                  Does not overwrite previously reviewed pairs.
+                <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+                  Run a scan across unreviewed case pairs to detect potential cross-bureau overlaps. Previously reviewed pairs are preserved.
                 </p>
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 mb-4">
-                  <strong>Non-destructive contract:</strong> Cases are flagged for human coordinator
-                  review; no complaints are ever automatically merged or closed.
-                </div>
               </div>
 
               <button

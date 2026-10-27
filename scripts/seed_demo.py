@@ -489,19 +489,12 @@ def seed_demo() -> None:
                 session.commit()
                 session.refresh(c)
 
-                # Add initial event
-                ev = CaseEvent(
-                    case_id=c.id,
-                    ts=datetime.combine(c.received_date, datetime.min.time(), tzinfo=timezone.utc),
-                    actor=c.assigned_officer or "System",
-                    bureau=c.bureau,
-                    event_type=EventType.CREATED,
-                    to_status=c.status,
-                    remarks=f"Initial registration in {c.bureau.value}",
-                )
-                session.add(ev)
+                # Add rich chronological timeline events (max 6)
+                from scripts.enrich_timelines import generate_case_events
+                for ev in generate_case_events(c):
+                    session.add(ev)
                 session.commit()
-                print(f"[+] Created case: {c.case_no} [{c.bureau.value} - {c.status.value}]")
+                print(f"[+] Created case with rich timeline: {c.case_no} [{c.bureau.value} - {c.status.value}]")
             else:
                 print(f"[*] Case exists: {existing_case.case_no}")
 

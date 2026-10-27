@@ -392,7 +392,7 @@ export const OverviewPage: React.FC = () => {
                     <span>1. Institutions Directory</span>
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Single canonical registry indexed by Permanent ID (`DEMO-XXXX`) across all zones.
+                    Single canonical registry indexed by Permanent ID (`PID-XXXX`) across all zones.
                   </p>
                 </div>
 
