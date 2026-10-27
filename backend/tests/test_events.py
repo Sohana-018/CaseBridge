@@ -1,12 +1,12 @@
 from datetime import date
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from app.db import get_session
 from app.main import app
-from app.models import Bureau, Case, CaseCategory, CaseEvent, CaseStatus, Institution, Priority, Region
+from app.models import Bureau, Case, CaseCategory, CaseStatus, Institution, Priority, Region
 
 
 from tests.test_auth import get_auth_token, get_coordinator_token

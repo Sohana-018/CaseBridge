@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -6,7 +6,7 @@ from sqlmodel.pool import StaticPool
 
 from app.db import get_session
 from app.main import app
-from app.models import Alert, AlertType, Bureau, Case, CaseCategory, CaseStatus, Institution, Priority, Region
+from app.models import Bureau, Case, CaseCategory, CaseStatus, Institution, Priority, Region
 from app.services.alerts import refresh_alerts
 from tests.test_auth import get_coordinator_token
 
