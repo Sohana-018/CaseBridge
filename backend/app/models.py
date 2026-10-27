@@ -1,8 +1,6 @@
-import json
 from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any, List, Optional
-from pydantic import model_validator
 from sqlalchemy import JSON, CheckConstraint, Column, UniqueConstraint
 from sqlmodel import Field, SQLModel
 

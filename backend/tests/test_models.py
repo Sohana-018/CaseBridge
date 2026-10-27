@@ -1,11 +1,9 @@
-from datetime import date, datetime
+from datetime import date
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.models import (
-    Alert,
-    AlertType,
     Bureau,
     Case,
     CaseCategory,

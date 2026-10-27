@@ -1,14 +1,14 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy import desc, func
 from sqlmodel import Session, select
 
 from app.auth_utils import hash_password
 from app.db import get_session
 from app.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
-from app.models import Alert, Bureau, Case, CaseEvent, Config, Institution, OverlapLink, User, UserRole, utc_now
+from app.models import Alert, Bureau, Case, CaseEvent, Config, Institution, OverlapLink, User, utc_now
 from app.permissions import UserPayload, check_admin_permission
 from app.routers.auth import VALID_BUREAUS, VALID_ROLES, get_current_user
 from app.services.overlap import detect_overlaps, find_manual_verification_items

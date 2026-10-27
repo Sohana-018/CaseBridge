@@ -14,7 +14,6 @@ from app.models import (
     ConfidenceBand,
     Institution,
     OverlapLink,
-    Priority,
     Region,
     ReviewStatus,
 )

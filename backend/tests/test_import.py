@@ -10,7 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from app.models import Case, CaseEvent, Counter, EventType, Institution
+from app.models import Case, CaseEvent, Counter, Institution
 from app.services.alerts import refresh_alerts
 from scripts.import_csv import import_csv
 
@@ -195,7 +195,6 @@ def test_labelled_pairs_integrity_and_balance():
 
 def test_seed_demo_and_import_csv_cooperate(db_session: Session):
     """Test running import_csv alongside seed_demo does not duplicate institutions or cases."""
-    from scripts.seed_demo import seed_demo
 
     # First run import_csv
     import_csv(session=db_session, seed_dir=SEED_DIR, today=FIXED_TODAY)
