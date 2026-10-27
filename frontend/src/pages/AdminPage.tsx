@@ -235,7 +235,7 @@ export const AdminPage: React.FC = () => {
             <div className="w-8 h-8 rounded-lg bg-blue-950 flex items-center justify-center text-white">
               <ShieldAlert className="w-5 h-5 text-amber-400" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
               System Administration
             </h1>
           </div>
@@ -359,7 +359,7 @@ export const AdminPage: React.FC = () => {
             <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
               <div className="text-xs text-slate-500 font-medium">Institutions</div>
               <div className="text-2xl font-bold text-slate-900 mt-1">{health.total_institutions}</div>
-              <div className="text-[11px] text-slate-500 mt-1">AICTE Approved</div>
+              <div className="text-[11px] text-slate-500 mt-1">Registered Directory</div>
             </div>
             <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
               <div className="text-xs text-slate-500 font-medium">Total Overlaps</div>
@@ -835,7 +835,7 @@ export const AdminPage: React.FC = () => {
                   type="email"
                   value={newUser.email || ''}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  placeholder="officer@aicte.gov.in"
+                  placeholder="officer@domain.gov.in"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
                 />
               </div>

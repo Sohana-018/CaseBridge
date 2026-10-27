@@ -69,9 +69,6 @@ export const Navbar: React.FC = () => {
                 <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900 leading-none">
                   CaseBridge
                 </span>
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200 leading-none">
-                  Official
-                </span>
               </div>
               <span className="text-[11px] text-slate-500 font-normal hidden 2xl:block mt-0.5 leading-none">
                 Institution Complaint Monitoring
@@ -80,44 +77,46 @@ export const Navbar: React.FC = () => {
           </NavLink>
 
           {/* Desktop nav links */}
-          <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 flex-shrink-0" aria-label="Main navigation">
-            {BASE_NAV_LINKS.map(({ to, end, Icon, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={({ isActive }) =>
-                  `inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-md text-xs xl:text-sm font-medium whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-900 font-semibold border-b-2 border-blue-900 rounded-b-none'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700'
-                  }`
-                }
-              >
-                <Icon className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-slate-500 flex-shrink-0" />
-                <span>{label}</span>
-              </NavLink>
-            ))}
+          {user && (
+            <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 flex-shrink-0" aria-label="Main navigation">
+              {BASE_NAV_LINKS.map(({ to, end, Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    `inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-md text-xs xl:text-sm font-medium whitespace-nowrap transition-colors ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-900 font-semibold border-b-2 border-blue-900 rounded-b-none'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700'
+                    }`
+                  }
+                >
+                  <Icon className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-slate-500 flex-shrink-0" />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
 
-            {isAdmin && (
-              <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  `inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-md text-xs xl:text-sm font-medium whitespace-nowrap transition-colors ${
-                    isActive
-                      ? 'bg-amber-50 text-amber-900 font-bold border-b-2 border-amber-600 rounded-b-none'
-                      : 'text-amber-800 hover:text-amber-950 hover:bg-amber-50/70 focus-visible:outline-2 focus-visible:outline-amber-700'
-                  }`
-                }
-              >
-                <ShieldAlert className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-amber-600 flex-shrink-0" />
-                <span>Admin</span>
-              </NavLink>
-            )}
-          </nav>
+              {isAdmin && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    `inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-md text-xs xl:text-sm font-medium whitespace-nowrap transition-colors ${
+                      isActive
+                        ? 'bg-amber-50 text-amber-900 font-bold border-b-2 border-amber-600 rounded-b-none'
+                        : 'text-amber-800 hover:text-amber-950 hover:bg-amber-50/70 focus-visible:outline-2 focus-visible:outline-amber-700'
+                    }`
+                  }
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-amber-600 flex-shrink-0" />
+                  <span>Admin</span>
+                </NavLink>
+              )}
+            </nav>
+          )}
         </div>
 
-        {/* Right side: role badge + operational badge + sign in/logout */}
+        {/* Right side: role badge + prototype badge + sign in/logout */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Active Role Badge (read-only indicator of current logged-in identity) */}
           {user && (
@@ -127,10 +126,9 @@ export const Navbar: React.FC = () => {
             </div>
           )}
 
-          {/* Operational status badge (visible at xl+) */}
-          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200 whitespace-nowrap flex-shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Operational Portal</span>
+          {/* Prototype · Synthetic data badge (visible at xl+) */}
+          <div className="hidden xl:flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 text-[11px] font-semibold border border-amber-200 whitespace-nowrap flex-shrink-0">
+            <span>Prototype · Synthetic data</span>
           </div>
 
           {/* Real Auth Quick Actions */}
@@ -158,39 +156,41 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Mobile nav subbar */}
-      <div className="lg:hidden flex items-center border-t border-slate-100 px-4 py-2 bg-slate-50 gap-1 overflow-x-auto">
-        {BASE_NAV_LINKS.map(({ to, end, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              `flex-shrink-0 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-3 transition-colors ${
-                isActive
-                  ? 'bg-white text-blue-900 font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`
-            }
-          >
-            {label}
-          </NavLink>
-        ))}
+      {user && (
+        <div className="lg:hidden flex items-center border-t border-slate-100 px-4 py-2 bg-slate-50 gap-1 overflow-x-auto">
+          {BASE_NAV_LINKS.map(({ to, end, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                `flex-shrink-0 text-center py-1.5 rounded text-xs font-medium whitespace-nowrap px-3 transition-colors ${
+                  isActive
+                    ? 'bg-white text-blue-900 font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
 
-        {isAdmin && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              `flex-shrink-0 text-center py-1.5 rounded text-xs font-bold whitespace-nowrap px-3 transition-colors ${
-                isActive
-                  ? 'bg-amber-100 text-amber-900 shadow-xs'
-                  : 'text-amber-800 hover:text-amber-950 hover:bg-amber-50'
-              }`
-            }
-          >
-            Admin
-          </NavLink>
-        )}
-      </div>
+          {isAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `flex-shrink-0 text-center py-1.5 rounded text-xs font-bold whitespace-nowrap px-3 transition-colors ${
+                  isActive
+                    ? 'bg-amber-100 text-amber-900 shadow-xs'
+                    : 'text-amber-800 hover:text-amber-950 hover:bg-amber-50'
+                }`
+              }
+            >
+              Admin
+            </NavLink>
+          )}
+        </div>
+      )}
     </header>
   );
 };

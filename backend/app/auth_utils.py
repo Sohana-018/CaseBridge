@@ -76,6 +76,14 @@ DEFAULT_SYSTEM_USERS: List[Dict[str, Optional[str]]] = [
         "password": "officer123",
     },
     {
+        "username": "officer_ro",
+        "name": "Regional Office Officer",
+        "role": UserRole.BUREAU_OFFICER.value,
+        "bureau": Bureau.RO.value,
+        "email": "officer.ro@aicte.gov.in",
+        "password": "officer123",
+    },
+    {
         "username": "management",
         "name": "Senior Management Executive",
         "role": UserRole.SENIOR_MANAGEMENT.value,

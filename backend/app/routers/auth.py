@@ -266,6 +266,14 @@ def get_demo_accounts():
             "password_hint": "officer123",
         },
         {
+            "username": "officer_ro",
+            "name": "Regional Office Officer",
+            "role": "bureau_officer",
+            "bureau": "RO",
+            "badge": "RO Officer",
+            "password_hint": "officer123",
+        },
+        {
             "username": "management",
             "name": "Senior Management Executive",
             "role": "senior_management",

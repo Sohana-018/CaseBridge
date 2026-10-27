@@ -222,7 +222,7 @@ export const CaseDetailPage: React.FC = () => {
         remarks: remarkText.trim(),
       });
       setActiveDialog(null);
-      setActionSuccess('Official remark added to case timeline.');
+      setActionSuccess('Remark added to case timeline.');
       await fetchCaseAndEvents();
     } catch (err: unknown) {
       setDialogError(err instanceof Error ? err.message : 'Failed to append remark.');
@@ -375,7 +375,7 @@ export const CaseDetailPage: React.FC = () => {
                   ) : null}
                   {caseItem.overdue && <OverdueBadge />}
                 </div>
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                   Case File {caseItem.case_no}
                 </h1>
               </div>
@@ -633,7 +633,7 @@ export const CaseDetailPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openDialog('remark')}
-                  title="Append an official note or remark to timeline"
+                  title="Append a note or remark to timeline"
                   className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 transition shadow-xs cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4 text-slate-600" />
@@ -790,7 +790,7 @@ export const CaseDetailPage: React.FC = () => {
                   {activeDialog === 'status' && 'Change Case Status'}
                   {activeDialog === 'transfer' && 'Transfer to Another Bureau'}
                   {activeDialog === 'escalate' && 'Escalate Case'}
-                  {activeDialog === 'remark' && 'Add Official Remark'}
+                  {activeDialog === 'remark' && 'Add Remark'}
                   {activeDialog === 'edit_details' && 'Edit Case Details'}
                 </span>
               </h3>
@@ -1002,7 +1002,7 @@ export const CaseDetailPage: React.FC = () => {
                     rows={4}
                     value={remarkText}
                     onChange={(e) => setRemarkText(e.target.value)}
-                    placeholder="Enter official remark, note of phone conversation, or audit observation..."
+                    placeholder="Enter remark, note of phone conversation, or audit observation..."
                     required
                     disabled={isSubmitting}
                     className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md p-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
