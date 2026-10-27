@@ -218,3 +218,27 @@ def test_alert_refresh_evaluates_after_import(db_session: Session):
     created = refresh_alerts(db_session, today=FIXED_TODAY)
     # The first refresh during import creates alerts, running refresh again creates 0 duplicates
     assert created == 0
+
+
+def test_auto_seed_on_empty_database(db_session: Session):
+    """Test auto_seed_demo_data imports cases and configures DEMO-1042 when cases table is empty."""
+    from app.main import auto_seed_demo_data
+    from app.services.reports import get_dashboard_summary
+
+    # Ensure table is initially empty
+    assert len(db_session.exec(select(Case)).all()) == 0
+
+    auto_seed_demo_data(session=db_session)
+
+    summary = get_dashboard_summary(db_session)
+    assert summary["total"] >= 200
+    assert summary["total"] <= 225
+
+    # Confirm DEMO-1042 has its two central cases
+    demo_cases = db_session.exec(
+        select(Case).join(Institution, Case.institution_id == Institution.id).where(Institution.permanent_id == "DEMO-1042")
+    ).all()
+    demo_case_nos = {c.case_no for c in demo_cases}
+    assert "PG-2026-00104" in demo_case_nos
+    assert "RB-2026-00219" in demo_case_nos
+
