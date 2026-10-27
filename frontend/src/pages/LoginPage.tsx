@@ -12,7 +12,6 @@ import {
   Sparkles,
   GitCompare,
   Clock,
-  Shield,
   Building2,
 } from 'lucide-react';
 import {
@@ -111,13 +110,11 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
       {/* Colima Reference Inspired Institutional Split-Screen Card */}
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
-        {/* Left Side: Institutional Showcase & System Context (Colima Reference Style) */}
+        {/* Left Side: Overview and key capabilities */}
         <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 p-6 sm:p-8 lg:p-10 text-white flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle geometric & light watermark accents */}
           <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
           <div className="absolute -left-16 -bottom-16 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
 
-          {/* Top: Institutional Badge & System Mission */}
           <div className="relative z-10 space-y-5">
             <div className="space-y-2">
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
@@ -128,7 +125,6 @@ export const LoginPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Bureau Pillars Strip */}
             <div className="pt-2 flex flex-wrap gap-1.5">
               <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-blue-900/60 text-blue-200 border border-blue-700/50">
                 RB
@@ -144,7 +140,6 @@ export const LoginPage: React.FC = () => {
               </span>
             </div>
 
-            {/* Highlights List */}
             <div className="pt-4 space-y-3">
               <div className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5 text-blue-300">
@@ -184,20 +179,15 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Badge / Year Notice (Matching Colima 2019 Emblem) */}
-          <div className="relative z-10 pt-8 mt-6 border-t border-white/10 flex items-center justify-between text-xs text-blue-200/70">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-emerald-400" />
-              <span className="font-semibold text-white">CaseBridge Core</span>
-            </div>
-            <span className="font-mono text-sm font-bold text-blue-100">2026</span>
+          <div className="relative z-10 pt-6 mt-6 border-t border-white/10 flex items-center justify-between text-xs text-blue-200/70">
+            <span className="font-semibold text-white">CaseBridge</span>
+            <span className="text-[11px] text-blue-200/60">Grievance Monitoring</span>
           </div>
         </div>
 
-        {/* Right Side: Authentication Form & Authorized Accounts */}
+        {/* Right Side: Authentication Form */}
         <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white">
           <div className="max-w-md w-full mx-auto space-y-6">
-            {/* Header with Institutional Seal */}
             <div>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-900 text-white flex items-center justify-center shadow-md shadow-blue-900/20">
@@ -213,12 +203,7 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Colima Reference Style Decorative Accent Ribbon */}
-              <div className="flex h-1 w-full rounded-full overflow-hidden my-4">
-                <div className="w-1/3 bg-blue-900" />
-                <div className="w-1/3 bg-amber-500" />
-                <div className="w-1/3 bg-emerald-600" />
-              </div>
+              <div className="h-0.5 w-full bg-slate-100 my-4" />
 
               <div className="space-y-1">
                 <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
@@ -291,7 +276,6 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Remember Me Option (Colima Reference Style) */}
               <div className="flex items-center justify-between text-xs pt-1">
                 <label className="flex items-center gap-2 text-slate-600 cursor-pointer select-none">
                   <input
@@ -302,10 +286,8 @@ export const LoginPage: React.FC = () => {
                   />
                   <span>Remember this session</span>
                 </label>
-                <span className="text-slate-400 italic text-[11px]">SAML / MFA Ready</span>
               </div>
 
-              {/* Elevated Primary Action Button (Colima "ENTRAR" Style) */}
               <button
                 type="submit"
                 disabled={loading}
@@ -361,11 +343,6 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Footer note */}
-          <div className="pt-6 mt-6 border-t border-slate-100 text-center text-[11px] text-slate-400">
-            CaseBridge Grievance Monitoring Platform
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
@@ -8,7 +8,7 @@ export const Footer: React.FC = () => {
         <div className="flex items-center space-x-2 text-sm text-slate-600 font-medium">
           <ShieldCheck className="w-4 h-4 text-blue-900" />
           <span id="footer-synthetic-tag" className="font-semibold text-slate-800">
-            CaseBridge Grievance Monitoring Platform · Sample dataset
+            CaseBridge Grievance Monitoring Platform
           </span>
         </div>
         <div className="text-xs text-slate-500">
