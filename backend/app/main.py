@@ -119,7 +119,7 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     """Root endpoint welcoming visitors and linking to health and docs."""
     return {
@@ -130,9 +130,15 @@ def root():
     }
 
 
-@app.get("/api/v1/health")
+@app.api_route("/api/v1/health", methods=["GET", "HEAD"])
 def health_check():
     """Health check endpoint returning API status."""
+    return {"status": "ok"}
+
+
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health_root():
+    """Root health check endpoint returning API status for cloud container orchestrators."""
     return {"status": "ok"}
 
 

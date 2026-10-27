@@ -1,11 +1,11 @@
 from datetime import date, datetime, timezone
 from typing import Optional, Union
 from fastapi import APIRouter, Depends, Query
-from sqlmodel import Session, and_, or_, select
+from sqlmodel import Session, or_, select
 
 from app.db import get_session
 from app.errors import ForbiddenError, NotFoundError, ValidationError
-from app.models import Bureau, Case, CaseEvent, CaseStatus, Counter, EventType, Institution
+from app.models import Case, CaseEvent, CaseStatus, Counter, EventType, Institution
 from app.permissions import UserPayload, is_full_case_visible
 from app.routers.auth import get_current_user
 from app.schemas import (

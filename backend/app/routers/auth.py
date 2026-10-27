@@ -274,6 +274,22 @@ def get_demo_accounts():
             "password_hint": "officer123",
         },
         {
+            "username": "officer_oc",
+            "name": "Other Cells Officer",
+            "role": "bureau_officer",
+            "bureau": "OC",
+            "badge": "OC Officer",
+            "password_hint": "officer123",
+        },
+        {
+            "username": "deputy_coord",
+            "name": "Deputy Grievance Coordinator",
+            "role": "coordinator",
+            "bureau": None,
+            "badge": "Deputy Coordinator",
+            "password_hint": "coord123",
+        },
+        {
             "username": "management",
             "name": "Senior Management Executive",
             "role": "senior_management",
