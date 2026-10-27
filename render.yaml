@@ -10,6 +10,10 @@ services:
         value: prod
       - key: ALLOW_DEMO_LOGIN
         value: "false"
+      # Auto-seed demo data on startup if cases table is empty.
+      # Note: ALLOW_DEMO_LOGIN=true is needed for the one-click demo accounts.
+      - key: AUTO_SEED
+        value: "true"
       - key: CORS_ORIGINS
         sync: false
       - key: JWT_SECRET

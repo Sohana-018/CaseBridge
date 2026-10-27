@@ -23,12 +23,63 @@ from app.routers import admin, alerts, auth, cases, dashboard, events, instituti
 from app.services.alerts import refresh_alerts
 
 
+def auto_seed_demo_data(session: Session) -> None:
+    """Idempotently seed demo data on startup if cases table is empty (AUTO_SEED=true)."""
+    import sys
+    from sqlmodel import select
+    from app.models import Case
+
+    # Check if the cases table is already populated
+    first_case = session.exec(select(Case.id).limit(1)).first()
+    if first_case is not None:
+        return
+
+    # Resolve repository root and seed directory (handling both root and backend working directories)
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+    backend_dir = Path(__file__).resolve().parent.parent
+    seed_dir = None
+    for candidate in [
+        repo_root / "data" / "seed",
+        backend_dir / "data" / "seed",
+        Path("data/seed").resolve(),
+    ]:
+        if (candidate / "cases.csv").exists():
+            seed_dir = candidate
+            break
+
+    if seed_dir is None:
+        print("[Auto-Seed] Warning: data/seed not found, skipping auto-seed.")
+        return
+
+    print(f"[Auto-Seed] Empty database detected with AUTO_SEED=true. Seeding demo data from {seed_dir}...")
+    try:
+        import scripts.seed_demo as seed_demo_mod
+        bind = session.get_bind() if hasattr(session, "get_bind") else (getattr(session, "bind", None) or engine)
+        seed_demo_mod.engine = bind
+        seed_demo_mod.seed_demo()
+    except Exception as e:
+        print(f"[Auto-Seed] Note from seed_demo: {e}")
+
+    try:
+        from scripts.import_csv import import_csv
+        res = import_csv(session=session, seed_dir=seed_dir)
+        print(f"[Auto-Seed] Finished importing seed CSVs: {res}")
+    except Exception as e:
+        print(f"[Auto-Seed] Error importing CSVs: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager creating tables, seeding users/config, and running alert evaluations."""
     create_db_and_tables()
     with Session(engine) as session:
         seed_default_users_and_config(session)
+        auto_seed = os.getenv("AUTO_SEED", "false").lower() in ("true", "1", "yes")
+        if auto_seed:
+            auto_seed_demo_data(session)
         refresh_alerts(session)
     yield
 
