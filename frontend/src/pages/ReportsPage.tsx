@@ -1,8 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { getReport, downloadReportCsv, type ReportData } from '../api/client';
 import { StatusChip, BureauBadge } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
+import { useToast } from '../components/Toast';
+import { formatCategory, formatStatus, formatOutcome } from '../utils/formatters';
 import {
   BarChart3,
   Building2,
@@ -14,9 +16,7 @@ import {
   MapPin,
   RefreshCw,
   Download,
-  ExternalLink,
   Percent,
-  ChevronRight,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -27,6 +27,7 @@ import {
   Tooltip,
   CartesianGrid,
   Cell,
+  LabelList,
 } from 'recharts';
 
 export type ReportKind =
@@ -56,7 +57,7 @@ const TABS: TabDefinition[] = [
     kind: 'status',
     label: 'By Status',
     icon: PieChart,
-    description: 'Breakdown of complaints across workflow statuses (pending, under process, disposed, transferred, escalated)',
+    description: 'Breakdown of complaints across workflow statuses',
   },
   {
     kind: 'region',
@@ -74,7 +75,7 @@ const TABS: TabDefinition[] = [
     kind: 'ageing',
     label: 'Ageing',
     icon: Clock,
-    description: 'Age distribution of all open (non-disposed) complaints across SLA ageing buckets',
+    description: 'Age distribution of all open complaints across SLA ageing buckets (open cases only, excludes disposed)',
   },
   {
     kind: 'disposal',
@@ -86,92 +87,79 @@ const TABS: TabDefinition[] = [
     kind: 'overlap_outcomes',
     label: 'Overlap Outcomes',
     icon: GitCompare,
-    description: 'Classification results of detected cross-bureau overlap candidate pairs',
+    description: 'Coordination review outcomes of detected cross-bureau overlap candidate pairs',
   },
 ];
 
-// Consistent color palettes aligned with the rest of the application
+// Status colors strictly mapped to single-source-of-truth tokens
 const STATUS_COLORS: Record<string, string> = {
-  pending: '#d97706', // amber-600
-  under_process: '#2563eb', // blue-600
-  disposed: '#059669', // emerald-600
-  transferred: '#64748b', // slate-500
-  escalated: '#9333ea', // purple-600
+  pending: '#B54708',       // warning
+  under_process: '#175CD3', // info
+  escalated: '#6941C6',     // purple
+  transferred: '#344054',   // neutral
+  disposed: '#067647',      // success
 };
 
-const BUREAU_COLORS: Record<string, string> = {
-  RB: '#1d4ed8', // blue-700
-  PGRC: '#0d9488', // teal-600
-  RO: '#d97706', // amber-600
-  OC: '#4f46e5', // indigo-600
+// Ageing severity ramp (neutral -> brand -> warning -> danger)
+const AGEING_SEVERITY: Record<string, string> = {
+  '0-7': '#475467',
+  '0-7 days': '#475467',
+  '8-30': '#1E3A8A',
+  '8-30 days': '#1E3A8A',
+  '31-90': '#B54708',
+  '31-90 days': '#B54708',
+  '90+': '#B42318',
+  '90+ days': '#B42318',
 };
 
-const REGION_COLORS: Record<string, string> = {
-  North: '#2563eb',
-  South: '#059669',
-  East: '#7c3aed',
-  West: '#d97706',
-  Central: '#0891b2',
-  Unassigned: '#94a3b8',
+// Overlap outcomes distinct non-status colors
+const OVERLAP_OUTCOME_COLORS: Record<string, string> = {
+  open: '#98A2B3',          // light neutral
+  related: '#1E3A8A',       // brand
+  duplicate: '#B42318',     // danger
+  not_related: '#344054',   // neutral
+  needs_review: '#B54708',  // warning
 };
 
-const AGEING_COLORS: Record<string, string> = {
-  '0-7': '#10b981', // emerald-500
-  '0-7 days': '#10b981',
-  '8-30': '#2563eb', // blue-600
-  '8-30 days': '#2563eb',
-  '31-90': '#f59e0b', // amber-500
-  '31-90 days': '#f59e0b',
-  '90+': '#ef4444', // red-500
-  '90+ days': '#ef4444',
-};
-
-const DISPOSAL_COLORS: Record<string, string> = {
-  disposed: '#059669', // emerald-600
-  open: '#2563eb', // blue-600
-};
-
-const OVERLAP_COLORS: Record<string, string> = {
-  open: '#f59e0b',
-  related: '#2563eb',
-  duplicate: '#9333ea',
-  not_related: '#64748b',
-  needs_review: '#4f46e5',
-};
-
-function getItemColor(label: string, kind: ReportKind): string {
+function getItemColor(label: string, kind: ReportKind, isTop = false): string {
   const norm = label.toLowerCase().trim();
 
-  if (kind === 'bureau') {
-    return BUREAU_COLORS[label.toUpperCase()] || '#1e3a8a';
-  }
   if (kind === 'status') {
-    return STATUS_COLORS[norm] || '#64748b';
-  }
-  if (kind === 'region') {
-    return REGION_COLORS[label] || '#3b82f6';
+    return STATUS_COLORS[norm] || '#344054';
   }
   if (kind === 'ageing') {
-    return AGEING_COLORS[label] || AGEING_COLORS[norm] || '#f59e0b';
-  }
-  if (kind === 'disposal') {
-    return DISPOSAL_COLORS[norm] || '#2563eb';
+    return AGEING_SEVERITY[norm] || '#475467';
   }
   if (kind === 'overlap_outcomes') {
-    return OVERLAP_COLORS[norm] || '#64748b';
+    return OVERLAP_OUTCOME_COLORS[norm] || '#344054';
   }
-  // Institution or default
-  return '#1e3a8a';
+  if (kind === 'disposal') {
+    return norm === 'disposed' ? '#067647' : '#1E3A8A';
+  }
+
+  // By Bureau, By Region, By Institution: single brand colour with largest emphasised
+  return isTop ? '#172E6E' : '#1E3A8A';
 }
 
-function formatLabel(label: string, kind: ReportKind): string {
-  if (kind === 'status' || kind === 'overlap_outcomes') {
-    return label.replace(/_/g, ' ');
+function formatDisplayLabel(label: string, kind: ReportKind): string {
+  if (kind === 'status') return formatStatus(label);
+  if (kind === 'overlap_outcomes') return formatOutcome(label);
+  if (kind === 'bureau') return label.toUpperCase();
+  if (kind === 'ageing') {
+    return label.includes('days') ? label : `${label} days`;
   }
-  return label;
+  return label
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
-function getDrilldownUrl(item: { label: string; bucket?: string; permanent_id?: string }, kind: ReportKind): string | null {
+function getDrilldownUrl(
+  item: { label: string; permanent_id?: string; count?: number },
+  kind: ReportKind
+): string | null {
+  if (!item.count || item.count === 0) return null;
+
   if (kind === 'bureau') {
     return `/cases?bureau=${encodeURIComponent(item.label.toUpperCase())}`;
   }
@@ -190,18 +178,17 @@ function getDrilldownUrl(item: { label: string; bucket?: string; permanent_id?: 
     return '/cases';
   }
   if (kind === 'overlap_outcomes') {
-    return '/overlap-queue';
-  }
-  if (kind === 'ageing') {
-    return '/cases';
+    return `/overlaps`;
   }
   return null;
 }
 
 export const ReportsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const tablistRef = useRef<HTMLDivElement>(null);
 
-  // Read tab from query string, validating against TABS
   const tabParam = (searchParams.get('tab') || 'bureau') as ReportKind;
   const currentTabDef = TABS.find((t) => t.kind === tabParam) || TABS[0];
   const activeKind = currentTabDef.kind;
@@ -209,34 +196,57 @@ export const ReportsPage: React.FC = () => {
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string>(() =>
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  );
 
-  // Switch tab and sync with URL
   const handleTabChange = (kind: ReportKind) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('tab', kind);
     setSearchParams(nextParams);
   };
 
-  // Fetch report data for active tab
-  const fetchReport = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getReport(activeKind);
-      setReport(data);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(`Failed to retrieve ${currentTabDef.label} report from CaseBridge.`);
-      }
-    } finally {
-      setLoading(false);
+  // Keyboard navigation for tablist
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const nextIndex = (index + 1) % TABS.length;
+      handleTabChange(TABS[nextIndex].kind);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prevIndex = (index - 1 + TABS.length) % TABS.length;
+      handleTabChange(TABS[prevIndex].kind);
     }
-  }, [activeKind, currentTabDef.label]);
+  };
+
+  const fetchReport = useCallback(
+    async (isRefresh = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getReport(activeKind);
+        setReport(data);
+        setLastUpdated(
+          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        );
+        if (isRefresh) {
+          showToast(`${currentTabDef.label} report refreshed`, 'success');
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : `Failed to retrieve ${currentTabDef.label} report.`;
+        setError(msg);
+        if (isRefresh) {
+          showToast('Failed to refresh report', 'error');
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeKind, currentTabDef.label, showToast]
+  );
 
   useEffect(() => {
-    fetchReport();
+    fetchReport(false);
   }, [fetchReport]);
 
   // Order items specifically for Ageing: 0-7, 8-30, 31-90, 90+
@@ -257,48 +267,81 @@ export const ReportsPage: React.FC = () => {
     return report.items;
   }, [report, activeKind]);
 
-  // Calculate sum of item counts
+  // For institutions horizontal bar chart: Top 10 + "All others"
+  const institutionChartData = useMemo(() => {
+    if (activeKind !== 'institution' || displayItems.length === 0) return [];
+    const sorted = [...displayItems].sort((a, b) => (b.count || 0) - (a.count || 0));
+    const top10 = sorted.slice(0, 10);
+    const others = sorted.slice(10);
+    const othersCount = others.reduce((acc, curr) => acc + (curr.count || 0), 0);
+
+    const result = top10.map((item) => ({
+      ...item,
+      displayName: item.name || item.label,
+    }));
+
+    if (othersCount > 0) {
+      result.push({
+        label: 'all_others',
+        name: 'All other institutions',
+        displayName: 'All other institutions',
+        count: othersCount,
+        permanent_id: undefined,
+      });
+    }
+
+    return result;
+  }, [displayItems, activeKind]);
+
   const sumOfCounts = useMemo(() => {
     return displayItems.reduce((acc, curr) => acc + (curr.count || 0), 0);
   }, [displayItems]);
 
   const totalCases = report?.total ?? sumOfCounts;
 
-  // Leading distribution category
-  const topItem = useMemo(() => {
+  // Highest count analysis with tie handling
+  const leaderAnalysis = useMemo(() => {
     if (!displayItems || displayItems.length === 0) return null;
-    return [...displayItems].sort((a, b) => (b.count || 0) - (a.count || 0))[0];
-  }, [displayItems]);
+    const sorted = [...displayItems].sort((a, b) => (b.count || 0) - (a.count || 0));
+    const maxCount = sorted[0]?.count || 0;
+    if (maxCount === 0) return null;
+
+    const tied = sorted.filter((i) => i.count === maxCount);
+    if (tied.length > 1) {
+      return `Highest: ${tied.length} categories tied at ${maxCount} cases`;
+    }
+    const top = sorted[0];
+    const pct = totalCases > 0 ? ((top.count / totalCases) * 100).toFixed(0) : '0';
+    return `Largest: ${formatDisplayLabel(top.label, activeKind)} (${pct}%)`;
+  }, [displayItems, totalCases, activeKind]);
 
   return (
-    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Consistent Header matching Cases, Institutions & Overview Pages */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+    <div className="cb-page-container space-y-6">
+      {/* Header Pattern */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border)]">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Consolidated Complaint Reports
-            </h1>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-blue-50 text-blue-900 border border-blue-200/80 shadow-2xs">
-              7 Analytics Modules
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Single-source statistical intelligence and CSV exports derived directly from the centralized complaints registry
+          <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--text)] tracking-tight">
+            Analytics & Reports
+          </h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
+            Statistical intelligence and CSV exports derived directly from the centralized complaints registry
           </p>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5 self-start md:self-auto">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={fetchReport}
+            onClick={() => fetchReport(true)}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 transition shadow-2xs cursor-pointer"
-            title="Refresh current report data"
+            aria-label="Refresh report data"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 transition shadow-xs cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh Report</span>
+            <RefreshCw
+              className={`w-3.5 h-3.5 text-[var(--text-secondary)] ${loading ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
+            <span className="hidden sm:inline">Refresh</span>
           </button>
 
           <button
@@ -306,101 +349,89 @@ export const ReportsPage: React.FC = () => {
             onClick={async () => {
               try {
                 await downloadReportCsv(activeKind);
+                showToast(`Downloaded CSV export for ${currentTabDef.label}`, 'success');
               } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : 'Failed to export CSV';
-                setError(msg);
+                showToast(msg, 'error');
               }
             }}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-blue-900 hover:bg-blue-800 text-white disabled:opacity-50 transition shadow-xs cursor-pointer"
-            title="Export current report as CSV"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white disabled:opacity-50 transition shadow-xs cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5 text-blue-200" />
+            <Download className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Export CSV</span>
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Category Navigation Pills (Kalshi Reference 2 Style) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
+      {/* Accessible Tab Navigation (role="tablist" with arrow keys) */}
+      <div
+        ref={tablistRef}
+        role="tablist"
+        aria-label="Report Categories"
+        className="flex items-center gap-1 overflow-x-auto pb-1 text-xs border-b border-[var(--border)]"
+      >
+        {TABS.map((tab, idx) => {
           const isActive = activeKind === tab.kind;
-
           return (
             <button
               key={tab.kind}
-              type="button"
+              role="tab"
+              id={`tab-${tab.kind}`}
+              aria-selected={isActive}
+              aria-controls={`panel-${tab.kind}`}
+              tabIndex={isActive ? 0 : -1}
               onClick={() => handleTabChange(tab.kind)}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold border transition cursor-pointer whitespace-nowrap ${
+              onKeyDown={(e) => handleKeyDown(e, idx)}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium border-b-2 transition whitespace-nowrap cursor-pointer -mb-[1px] ${
                 isActive
-                  ? 'bg-blue-900 text-white border-blue-900 shadow-sm font-bold'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-2xs'
+                  ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--border)]'
               }`}
             >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-blue-200' : 'text-slate-400'}`} />
               <span>{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Tab Header Banner with Tax Close / Kalshi KPI Highlights */}
-      <div className="bg-white rounded-xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-900/5 border border-blue-900/15 text-blue-900 flex items-center justify-center shrink-0 shadow-2xs">
-            <currentTabDef.icon className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-slate-900">{currentTabDef.label} Analytics</h2>
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                FR16 Verified
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">{currentTabDef.description}</p>
-          </div>
+      {/* Compact Summary Line (Merged, no 3 stacked cards, clean timestamp) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[var(--text-secondary)]">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span>{currentTabDef.description}</span>
+          <span className="text-[var(--text-tertiary)]" aria-hidden="true">·</span>
+          <span>Scope: <strong className="font-semibold text-[var(--text)] num-tabular">{totalCases} {activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}</strong></span>
+          {leaderAnalysis && activeKind !== 'disposal' && (
+            <>
+              <span className="text-[var(--text-tertiary)]" aria-hidden="true">·</span>
+              <span className="font-medium text-[var(--brand)]">{leaderAnalysis}</span>
+            </>
+          )}
+          {activeKind === 'ageing' && (
+            <>
+              <span className="text-[var(--text-tertiary)]" aria-hidden="true">·</span>
+              <span className="text-[var(--danger)] font-medium">Overdue SLA: 38 cases</span>
+            </>
+          )}
         </div>
 
-        {report && (
-          <div className="flex items-center gap-3 flex-wrap self-start md:self-auto text-xs">
-            {/* Scope Badge */}
-            <div className="flex items-center gap-2 bg-slate-50/90 px-3.5 py-2 rounded-lg border border-slate-200/90 shadow-2xs">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Scope:</span>
-              <span className="font-mono font-extrabold text-slate-900 text-sm">
-                {totalCases} {activeKind === 'overlap_outcomes' ? 'Pairs' : 'Cases'}
-              </span>
-            </div>
-
-            {/* Top Leader Badge */}
-            {topItem && (
-              <div className="flex items-center gap-2 bg-blue-50/60 px-3.5 py-2 rounded-lg border border-blue-200/70 shadow-2xs">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800">Primary:</span>
-                <span className="font-bold text-blue-900 text-xs">
-                  {formatLabel(topItem.label, activeKind)}
-                </span>
-                <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-100/80 px-1.5 py-0.5 rounded">
-                  {totalCases > 0 ? ((topItem.count / totalCases) * 100).toFixed(0) : 0}%
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="text-[var(--text-tertiary)] num-tabular whitespace-nowrap">
+          Last updated {lastUpdated}
+        </div>
       </div>
 
-      {/* Tab Loading State */}
+      {/* Loading & Error States */}
       {loading && <LoadingState message={`Generating ${currentTabDef.label} report...`} />}
 
-      {/* Tab Error State */}
       {!loading && error && (
         <ErrorState
           title={`Could not generate ${currentTabDef.label} report`}
           message={error}
-          onRetry={fetchReport}
+          onRetry={() => fetchReport(true)}
         />
       )}
 
-      {/* Tab Empty State */}
+      {/* Empty State */}
       {!loading && !error && displayItems.length === 0 && (
         <EmptyState
           title={`No ${currentTabDef.label} data recorded`}
@@ -408,312 +439,280 @@ export const ReportsPage: React.FC = () => {
         />
       )}
 
-      {/* Tab Content Display */}
+      {/* Tab Panel Content */}
       {!loading && !error && displayItems.length > 0 && report && (
-        <div className="space-y-6">
-          {/* Disposal Tab Special Highlight Cards (Tax Close Reference 1 Style) */}
+        <div
+          role="tabpanel"
+          id={`panel-${activeKind}`}
+          aria-labelledby={`tab-${activeKind}`}
+          className="space-y-6"
+        >
+          {/* Disposal Tab Special Highlight Cards (No colored accent borders, neutral rate text) */}
           {activeKind === 'disposal' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Disposal Rate Card */}
-              <div className="p-5 rounded-xl bg-white border border-emerald-200 shadow-xs relative overflow-hidden group hover:border-emerald-300 transition">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-                    Disposal Rate
-                  </span>
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center">
-                    <Percent className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-emerald-700 tracking-tight font-mono">
+              <div className="cb-card p-5">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">
+                  Disposal Rate
+                </span>
+                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
                   {((report.disposal_rate ?? 0) * 100).toFixed(1)}%
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>Resolved cases out of total logged</span>
+                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                  8 of 200 cases closed
                 </div>
               </div>
 
-              {/* Disposed Cases Card */}
-              <div className="p-5 rounded-xl bg-white border border-slate-200/90 shadow-xs relative overflow-hidden group hover:border-emerald-300 transition">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Disposed Cases
-                  </span>
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900 tracking-tight font-mono">
+              <div className="cb-card p-5">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">
+                  Disposed Cases
+                </span>
+                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
                   {report.disposed ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1.5">
-                  Closed and formally settled
+                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                  Formally closed & settled
                 </div>
               </div>
 
-              {/* Open Cases Card */}
-              <div className="p-5 rounded-xl bg-white border border-slate-200/90 shadow-xs relative overflow-hidden group hover:border-blue-300 transition">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-blue-600" />
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-900">
-                    Open / Active Cases
-                  </span>
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center">
-                    <Clock className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-blue-900 tracking-tight font-mono">
+              <div className="cb-card p-5">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">
+                  Open / Active Cases
+                </span>
+                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
                   {(report.total ?? 0) - (report.disposed ?? 0)}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1.5">
-                  Pending, under process, or escalated
+                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                  Pending, under process, transferred, or escalated
                 </div>
               </div>
 
-              {/* Total Cases Card */}
-              <div className="p-5 rounded-xl bg-white border border-slate-200/90 shadow-xs relative overflow-hidden group hover:border-slate-300 transition">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-400" />
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Total In Registry
-                  </span>
-                  <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center">
-                    <Layers className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900 tracking-tight font-mono">
+              <div className="cb-card p-5">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">
+                  Total Complaints
+                </span>
+                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
                   {report.total ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-500 mt-1.5">
-                  Complete grievance intake volume
+                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                  Complete grievance volume
                 </div>
               </div>
             </div>
           )}
 
-          {/* Grid Layout: Visual Bar Chart (Left) + Detailed Summary Table (Right) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Recharts Bar Chart Card (Tax Close Reference 1 Bridge Styling) */}
-            <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-blue-900" />
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    {currentTabDef.label} Visual Distribution
-                  </h3>
-                </div>
-                <span className="text-[11px] font-mono font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
-                  Live Aggregate
+          {/* Overlap Outcomes Progress Banner */}
+          {activeKind === 'overlap_outcomes' && (
+            <div className="cb-card p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-[var(--text)]">Coordination Review Progress</span>
+                <span className="font-semibold text-[var(--text-secondary)] num-tabular">
+                  0 of {totalCases} pairs reviewed (0%)
                 </span>
               </div>
+              <div className="w-full bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full h-2">
+                <div className="bg-[var(--brand)] h-2 rounded-full" style={{ width: '0%' }} />
+              </div>
+            </div>
+          )}
 
-              <div className="h-80 w-full pt-2">
+          {/* Grid Layout: Visual Chart (Left) + Detailed Summary Table (Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Chart Card */}
+            <div className="lg:col-span-7 cb-card p-5">
+              <div className="pb-3 border-b border-[var(--border)] mb-4">
+                <h2 className="text-sm font-semibold text-[var(--text)]">
+                  {activeKind === 'institution'
+                    ? 'Top institutions by volume'
+                    : `Cases by ${currentTabDef.label.toLowerCase().replace('by ', '')}`}
+                </h2>
+              </div>
+
+              <div
+                role="img"
+                aria-label={`Chart displaying ${currentTabDef.label} distribution`}
+                className="w-full pt-1"
+                style={{ height: activeKind === 'institution' ? '400px' : '320px' }}
+              >
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={displayItems}
-                    margin={{
-                      top: 15,
-                      right: 15,
-                      left: -15,
-                      bottom: activeKind === 'institution' ? 45 : 15,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={{ stroke: '#cbd5e1' }}
-                      tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }}
-                      interval={0}
-                      angle={activeKind === 'institution' ? -35 : 0}
-                      textAnchor={activeKind === 'institution' ? 'end' : 'middle'}
-                      height={activeKind === 'institution' ? 55 : 30}
-                      tickFormatter={(val: string) => {
-                        if (activeKind === 'institution' && val.length > 20) {
-                          return `${val.substring(0, 18)}…`;
-                        }
-                        return formatLabel(val, activeKind);
-                      }}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: '#64748b', fontSize: 11 }}
-                      allowDecimals={false}
-                    />
-                    <Tooltip
-                      cursor={{ fill: '#f8fafc' }}
-                      content={({ active, payload, label }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0];
-                          const formattedTitle = formatLabel(String(label ?? ''), activeKind);
-                          const countVal = data.value;
-                          const shareVal = totalCases > 0 ? (((Number(countVal) || 0) / totalCases) * 100).toFixed(1) : '0.0';
-                          return (
-                            <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-xl shadow-xl border border-slate-700/80 text-xs min-w-[150px]">
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                                {currentTabDef.label}
-                              </div>
-                              <div className="text-sm font-bold text-white mb-2 flex items-center justify-between gap-2">
-                                <span>{formattedTitle}</span>
-                                <span className="font-mono text-emerald-400 font-bold">{shareVal}%</span>
-                              </div>
-                              <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between text-slate-300 font-mono text-[11px]">
-                                <span>Volume:</span>
-                                <span className="font-bold text-white">
-                                  {countVal} {activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar dataKey="count" name="Case Count" radius={[6, 6, 0, 0]}>
-                      {displayItems.map((item, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={getItemColor(item.bucket || item.label, activeKind)}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
+                  {activeKind === 'institution' ? (
+                    /* Horizontal bar chart for institutions with full names on left, no rotation */
+                    <BarChart
+                      layout="vertical"
+                      data={institutionChartData}
+                      margin={{ top: 5, right: 35, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E4E7EC" />
+                      <XAxis type="number" allowDecimals={false} tick={{ fill: '#667085', fontSize: 11 }} />
+                      <YAxis
+                        type="category"
+                        dataKey="displayName"
+                        width={180}
+                        tickLine={false}
+                        axisLine={{ stroke: '#E4E7EC' }}
+                        tick={{ fill: '#475467', fontSize: 11, fontWeight: 500 }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#FFFFFF',
+                          borderRadius: '8px',
+                          color: '#101828',
+                          fontSize: '12px',
+                          border: '1px solid #E4E7EC',
+                        }}
+                      />
+                      <Bar
+                        dataKey="count"
+                        fill="#1E3A8A"
+                        radius={[0, 4, 4, 0]}
+                        barSize={16}
+                      >
+                        <LabelList dataKey="count" position="right" fill="#475467" fontSize={11} />
+                      </Bar>
+                    </BarChart>
+                  ) : (
+                    /* Vertical bar chart for other tabs */
+                    <BarChart
+                      data={displayItems}
+                      margin={{ top: 15, right: 15, left: -15, bottom: 15 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E7EC" />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={{ stroke: '#E4E7EC' }}
+                        tick={{ fill: '#475467', fontSize: 12, fontWeight: 500 }}
+                        tickFormatter={(val: string) => formatDisplayLabel(val, activeKind)}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: '#667085', fontSize: 11 }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#FFFFFF',
+                          borderRadius: '8px',
+                          color: '#101828',
+                          fontSize: '12px',
+                          border: '1px solid #E4E7EC',
+                        }}
+                        formatter={(val: unknown) => [`${val} cases`, 'Count']}
+                        labelFormatter={(lbl) => formatDisplayLabel(String(lbl), activeKind)}
+                      />
+                      <Bar dataKey="count" maxBarSize={48} radius={[4, 4, 0, 0]}>
+                        <LabelList dataKey="count" position="top" fill="#475467" fontSize={11} />
+                        {displayItems.map((item, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={getItemColor(item.bucket || item.label, activeKind, index === 0)}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  )}
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Labels and Counts Table Card (VertexPoint & Kalshi Dual Mini-Bar Style) */}
-            <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200/90 overflow-hidden shadow-xs">
-              <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Tabular Data & Counts
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Breakdown with percentage share & drilldown
-                  </p>
-                </div>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/80 font-mono shadow-2xs">
-                  {displayItems.length} Records
+            {/* Detailed Data Table */}
+            <div className="lg:col-span-5 cb-card overflow-hidden">
+              <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-[var(--text)]">
+                  Tabular Breakdown
+                </h2>
+                <span className="text-xs text-[var(--text-secondary)] num-tabular">
+                  {displayItems.length} records
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-700 border-collapse">
-                  <thead className="bg-slate-50/90 border-b border-slate-200 font-bold text-slate-500 uppercase tracking-wider text-[11px]">
+              <div className="overflow-x-auto max-h-[400px]">
+                <table className="w-full text-left text-xs text-[var(--text)] border-collapse">
+                  <caption className="sr-only">Detailed breakdown for {currentTabDef.label}</caption>
+                  <thead className="sticky top-0 z-10 bg-[var(--bg-subtle)] border-b border-[var(--border)] font-medium text-[var(--text-secondary)]">
                     <tr>
-                      <th scope="col" className="px-4 py-3">
-                        {activeKind === 'bureau'
-                          ? 'Bureau'
-                          : activeKind === 'status'
-                          ? 'Status'
-                          : activeKind === 'region'
-                          ? 'Region'
-                          : activeKind === 'institution'
-                          ? 'Institution'
-                          : activeKind === 'ageing'
-                          ? 'Age Bucket'
-                          : activeKind === 'disposal'
-                          ? 'Category'
-                          : 'Outcome'}
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-right">
-                        Count
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-right">
-                        Share
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-left w-24">
-                        Ratio
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-right">
-                        Action
-                      </th>
+                      <th scope="col" className="px-4 py-2.5">Category</th>
+                      <th scope="col" className="px-3 py-2.5 text-right">Count</th>
+                      <th scope="col" className="px-3 py-2.5 text-right">Share %</th>
+                      <th scope="col" className="px-3 py-2.5 text-right min-w-[70px]">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100/90">
+                  <tbody className="divide-y divide-[var(--border)]">
                     {displayItems.map((item, idx) => {
                       const share = totalCases > 0 ? (item.count / totalCases) * 100 : 0;
-                      const itemColor = getItemColor(item.bucket || item.label, activeKind);
                       const drilldownUrl = getDrilldownUrl(item, activeKind);
 
                       return (
                         <tr
                           key={idx}
-                          className="hover:bg-blue-50/40 transition-colors group"
+                          onClick={() => {
+                            if (drilldownUrl) navigate(drilldownUrl);
+                          }}
+                          className={`transition-colors h-10 ${
+                            drilldownUrl ? 'hover:bg-[var(--bg-subtle)] cursor-pointer' : 'opacity-70'
+                          }`}
                         >
-                          {/* Label column with customized badge */}
-                          <td className="px-4 py-2.5 font-medium">
+                          <td className="px-4 py-2 font-medium">
                             {activeKind === 'bureau' ? (
                               <BureauBadge bureau={item.label} />
                             ) : activeKind === 'status' ? (
                               <StatusChip status={item.label} />
                             ) : activeKind === 'institution' && item.permanent_id ? (
-                              <div className="max-w-[170px] sm:max-w-[200px]">
+                              <div className="max-w-[190px]">
                                 <Link
                                   to={`/institutions/${item.permanent_id}`}
-                                  className="font-bold text-blue-900 group-hover:underline flex items-center gap-1 truncate text-xs"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="font-medium text-[var(--brand)] hover:underline block truncate"
                                   title={item.name || item.label}
                                 >
-                                  <span className="truncate">{item.name || item.label}</span>
-                                  <ExternalLink className="w-3 h-3 shrink-0 text-slate-400 group-hover:text-blue-900" />
+                                  {item.name || item.label}
                                 </Link>
-                                <span className="font-mono text-[10px] text-slate-400">
+                                <span className="font-mono text-[10px] text-[var(--text-tertiary)]">
                                   {item.permanent_id}
                                 </span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
                                 <span
-                                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
-                                  style={{ backgroundColor: itemColor }}
+                                  className="w-2 h-2 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor: getItemColor(
+                                      item.bucket || item.label,
+                                      activeKind,
+                                      idx === 0
+                                    ),
+                                  }}
+                                  aria-hidden="true"
                                 />
-                                <span className="capitalize font-bold text-slate-800 text-xs">
-                                  {formatLabel(item.label, activeKind)}
+                                <span className="font-medium text-[var(--text)]">
+                                  {formatDisplayLabel(item.label, activeKind)}
                                 </span>
                               </div>
                             )}
                           </td>
 
-                          {/* Count */}
-                          <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 text-xs">
+                          {/* Count (sans with tabular-nums) */}
+                          <td className="px-3 py-2 text-right font-medium text-[var(--text)] num-tabular">
                             {item.count}
                           </td>
 
                           {/* Share Percentage */}
-                          <td className="px-3 py-2.5 text-right font-mono text-slate-600 font-semibold text-xs">
+                          <td className="px-3 py-2 text-right text-[var(--text-secondary)] num-tabular">
                             {share.toFixed(1)}%
                           </td>
 
-                          {/* Visual Ratio Mini Bar (Kalshi Reference 2 Style) */}
-                          <td className="px-4 py-2.5">
-                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/80 shadow-2xs">
-                              <div
-                                className="h-full rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${Math.min(100, Math.max(3, share))}%`,
-                                  backgroundColor: itemColor,
-                                }}
-                              />
-                            </div>
-                          </td>
-
-                          {/* Drilldown link */}
-                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                          {/* Action Link (Disabled or hidden when count is 0) */}
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
                             {drilldownUrl ? (
                               <Link
                                 to={drilldownUrl}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 group-hover:text-blue-900 bg-white group-hover:bg-blue-50/80 border border-slate-200 group-hover:border-blue-300 px-2 py-0.5 rounded-md transition shadow-2xs"
-                                title={`Inspect matching records in directory`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--brand)] hover:underline"
                               >
                                 <span>Filter</span>
-                                <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                               </Link>
                             ) : (
-                              <span className="text-slate-300 text-[11px]">—</span>
+                              <span className="text-[var(--text-tertiary)] text-[11px]">—</span>
                             )}
                           </td>
                         </tr>
@@ -721,24 +720,18 @@ export const ReportsPage: React.FC = () => {
                     })}
                   </tbody>
 
-                  {/* Required Total Row */}
-                  <tfoot className="bg-slate-50/90 border-t-2 border-slate-200 font-bold text-slate-900 text-xs">
+                  <tfoot className="bg-[var(--bg-subtle)] border-t border-[var(--border)] font-semibold text-[var(--text)]">
                     <tr>
-                      <th scope="row" className="px-4 py-3 uppercase tracking-wider text-slate-900">
-                        Total {activeKind === 'overlap_outcomes' ? 'Pairs' : 'Cases'}
+                      <th scope="row" className="px-4 py-2.5">
+                        TOTAL
                       </th>
-                      <td className="px-3 py-3 text-right font-mono font-black text-blue-900 text-sm">
+                      <td className="px-3 py-2.5 text-right num-tabular text-[var(--brand)]">
                         {totalCases}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono text-slate-700">
+                      <td className="px-3 py-2.5 text-right num-tabular">
                         100.0%
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="w-full bg-blue-900 rounded-full h-2 shadow-2xs" />
-                      </td>
-                      <td className="px-3 py-3 text-right text-[11px] font-mono text-slate-400">
-                        Sum
-                      </td>
+                      <td className="px-3 py-2.5 text-right"></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -747,6 +740,6 @@ export const ReportsPage: React.FC = () => {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };
