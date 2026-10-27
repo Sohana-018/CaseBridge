@@ -24,6 +24,8 @@ import {
   Calendar,
   Sliders,
   Info,
+  Layers,
+  AlertOctagon,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -310,12 +312,20 @@ export const OverviewPage: React.FC = () => {
             {/* Primary Action Cards (col-span-8: grid-cols-3) */}
             <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* 1. Total Complaints */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition">
+              <div className="bg-white border border-slate-200 border-t-4 border-t-blue-600 rounded-xl p-4 shadow-xs flex flex-col justify-between hover:shadow-sm transition">
                 <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap block">
-                    Total Complaints
-                  </span>
-                  <div className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight num-tabular mt-1 leading-none">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600 whitespace-nowrap block">
+                      Total Complaints
+                    </span>
+                    <div
+                      className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0"
+                      aria-hidden="true"
+                    >
+                      <Layers className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight num-tabular mt-2 leading-none">
                     {summary.total}
                   </div>
                 </div>
@@ -323,7 +333,7 @@ export const OverviewPage: React.FC = () => {
                   <span className="text-[11px] text-slate-500 font-medium">Across 4 Bureaus</span>
                   <Link
                     to="/cases"
-                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-xs"
+                    className="font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-xs"
                   >
                     <span>View all</span>
                     <ArrowRight className="w-3 h-3" aria-hidden="true" />
@@ -332,16 +342,24 @@ export const OverviewPage: React.FC = () => {
               </div>
 
               {/* 2. Coordination Queue */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition">
+              <div className="bg-white border border-slate-200 border-t-4 border-t-amber-500 rounded-xl p-4 shadow-xs flex flex-col justify-between hover:shadow-sm transition">
                 <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap block">
-                    Coordination Queue
-                  </span>
-                  <div className="flex items-baseline gap-2 mt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600 whitespace-nowrap block">
+                      Coordination Queue
+                    </span>
+                    <div
+                      className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0"
+                      aria-hidden="true"
+                    >
+                      <GitCompare className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-2">
                     <div className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight num-tabular leading-none">
                       {summary.open_overlaps}
                     </div>
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-950 border border-amber-300">
                       Review
                     </span>
                   </div>
@@ -350,7 +368,7 @@ export const OverviewPage: React.FC = () => {
                   <span className="text-[11px] text-slate-500 font-medium">Cross-bureau overlaps</span>
                   <Link
                     to="/overlaps"
-                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-xs"
+                    className="font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-xs"
                   >
                     <span>Review</span>
                     <ArrowRight className="w-3 h-3" aria-hidden="true" />
@@ -359,16 +377,24 @@ export const OverviewPage: React.FC = () => {
               </div>
 
               {/* 3. Overdue SLA Target */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition">
+              <div className="bg-white border border-slate-200 border-t-4 border-t-rose-600 rounded-xl p-4 shadow-xs flex flex-col justify-between hover:shadow-sm transition">
                 <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap block">
-                    Overdue SLA Target
-                  </span>
-                  <div className="flex items-baseline gap-2 mt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600 whitespace-nowrap block">
+                      Overdue SLA Target
+                    </span>
+                    <div
+                      className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0"
+                      aria-hidden="true"
+                    >
+                      <AlertOctagon className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-2">
                     <div className="text-2xl sm:text-3xl font-bold text-rose-700 tracking-tight num-tabular leading-none">
                       {summary.overdue}
                     </div>
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-950 border border-rose-300">
                       Breach
                     </span>
                   </div>
@@ -386,18 +412,18 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Secondary Status Panel (col-span-4: 2-column mini grid) */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col justify-center shadow-xs">
+            {/* Secondary Status Panel (col-span-4: 2-column mini grid with rich tints) */}
+            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-center shadow-xs">
               <div className="grid grid-cols-2 gap-2.5">
                 {/* Under Investigation */}
                 <Link
                   to="/cases?status=under_process"
-                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-blue-50/70 border border-slate-200 transition group"
+                  className="p-3 rounded-lg bg-sky-50/90 hover:bg-sky-100 border border-sky-200 transition group"
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
-                    Under Investigation
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-900 block truncate">
+                    Under Process
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-blue-700 leading-none mt-1 block">
+                  <span className="text-xl font-bold text-sky-950 num-tabular group-hover:text-sky-700 leading-none mt-1.5 block">
                     {summary.under_process}
                   </span>
                 </Link>
@@ -405,12 +431,12 @@ export const OverviewPage: React.FC = () => {
                 {/* Pending Review */}
                 <Link
                   to="/cases?status=pending"
-                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-amber-50/70 border border-slate-200 transition group"
+                  className="p-3 rounded-lg bg-amber-50/90 hover:bg-amber-100 border border-amber-200 transition group"
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-950 block truncate">
                     Pending Review
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-amber-800 leading-none mt-1 block">
+                  <span className="text-xl font-bold text-amber-950 num-tabular group-hover:text-amber-800 leading-none mt-1.5 block">
                     {summary.pending}
                   </span>
                 </Link>
@@ -418,12 +444,12 @@ export const OverviewPage: React.FC = () => {
                 {/* Reassigned */}
                 <Link
                   to="/cases?status=transferred"
-                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition group"
+                  className="p-3 rounded-lg bg-indigo-50/90 hover:bg-indigo-100 border border-indigo-200 transition group"
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-950 block truncate">
                     Reassigned
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-slate-800 leading-none mt-1 block">
+                  <span className="text-xl font-bold text-indigo-950 num-tabular group-hover:text-indigo-800 leading-none mt-1.5 block">
                     {summary.transferred}
                   </span>
                 </Link>
@@ -431,12 +457,12 @@ export const OverviewPage: React.FC = () => {
                 {/* Disposed / Closed */}
                 <Link
                   to="/cases?status=disposed"
-                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 transition group"
+                  className="p-3 rounded-lg bg-emerald-50/90 hover:bg-emerald-100 border border-emerald-200 transition group"
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-950 block truncate">
                     Disposed / Closed
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-emerald-800 leading-none mt-1 block">
+                  <span className="text-xl font-bold text-emerald-950 num-tabular group-hover:text-emerald-800 leading-none mt-1.5 block">
                     {summary.disposed}
                   </span>
                 </Link>
@@ -565,10 +591,18 @@ export const OverviewPage: React.FC = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-200 mt-3">
                 {workload.map((b) => {
                   const overlapPct = getOverlapPercentage(b.bureau, b.total);
+                  const bureauClass =
+                    b.bureau === 'RB'
+                      ? 'border-l-4 border-l-blue-600 bg-blue-50/50 border-y border-r border-slate-200'
+                      : b.bureau === 'PGRC'
+                      ? 'border-l-4 border-l-teal-600 bg-teal-50/50 border-y border-r border-slate-200'
+                      : b.bureau === 'RO'
+                      ? 'border-l-4 border-l-amber-600 bg-amber-50/50 border-y border-r border-slate-200'
+                      : 'border-l-4 border-l-purple-600 bg-purple-50/50 border-y border-r border-slate-200';
                   return (
                     <div
                       key={b.bureau}
-                      className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs"
+                      className={`rounded-lg p-2.5 text-xs shadow-2xs ${bureauClass}`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-slate-900 text-xs">{b.bureau}</span>

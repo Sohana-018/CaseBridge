@@ -301,8 +301,8 @@ export const AdminPage: React.FC = () => {
           onClick={() => setActiveTab('overview')}
           className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'overview'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+              ? 'bg-[#1E3A8A] text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Activity className="w-4 h-4" aria-hidden="true" />
@@ -316,13 +316,13 @@ export const AdminPage: React.FC = () => {
           onClick={() => setActiveTab('users')}
           className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'users'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+              ? 'bg-[#1E3A8A] text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Users className="w-4 h-4" aria-hidden="true" />
           <span>User Management</span>
-          <span className={`px-1.5 py-0.2 rounded text-[11px] num-tabular font-bold ${activeTab === 'users' ? 'bg-blue-800 text-white' : 'bg-slate-200 text-slate-800'}`}>
+          <span className={`px-1.5 py-0.2 rounded text-[11px] num-tabular font-bold ${activeTab === 'users' ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-800'}`}>
             {users.length}
           </span>
         </button>
@@ -334,8 +334,8 @@ export const AdminPage: React.FC = () => {
           onClick={() => setActiveTab('config')}
           className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'config'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+              ? 'bg-[#1E3A8A] text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Sliders className="w-4 h-4" aria-hidden="true" />
@@ -349,8 +349,8 @@ export const AdminPage: React.FC = () => {
           onClick={() => setActiveTab('audit')}
           className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'audit'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+              ? 'bg-[#1E3A8A] text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <History className="w-4 h-4" aria-hidden="true" />
@@ -363,34 +363,34 @@ export const AdminPage: React.FC = () => {
         <div className="space-y-6">
           {/* Top KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+            <div className="cb-card p-4 bg-white border border-slate-200 border-t-4 border-t-purple-600 shadow-xs hover:border-slate-300 transition rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Users</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_users}</div>
-              <div className="text-[11px] text-emerald-700 font-bold mt-1">4 Active Roles</div>
+              <div className="text-[11px] text-purple-700 font-bold mt-1">4 Active Roles</div>
             </div>
-            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+            <div className="cb-card p-4 bg-white border border-slate-200 border-t-4 border-t-blue-600 shadow-xs hover:border-slate-300 transition rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Cases</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_cases}</div>
-              <div className="text-[11px] text-slate-600 font-semibold mt-1">Cross-Bureau</div>
+              <div className="text-[11px] text-blue-700 font-semibold mt-1">Cross-Bureau</div>
             </div>
-            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+            <div className="cb-card p-4 bg-white border border-slate-200 border-t-4 border-t-teal-600 shadow-xs hover:border-slate-300 transition rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Institutions</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_institutions}</div>
-              <div className="text-[11px] text-slate-600 font-semibold mt-1">Canonical Registry</div>
+              <div className="text-[11px] text-teal-700 font-semibold mt-1">Canonical Registry</div>
             </div>
-            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+            <div className="cb-card p-4 bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-xs hover:border-slate-300 transition rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Overlaps</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_overlaps}</div>
               <div className="text-[11px] text-amber-800 font-bold mt-1 num-tabular">
                 {health.open_overlaps} Open for Review
               </div>
             </div>
-            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+            <div className="cb-card p-4 bg-white border border-slate-200 border-t-4 border-t-rose-600 shadow-xs hover:border-slate-300 transition rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Active Alerts</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.open_alerts}</div>
               <div className="text-[11px] text-rose-700 font-bold mt-1">Action Required</div>
             </div>
-            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+            <div className="cb-card p-4 bg-white border border-slate-200 border-t-4 border-t-emerald-600 shadow-xs hover:border-slate-300 transition rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Database</span>
               <div className="text-sm font-bold text-slate-900 mt-2 truncate">{health.db_status}</div>
               <div className="text-[11px] text-emerald-700 font-bold mt-1">✓ Connected</div>
