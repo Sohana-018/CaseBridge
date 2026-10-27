@@ -29,6 +29,7 @@ export const Navbar: React.FC = () => {
   }, [location.pathname]);
 
   const isAdmin = user?.role === 'administrator';
+  const isLogin = location.pathname === '/login';
 
   return (
     <header className="sticky top-0 z-40 bg-white shadow-xs">
@@ -39,7 +40,7 @@ export const Navbar: React.FC = () => {
       />
 
       {/* Institutional Utility Sub-Bar */}
-      <div className="bg-slate-50 border-b border-slate-200/80 text-[11px] text-slate-600 py-1 hidden md:block">
+      <div className={`bg-slate-50 border-b border-slate-200/80 text-[11px] text-slate-600 py-1.5 ${isLogin ? 'block' : 'hidden md:block'}`}>
         <div className="cb-page-container !py-0 flex items-center justify-between">
           <div className="flex items-center gap-2 font-medium">
             <span className="font-bold text-slate-800">CaseBridge</span>
@@ -56,12 +57,13 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Navigation Bar */}
-      <div className="border-b border-slate-200 bg-white/95 backdrop-blur-md">
-        <div className="cb-page-container !py-0 h-16 flex items-center justify-between gap-4">
-          {/* Brand + Primary Desktop navigation */}
-          <div className="flex items-center gap-6 lg:gap-8 min-w-0">
-            <NavLink
+      {/* Main Navigation Bar (Hidden on /login) */}
+      {!isLogin && (
+        <div className="border-b border-slate-200 bg-white/95 backdrop-blur-md">
+          <div className="cb-page-container !py-0 h-16 flex items-center justify-between gap-4">
+            {/* Brand + Primary Desktop navigation */}
+            <div className="flex items-center gap-6 lg:gap-8 min-w-0">
+              <NavLink
               to="/"
               className="flex items-center gap-3 group shrink-0"
               aria-label="CaseBridge Home"
@@ -140,6 +142,7 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Mobile nav bar */}
       {user && (
