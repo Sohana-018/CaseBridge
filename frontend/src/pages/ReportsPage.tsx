@@ -461,11 +461,11 @@ export const ReportsPage: React.FC = () => {
           {/* Disposal Tab Special Highlight Cards (Rich colored top borders & colored numbers) */}
           {activeKind === 'disposal' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="cb-card p-5 border-t-4 border-t-emerald-600 shadow-xs">
-                <span className="text-xs font-bold text-slate-700">
+              <div className="cb-card p-5 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Disposal Rate
                 </span>
-                <div className="text-[32px] font-bold text-emerald-700 tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-slate-900 tracking-tight mt-1 num-tabular">
                   {((report.disposal_rate ?? 0) * 100).toFixed(1)}%
                 </div>
                 <div className="text-xs text-slate-500 mt-1 font-medium">
@@ -473,11 +473,11 @@ export const ReportsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="cb-card p-5 border-t-4 border-t-teal-600 shadow-xs">
-                <span className="text-xs font-bold text-slate-700">
+              <div className="cb-card p-5 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Disposed Cases
                 </span>
-                <div className="text-[32px] font-bold text-teal-700 tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-slate-900 tracking-tight mt-1 num-tabular">
                   {report.disposed ?? 0}
                 </div>
                 <div className="text-xs text-slate-500 mt-1 font-medium">
@@ -485,11 +485,11 @@ export const ReportsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="cb-card p-5 border-t-4 border-t-amber-500 shadow-xs">
-                <span className="text-xs font-bold text-slate-700">
+              <div className="cb-card p-5 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Open / Active Cases
                 </span>
-                <div className="text-[32px] font-bold text-amber-800 tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-slate-900 tracking-tight mt-1 num-tabular">
                   {(report.total ?? 0) - (report.disposed ?? 0)}
                 </div>
                 <div className="text-xs text-slate-500 mt-1 font-medium">
@@ -497,11 +497,11 @@ export const ReportsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="cb-card p-5 border-t-4 border-t-blue-600 shadow-xs">
-                <span className="text-xs font-bold text-slate-700">
+              <div className="cb-card p-5 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Total Complaints
                 </span>
-                <div className="text-[32px] font-bold text-blue-800 tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-slate-900 tracking-tight mt-1 num-tabular">
                   {report.total ?? 0}
                 </div>
                 <div className="text-xs text-slate-500 mt-1 font-medium">

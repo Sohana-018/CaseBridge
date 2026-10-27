@@ -91,7 +91,7 @@ export const InstitutionDetailPage: React.FC = () => {
       {!loading && !error && institution && (
         <div className="space-y-6">
           {/* Header Card */}
-          <div className="cb-card p-6 border-t-4 border-t-blue-600 shadow-xs">
+          <div className="cb-card p-6 bg-white border border-slate-200 shadow-xs rounded-xl">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-5 border-b border-slate-200">
               <div className="flex items-start gap-3.5">
                 <div

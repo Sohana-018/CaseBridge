@@ -65,24 +65,24 @@ export const UserMenu: React.FC = () => {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="User account menu"
-        className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700/80 transition cursor-pointer text-left shadow-xs"
+        className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition cursor-pointer text-left shadow-2xs"
       >
         <span
-          className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs"
+          className="w-7 h-7 rounded-full bg-[#1E3A8A] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs"
           aria-hidden="true"
         >
           {initials}
         </span>
         <div className="hidden sm:flex flex-col text-left">
-          <span className="text-xs font-semibold text-white leading-tight max-w-[130px] truncate">
+          <span className="text-xs font-semibold text-slate-900 leading-tight max-w-[130px] truncate">
             {user.name || user.username}
           </span>
-          <span className="text-[11px] text-blue-200/80 leading-tight">
+          <span className="text-[11px] text-slate-500 leading-tight">
             {getRoleLabel(user)}
           </span>
         </div>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-300 transition-transform duration-150 ${
+          className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${
             open ? 'rotate-180' : ''
           }`}
           aria-hidden="true"

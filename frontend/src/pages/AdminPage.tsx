@@ -363,35 +363,35 @@ export const AdminPage: React.FC = () => {
         <div className="space-y-6">
           {/* Top KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="cb-card p-4 border-t-4 border-t-blue-600 shadow-xs">
-              <span className="text-xs text-slate-600 font-bold">Total Users</span>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Users</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_users}</div>
               <div className="text-[11px] text-emerald-700 font-bold mt-1">4 Active Roles</div>
             </div>
-            <div className="cb-card p-4 border-t-4 border-t-indigo-600 shadow-xs">
-              <span className="text-xs text-slate-600 font-bold">Total Cases</span>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Cases</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_cases}</div>
-              <div className="text-[11px] text-indigo-700 font-bold mt-1">Cross-Bureau</div>
+              <div className="text-[11px] text-slate-600 font-semibold mt-1">Cross-Bureau</div>
             </div>
-            <div className="cb-card p-4 border-t-4 border-t-teal-600 shadow-xs">
-              <span className="text-xs text-slate-600 font-bold">Institutions</span>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Institutions</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_institutions}</div>
-              <div className="text-[11px] text-teal-700 font-bold mt-1">Canonical Registry</div>
+              <div className="text-[11px] text-slate-600 font-semibold mt-1">Canonical Registry</div>
             </div>
-            <div className="cb-card p-4 border-t-4 border-t-purple-600 shadow-xs">
-              <span className="text-xs text-slate-600 font-bold">Total Overlaps</span>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Overlaps</span>
               <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_overlaps}</div>
-              <div className="text-[11px] text-purple-700 font-bold mt-1 num-tabular">
+              <div className="text-[11px] text-amber-800 font-bold mt-1 num-tabular">
                 {health.open_overlaps} Open for Review
               </div>
             </div>
-            <div className="cb-card p-4 border-t-4 border-t-amber-500 shadow-xs">
-              <span className="text-xs text-slate-600 font-bold">Active Alerts</span>
-              <div className="text-2xl font-bold text-amber-800 mt-1 num-tabular">{health.open_alerts}</div>
-              <div className="text-[11px] text-amber-900 font-bold mt-1">Action Required</div>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Active Alerts</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.open_alerts}</div>
+              <div className="text-[11px] text-rose-700 font-bold mt-1">Action Required</div>
             </div>
-            <div className="cb-card p-4 border-t-4 border-t-emerald-600 shadow-xs">
-              <span className="text-xs text-slate-600 font-bold">Database</span>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Database</span>
               <div className="text-sm font-bold text-slate-900 mt-2 truncate">{health.db_status}</div>
               <div className="text-[11px] text-emerald-700 font-bold mt-1">✓ Connected</div>
             </div>
