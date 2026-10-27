@@ -240,7 +240,7 @@ export const AdminPage: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            User directory, SLA rules, system health audits & security governance (Phase 16)
+            User directory, SLA rules, system health audits & security governance
           </p>
         </div>
 

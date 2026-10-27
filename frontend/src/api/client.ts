@@ -701,9 +701,7 @@ export async function patchCase(caseNo: string, payload: PatchCasePayload): Prom
   });
 }
 
-// ============================================================================
-// Real Auth & Admin Types and Endpoints (Phase 16)
-// ============================================================================
+// User Directory & Admin Types and Endpoints
 
 export interface DemoAccount {
   username: string;
