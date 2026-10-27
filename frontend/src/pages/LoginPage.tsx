@@ -305,13 +305,13 @@ export const LoginPage: React.FC = () => {
               </button>
             </form>
 
-            {/* Authorized Accounts List */}
+            {/* Quick Role Access */}
             {demoAccounts && demoAccounts.length > 0 && (
               <div className="pt-5 border-t border-slate-200/90 space-y-3">
                 <div className="flex items-center gap-1.5 text-slate-800">
                   <Sparkles className="w-4 h-4 text-blue-900" />
                   <span className="text-xs font-extrabold uppercase tracking-wider">
-                    Sign in as
+                    Quick Role Access
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">

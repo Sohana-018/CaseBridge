@@ -166,17 +166,10 @@ def import_csv(
                 session.commit()
                 session.refresh(new_case)
 
-                # Add initial 'created' event
-                ev = CaseEvent(
-                    case_id=new_case.id,
-                    ts=datetime.combine(rec_date, datetime.min.time(), tzinfo=timezone.utc),
-                    actor=new_case.assigned_officer or "System (demo)",
-                    bureau=new_case.bureau,
-                    event_type=EventType.CREATED,
-                    to_status=new_case.status,
-                    remarks=f"Initial registration in {new_case.bureau.value}",
-                )
-                session.add(ev)
+                # Add rich chronological timeline events (max 6)
+                from scripts.enrich_timelines import generate_case_events
+                for ev in generate_case_events(new_case):
+                    session.add(ev)
                 session.commit()
 
                 existing_case_set.add(c_no)
