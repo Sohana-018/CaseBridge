@@ -93,8 +93,8 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-[calc(100vh-36px)] flex items-center justify-center p-3 sm:p-4 bg-slate-100">
       {/* Centered Split Card Locked to Viewport */}
       <div className="max-w-5xl w-full grid grid-cols-12 rounded-2xl shadow-xl overflow-hidden bg-white border border-slate-200">
-        {/* 3. LEFT NAVY PANEL (Solid flat national regulatory navy, NO gradients) */}
-        <div className="col-span-12 lg:col-span-5 bg-[#1E3A8A] p-6 sm:p-7 lg:p-8 flex flex-col justify-between text-white relative">
+        {/* 3. LEFT NAVY PANEL */}
+        <div className="col-span-12 lg:col-span-5 bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-950 p-6 sm:p-7 lg:p-8 flex flex-col justify-between text-white relative">
           {/* Top Branding Section */}
           <div className="space-y-4">
             <div>

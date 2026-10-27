@@ -49,21 +49,6 @@ export const UserMenu: React.FC = () => {
     return u.role;
   };
 
-  const getRoleBadgeClass = (role?: string): string => {
-    switch (role) {
-      case 'coordinator':
-        return 'bg-blue-100 text-blue-900 border-blue-200';
-      case 'administrator':
-        return 'bg-purple-100 text-purple-900 border-purple-200';
-      case 'bureau_officer':
-        return 'bg-amber-100 text-amber-950 border-amber-200';
-      case 'senior_management':
-        return 'bg-teal-100 text-teal-900 border-teal-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
   // Generate initials for avatar
   const initials = (user.name || user.username || 'CB')
     .split(' ')
@@ -88,11 +73,11 @@ export const UserMenu: React.FC = () => {
         >
           {initials}
         </span>
-        <div className="hidden sm:flex flex-col text-left gap-0.5">
-          <span className="text-xs font-bold text-slate-900 leading-tight max-w-[130px] truncate">
+        <div className="hidden sm:flex flex-col text-left">
+          <span className="text-xs font-semibold text-slate-900 leading-tight max-w-[130px] truncate">
             {user.name || user.username}
           </span>
-          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border leading-tight w-fit ${getRoleBadgeClass(user.role)}`}>
+          <span className="text-[11px] text-slate-500 leading-tight">
             {getRoleLabel(user)}
           </span>
         </div>
