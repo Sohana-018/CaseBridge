@@ -300,107 +300,145 @@ export const OverviewPage: React.FC = () => {
       {/* 2. CONSOLIDATED UNIFIED METRIC BLOCK */}
       {!loading && !error && summary && (
         <div className="space-y-5">
-          {/* 2. COMMAND STAT STRIP (Single-row flat design, NO gradients) */}
+          {/* 2. CLEAN 2-TIER METRIC LAYOUT (No overflow, no horizontal scroll) */}
           <section
-            aria-labelledby="command-stat-strip-heading"
-            className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs my-4 overflow-x-auto"
+            aria-labelledby="overview-metrics-heading"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6"
           >
-            <h2 id="command-stat-strip-heading" className="sr-only">Operational Metrics Command Strip</h2>
-            <div className="flex items-center justify-between gap-4 min-w-[860px]">
-              <div className="flex items-center divide-x divide-slate-200 flex-1">
-                {/* Item 1: Total Complaints */}
-                <Link
-                  to="/cases"
-                  className="flex items-center gap-2 pr-4 hover:opacity-80 transition cursor-pointer"
-                >
-                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+            <h2 id="overview-metrics-heading" className="sr-only">Key Operational Indicators</h2>
+
+            {/* Primary Action Cards (col-span-8: grid-cols-3) */}
+            <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1. Total Complaints */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap block">
                     Total Complaints
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                  <div className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight num-tabular mt-1 leading-none">
                     {summary.total}
-                  </span>
-                </Link>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 text-xs">
+                  <span className="text-[11px] text-slate-500 font-medium">Across 4 Bureaus</span>
+                  <Link
+                    to="/cases"
+                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-xs"
+                  >
+                    <span>View all</span>
+                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
+                  </Link>
+                </div>
+              </div>
 
-                {/* Item 2: Under Investigation */}
+              {/* 2. Coordination Queue */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap block">
+                    Coordination Queue
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <div className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight num-tabular leading-none">
+                      {summary.open_overlaps}
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                      Review
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 text-xs">
+                  <span className="text-[11px] text-slate-500 font-medium">Cross-bureau overlaps</span>
+                  <Link
+                    to="/overlaps"
+                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-xs"
+                  >
+                    <span>Review</span>
+                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* 3. Overdue SLA Target */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap block">
+                    Overdue SLA Target
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <div className="text-2xl sm:text-3xl font-bold text-rose-700 tracking-tight num-tabular leading-none">
+                      {summary.overdue}
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
+                      Breach
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 text-xs">
+                  <span className="text-[11px] text-slate-500 font-medium">Action required</span>
+                  <Link
+                    to="/cases?overdue=true"
+                    className="font-bold text-rose-700 hover:text-rose-900 hover:underline inline-flex items-center gap-1 text-xs"
+                  >
+                    <span>Inspect</span>
+                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Secondary Status Panel (col-span-4: 2-column mini grid) */}
+            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col justify-center shadow-xs">
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Under Investigation */}
                 <Link
                   to="/cases?status=under_process"
-                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
+                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-blue-50/70 border border-slate-200 transition group"
                 >
-                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
                     Under Investigation
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-blue-700 leading-none mt-1 block">
                     {summary.under_process}
                   </span>
                 </Link>
 
-                {/* Item 3: Coordination Queue */}
-                <Link
-                  to="/overlaps"
-                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
-                >
-                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
-                    Coordination Queue
-                  </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular">
-                    {summary.open_overlaps}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                    Review
-                  </span>
-                </Link>
-
-                {/* Item 4: Overdue SLA */}
-                <Link
-                  to="/cases?overdue=true"
-                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
-                >
-                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
-                    Overdue SLA
-                  </span>
-                  <span className="text-lg font-bold text-rose-700 num-tabular">
-                    {summary.overdue}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
-                    Breach
-                  </span>
-                </Link>
-
-                {/* Item 5: Pending Review */}
+                {/* Pending Review */}
                 <Link
                   to="/cases?status=pending"
-                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
+                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-amber-50/70 border border-slate-200 transition group"
                 >
-                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
                     Pending Review
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-amber-800 leading-none mt-1 block">
                     {summary.pending}
                   </span>
                 </Link>
 
-                {/* Item 6: Disposed / Closed */}
+                {/* Reassigned */}
                 <Link
-                  to="/cases?status=disposed"
-                  className="flex items-center gap-2 pl-4 hover:opacity-80 transition cursor-pointer"
+                  to="/cases?status=transferred"
+                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition group"
                 >
-                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
-                    Disposed / Closed
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                    Reassigned
                   </span>
-                  <span className="text-lg font-bold text-slate-900 num-tabular">
-                    {summary.disposed}
+                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-slate-800 leading-none mt-1 block">
+                    {summary.transferred}
                   </span>
                 </Link>
-              </div>
 
-              {/* Far Right Action Link */}
-              <div className="pl-4 shrink-0 border-l border-slate-200">
+                {/* Disposed / Closed */}
                 <Link
-                  to="/reports"
-                  className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
+                  to="/cases?status=disposed"
+                  className="p-2.5 rounded-lg bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 transition group"
                 >
-                  <span>View full report</span>
-                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">
+                    Disposed / Closed
+                  </span>
+                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-emerald-800 leading-none mt-1 block">
+                    {summary.disposed}
+                  </span>
                 </Link>
               </div>
             </div>
