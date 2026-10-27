@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserCheck, LogOut, ChevronDown, Shield } from 'lucide-react';
+import { LogOut, ChevronDown, Shield } from 'lucide-react';
 import { getCurrentUser, logout, type UserPayload } from '../api/client';
 
 export const UserMenu: React.FC = () => {
