@@ -242,3 +242,47 @@ def test_event_post_permission_check_before_body_validation(client: TestClient):
         assert res.status_code == 403
         data = res.json()
         assert data["error"]["code"] == "FORBIDDEN"
+
+
+def test_cross_bureau_officer_events_redaction(client: TestClient):
+    """GET /cases/{case_no}/events must not return remarks, attachment_ref or review
+    notes of another Bureau's case to a bureau_officer (redacted rows).
+    """
+    # 1. Post a remark with an attachment as the coordinator
+    coord_headers = {"Authorization": f"Bearer {get_coordinator_token()}"}
+    create_res = client.post(
+        "/api/v1/cases/RB-2026-00001/events",
+        json={
+            "event_type": "remark",
+            "remarks": "Confidential bureau remarks and notes",
+            "attachment_ref": "secret_doc_99.pdf",
+        },
+        headers=coord_headers,
+    )
+    assert create_res.status_code == 201
+
+    # 2. Query as bureau_officer from PGRC (cross-bureau) -> remarks and attachment_ref must be None
+    pgrc_headers = {"Authorization": f"Bearer {get_auth_token('bureau_officer', bureau='PGRC')}"}
+    pgrc_res = client.get("/api/v1/cases/RB-2026-00001/events", headers=pgrc_headers)
+    assert pgrc_res.status_code == 200
+    pgrc_events = pgrc_res.json()
+    assert len(pgrc_events) >= 1
+    for ev in pgrc_events:
+        assert ev["remarks"] is None
+        assert ev["attachment_ref"] is None
+
+    # 3. Query as bureau_officer from RB (own bureau) -> remarks and attachment_ref must be visible
+    rb_headers = {"Authorization": f"Bearer {get_auth_token('bureau_officer', bureau='RB')}"}
+    rb_res = client.get("/api/v1/cases/RB-2026-00001/events", headers=rb_headers)
+    assert rb_res.status_code == 200
+    rb_events = rb_res.json()
+    assert any(ev.get("remarks") == "Confidential bureau remarks and notes" for ev in rb_events)
+    assert any(ev.get("attachment_ref") == "secret_doc_99.pdf" for ev in rb_events)
+
+    # 4. Query as coordinator -> remarks and attachment_ref must be visible
+    coord_res = client.get("/api/v1/cases/RB-2026-00001/events", headers=coord_headers)
+    assert coord_res.status_code == 200
+    coord_events = coord_res.json()
+    assert any(ev.get("remarks") == "Confidential bureau remarks and notes" for ev in coord_events)
+    assert any(ev.get("attachment_ref") == "secret_doc_99.pdf" for ev in coord_events)
+
