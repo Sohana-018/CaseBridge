@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getOverlaps,
-  getOverlapDetail,
   scanOverlaps,
   submitOverlapReview,
   getCaseDetail,
@@ -27,6 +26,8 @@ import {
   RestrictedBadge,
 } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
+import { formatCategory, formatSignal } from '../utils/formatters';
+import { useToast } from '../components/Toast';
 import {
   RefreshCw,
   Scan,
@@ -34,12 +35,10 @@ import {
   Info,
   Calendar,
   User,
-  Building2,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
   Lock,
-  Tag,
   Clock,
   Sparkles,
   FileText,
@@ -49,9 +48,13 @@ import {
   HelpCircle,
   ShieldAlert,
   ArrowRight,
+  X,
 } from 'lucide-react';
 
+const DISMISS_BANNER_STORAGE_KEY = 'cb_overlap_banner_dismissed';
+
 export const OverlapQueuePage: React.FC = () => {
+  const { showToast } = useToast();
   const [overlaps, setOverlaps] = useState<OverlapItem[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
@@ -62,14 +65,20 @@ export const OverlapQueuePage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Banner dismissal state in localStorage
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
+    return localStorage.getItem(DISMISS_BANNER_STORAGE_KEY) === 'true';
+  });
+
   // Scan state
   const [scanning, setScanning] = useState<boolean>(false);
-  const [scanNotice, setScanNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Review interaction state: map of overlapId -> { note: string, submitting: boolean, error: string | null, success?: string | null }
-  const [reviewForms, setReviewForms] = useState<Record<number, { note: string; submitting: boolean; error: string | null; success?: string | null }>>({});
+  // Review interaction state: map of overlapId -> { note: string, submitting: boolean, error: string | null }
+  const [reviewForms, setReviewForms] = useState<
+    Record<number, { note: string; submitting: boolean; error: string | null }>
+  >({});
 
-  // Case details cache and per-case loading/error states
+  // Case details cache
   const [caseDetails, setCaseDetails] = useState<Record<string, CaseItem>>({});
   const [caseLoading, setCaseLoading] = useState<Record<string, boolean>>({});
   const [caseErrors, setCaseErrors] = useState<Record<string, string>>({});
@@ -79,20 +88,24 @@ export const OverlapQueuePage: React.FC = () => {
   const isCoordinator = currentUser?.role === 'coordinator';
   const canScan = currentUser?.role === 'coordinator' || currentUser?.role === 'administrator';
 
-  // Manual verification items: missing or conflicting permanent_id
+  // Manual verification items
   const [manualItems, setManualItems] = useState<ManualVerificationItem[]>([]);
   const [manualLoading, setManualLoading] = useState<boolean>(false);
+
   const isOfficerOtherBureau = (bureau: string) =>
     currentUser?.role === 'bureau_officer' &&
     Boolean(currentUser?.bureau && bureau && currentUser.bureau.toUpperCase() !== bureau.toUpperCase());
 
-  // Synchronize current user profile reactively on mount if not yet initialized
   useEffect(() => {
     setCurrentUser(getCurrentUser());
   }, []);
 
-  // Fetch overlap list from backend
-  const fetchQueue = useCallback(async () => {
+  const handleDismissBanner = () => {
+    setBannerDismissed(true);
+    localStorage.setItem(DISMISS_BANNER_STORAGE_KEY, 'true');
+  };
+
+  const fetchQueue = useCallback(async (isRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -104,16 +117,19 @@ export const OverlapQueuePage: React.FC = () => {
       });
       setOverlaps(res.items || []);
       setTotal(res.total || 0);
+      if (isRefresh) {
+        showToast('Overlap queue refreshed', 'success');
+      }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to fetch overlap candidate pairs from the backend.');
+      const msg = err instanceof Error ? err.message : 'Failed to fetch overlap pairs';
+      setError(msg);
+      if (isRefresh) {
+        showToast('Failed to refresh overlap queue', 'error');
       }
     } finally {
       setLoading(false);
     }
-  }, [selectedStatus, selectedBand, page, pageSize]);
+  }, [selectedStatus, selectedBand, page, pageSize, showToast]);
 
   const fetchManualQueue = useCallback(async () => {
     if (!canScan) return;
@@ -133,7 +149,7 @@ export const OverlapQueuePage: React.FC = () => {
     fetchManualQueue();
   }, [fetchQueue, fetchManualQueue]);
 
-  // Fetch full details for cases visible in the current overlap list
+  // Fetch case details for items in queue
   useEffect(() => {
     if (overlaps.length === 0) return;
 
@@ -149,115 +165,111 @@ export const OverlapQueuePage: React.FC = () => {
 
     if (caseNosToFetch.size === 0) return;
 
-    caseNosToFetch.forEach(async (caseNo) => {
-      ongoingFetches.current.add(caseNo);
-      setCaseLoading((prev) => ({ ...prev, [caseNo]: true }));
+    caseNosToFetch.forEach((cn) => ongoingFetches.current.add(cn));
+    setCaseLoading((prev) => {
+      const next = { ...prev };
+      caseNosToFetch.forEach((cn) => {
+        next[cn] = true;
+      });
+      return next;
+    });
+
+    caseNosToFetch.forEach(async (cn) => {
       try {
-        const detail = await getCaseDetail(caseNo);
-        setCaseDetails((prev) => ({ ...prev, [caseNo]: detail }));
+        const detail = await getCaseDetail(cn);
+        setCaseDetails((prev) => ({ ...prev, [cn]: detail }));
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Could not fetch case details';
-        setCaseErrors((prev) => ({ ...prev, [caseNo]: msg }));
+        setCaseErrors((prev) => ({
+          ...prev,
+          [cn]: err instanceof Error ? err.message : 'Error loading case',
+        }));
       } finally {
-        setCaseLoading((prev) => ({ ...prev, [caseNo]: false }));
-        ongoingFetches.current.delete(caseNo);
+        ongoingFetches.current.delete(cn);
+        setCaseLoading((prev) => ({ ...prev, [cn]: false }));
       }
     });
   }, [overlaps, caseDetails]);
 
-  // Retry fetching full details for a case that failed earlier
   const retryCaseFetch = async (caseNo: string) => {
-    setCaseErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[caseNo];
-      return copy;
-    });
     setCaseLoading((prev) => ({ ...prev, [caseNo]: true }));
+    setCaseErrors((prev) => {
+      const next = { ...prev };
+      delete next[caseNo];
+      return next;
+    });
     try {
       const detail = await getCaseDetail(caseNo);
       setCaseDetails((prev) => ({ ...prev, [caseNo]: detail }));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Could not fetch case details';
-      setCaseErrors((prev) => ({ ...prev, [caseNo]: msg }));
+      setCaseErrors((prev) => ({
+        ...prev,
+        [caseNo]: err instanceof Error ? err.message : 'Failed to reload case',
+      }));
     } finally {
       setCaseLoading((prev) => ({ ...prev, [caseNo]: false }));
     }
   };
 
-  // Trigger automated overlap detection scan (only available to coordinator or administrator)
   const handleScan = async () => {
-    if (!canScan) return;
+    if (scanning || !canScan) return;
     setScanning(true);
-    setScanNotice(null);
     try {
-      const scanResult = await scanOverlaps();
-      setScanNotice({
-        type: 'success',
-        message: `Scan finished successfully. Found and updated ${scanResult.created} candidate overlap pairs.`,
-      });
-      // Refresh the queue view
-      fetchQueue();
+      const res = await scanOverlaps();
+      showToast(
+        `Overlap scan complete: ${res.created ?? 0} candidate pairs discovered`,
+        'success'
+      );
+      fetchQueue(false);
       fetchManualQueue();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Overlap scan failed unexpectedly.';
-      setScanNotice({
-        type: 'error',
-        message: msg,
-      });
+      const msg = err instanceof Error ? err.message : 'Failed to complete overlap detection scan';
+      showToast(msg, 'error');
     } finally {
       setScanning(false);
     }
   };
 
-  // Handle note text change for a specific overlap pair
   const handleNoteChange = (overlapId: number, note: string) => {
     setReviewForms((prev) => ({
       ...prev,
       [overlapId]: {
+        ...(prev[overlapId] || { submitting: false, error: null }),
         note,
-        submitting: prev[overlapId]?.submitting || false,
-        error: null,
-        success: prev[overlapId]?.success,
       },
     }));
   };
 
-  // Submit review decision for an overlap pair
   const handleReviewSubmit = async (overlapId: number, decision: ReviewDecision) => {
     if (!isCoordinator) return;
-
     const currentForm = reviewForms[overlapId] || { note: '', submitting: false, error: null };
+    const noteToSend = currentForm.note || '';
+
     setReviewForms((prev) => ({
       ...prev,
-      [overlapId]: {
-        ...currentForm,
-        submitting: true,
-        error: null,
-      },
+      [overlapId]: { ...currentForm, submitting: true, error: null },
     }));
 
     try {
-      // 1. Submit review to backend
-      await submitOverlapReview(overlapId, {
+      const persistedOverlap = await submitOverlapReview(overlapId, {
         decision,
-        note: currentForm.note?.trim() || undefined,
+        note: noteToSend.trim() || undefined,
       });
 
-      // 2. Refetch the overlap detail directly from the backend to verify and display persisted record
-      const persistedOverlap = await getOverlapDetail(overlapId);
-
-      // 3. Update the specific overlap item in state in-place with real persisted server record
       setOverlaps((prev) =>
         prev.map((item) => (item.id === overlapId ? persistedOverlap : item))
       );
 
-      // 4. Update review form state with success confirmation and persisted note
-      const decisionLabel =
-        decision === 'not_related'
-          ? 'Not Related'
-          : decision === 'needs_review'
-          ? 'Needs More Review'
-          : decision.charAt(0).toUpperCase() + decision.slice(1);
+      const decisionLabels: Record<ReviewDecision, string> = {
+        related: 'Marked as Related',
+        duplicate: 'Marked as Duplicate',
+        not_related: 'Marked as Not Related',
+        needs_review: 'Marked as Needs More Review',
+      };
+
+      showToast(
+        `Pair #${overlapId}: ${decisionLabels[decision]} by ${persistedOverlap.reviewed_by || 'Coordinator'}`,
+        'success'
+      );
 
       setReviewForms((prev) => ({
         ...prev,
@@ -265,7 +277,6 @@ export const OverlapQueuePage: React.FC = () => {
           note: persistedOverlap.note || '',
           submitting: false,
           error: null,
-          success: `Review decision saved: Marked as "${decisionLabel}" by ${persistedOverlap.reviewed_by || 'Coordinator'}.`,
         },
       }));
     } catch (err: unknown) {
@@ -276,53 +287,33 @@ export const OverlapQueuePage: React.FC = () => {
           ...currentForm,
           submitting: false,
           error: errMsg,
-          success: null,
         },
       }));
     }
   };
 
-  // Human-readable formatter for detection reason strings
-  const formatReasonTag = (reason: string) => {
-    if (reason === 'same_permanent_id') return 'Same Permanent ID';
-    if (reason === 'same_category') return 'Same Category Area';
-    if (reason === 'related_category') return 'Related Category Area';
-    if (reason === 'shared_reference') return 'Shared Case / Ref Code';
-    if (reason.startsWith('text_similarity')) {
-      const val = reason.split(' ')[1];
-      const pct = val ? Math.round(parseFloat(val) * 100) : '';
-      return `Text Similarity (${pct}%)`;
-    }
-    if (reason.startsWith('date_proximity')) {
-      const parts = reason.split(' ');
-      const days = parts[1] || '';
-      return `Within ${days} Days`;
-    }
-    return reason.replace(/_/g, ' ');
-  };
-
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Header & Desk Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+    <div className="cb-page-container space-y-6">
+      {/* Page Header */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border)]">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--text)] tracking-tight">
               Overlap Review Queue
             </h1>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs">
-              {total} Pairs Flagged
+            <span className="text-sm text-[var(--text-secondary)] num-tabular font-medium">
+              ({total} pairs flagged)
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             Human-in-the-loop coordination desk for evaluating cross-bureau duplicate or related complaint pairs
           </p>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
             id="scan-overlaps-btn"
@@ -333,154 +324,124 @@ export const OverlapQueuePage: React.FC = () => {
                 ? 'Run overlap detection engine across open cases'
                 : 'Only Coordinators and Administrators can trigger an overlap scan'
             }
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition cursor-pointer ${
-              canScan
-                ? 'bg-blue-900 text-white hover:bg-blue-800 disabled:opacity-50'
-                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-            }`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition shadow-sm cursor-pointer"
           >
-            <Scan className={`w-3.5 h-3.5 ${scanning ? 'animate-spin' : ''}`} />
-            <span>{scanning ? 'Scanning Cases...' : 'Scan for Overlaps'}</span>
+            <Scan className={`w-3.5 h-3.5 ${scanning ? 'animate-spin' : ''}`} aria-hidden="true" />
+            <span>{scanning ? 'Scanning...' : 'Scan for Overlaps'}</span>
           </button>
 
           <button
             type="button"
             id="refresh-queue-btn"
-            onClick={fetchQueue}
+            onClick={() => fetchQueue(true)}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 transition shadow-2xs cursor-pointer"
-            title="Refresh queue pairs"
+            aria-label="Refresh overlap queue"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-50 transition shadow-2xs cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-3.5 h-3.5 text-slate-600 ${loading ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Non-Destructive Explanatory Banner (Reference 5 Floating Alert Style) */}
-      <div className="rounded-xl border border-blue-200/80 bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 p-4 sm:p-5 shadow-xs">
-        <div className="flex items-start gap-3.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-900 text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Info className="w-4 h-4" />
-          </div>
-          <div className="text-xs text-slate-800 leading-relaxed">
-            <span className="font-bold text-blue-950">Non-destructive coordination workflow: </span>
-            Review decisions (<em>Related</em>, <em>Duplicate</em>, <em>Not Related</em>, or <em>Needs More Review</em>) record an append-only coordination event on both cases. The system <strong>never</strong> automatically merges, modifies, or disposes of either case—all case numbers, assigned officers, and jurisdictions remain completely intact.
-          </div>
-        </div>
-      </div>
-
-      {/* Scan Feedback Banner */}
-      {scanNotice && (
+      {/* Dismissible Info Banner */}
+      {!bannerDismissed && (
         <div
-          role="status"
-          className={`rounded-xl border p-4 shadow-xs flex items-start justify-between gap-3 ${
-            scanNotice.type === 'success'
-              ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
-              : 'bg-rose-50/90 border-rose-300 text-rose-950'
-          }`}
+          role="region"
+          aria-label="Coordination Workflow Information"
+          className="cb-card p-4 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 flex items-start justify-between gap-3 shadow-xs"
         >
-          <div className="flex items-start gap-2.5 text-xs font-medium">
-            {scanNotice.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
-            )}
-            <span>{scanNotice.message}</span>
+          <div className="flex items-start gap-3">
+            <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="text-xs text-slate-800 leading-relaxed">
+              <strong className="font-bold text-blue-900">Non-destructive review: </strong>
+              Coordination decisions append an audit event to both cases without altering case numbers, jurisdictions, or records.
+            </div>
           </div>
           <button
             type="button"
-            onClick={() => setScanNotice(null)}
-            className="text-xs font-bold hover:underline cursor-pointer opacity-70 hover:opacity-100"
+            onClick={handleDismissBanner}
+            aria-label="Dismiss banner"
+            className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-black/5 transition cursor-pointer shrink-0"
           >
-            Dismiss
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
-      {/* Filter Toolbar (Reference 2 VertexPoint Pill Filter Style) */}
+      {/* Sticky Filter Toolbar */}
       <section
         aria-labelledby="filters-heading"
-        className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs"
+        className="cb-card p-4 sticky top-16 z-20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs bg-slate-50/95 backdrop-blur-md border border-slate-300 shadow-xs"
       >
         <h2 id="filters-heading" className="sr-only">Queue Filters</h2>
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Status Filter */}
           <div className="flex items-center gap-2">
-            <label htmlFor="filter-review-status" className="font-bold text-slate-700 whitespace-nowrap uppercase tracking-wider text-[11px]">
+            <label htmlFor="filter-review-status" className="font-medium text-[var(--text-secondary)] whitespace-nowrap">
               Review Status:
             </label>
-            <div className="relative">
-              <select
-                id="filter-review-status"
-                value={selectedStatus}
-                onChange={(e) => {
-                  setSelectedStatus(e.target.value as ReviewStatus | '');
-                  setPage(1);
-                }}
-                className="bg-slate-50 border border-slate-300 text-slate-800 rounded-lg px-3 py-1.5 pr-7 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-900 cursor-pointer appearance-none shadow-2xs"
-              >
-                <option value="open">Open Review (Default)</option>
-                <option value="related">Marked as Related</option>
-                <option value="duplicate">Marked as Duplicate</option>
-                <option value="not_related">Dismissed (Not Related)</option>
-                <option value="needs_review">Needs More Review</option>
-                <option value="">All Review Statuses</option>
-              </select>
-              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
-                ▼
-              </div>
-            </div>
+            <select
+              id="filter-review-status"
+              value={selectedStatus}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value as ReviewStatus | '');
+                setPage(1);
+              }}
+              className="h-9 bg-white border border-[var(--border-input)] text-[var(--text)] rounded-[var(--radius-control)] px-3 text-xs font-medium cursor-pointer"
+            >
+              <option value="open">Open Review (Default)</option>
+              <option value="related">Marked as Related</option>
+              <option value="duplicate">Marked as Duplicate</option>
+              <option value="not_related">Not Related</option>
+              <option value="needs_review">Needs More Review</option>
+              <option value="">All Review Statuses</option>
+            </select>
           </div>
 
           {/* Confidence Band Filter */}
           <div className="flex items-center gap-2">
-            <label htmlFor="filter-confidence-band" className="font-bold text-slate-700 whitespace-nowrap uppercase tracking-wider text-[11px]">
+            <label htmlFor="filter-confidence-band" className="font-medium text-[var(--text-secondary)] whitespace-nowrap">
               Confidence Band:
             </label>
-            <div className="relative">
-              <select
-                id="filter-confidence-band"
-                value={selectedBand}
-                onChange={(e) => {
-                  setSelectedBand(e.target.value as ConfidenceBand | '');
-                  setPage(1);
-                }}
-                className="bg-slate-50 border border-slate-300 text-slate-800 rounded-lg px-3 py-1.5 pr-7 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-900 cursor-pointer appearance-none shadow-2xs"
-              >
-                <option value="">All Bands (High → Low)</option>
-                <option value="high">High Confidence Only</option>
-                <option value="medium">Medium Confidence Only</option>
-                <option value="low">Low Confidence Only</option>
-              </select>
-              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
-                ▼
-              </div>
-            </div>
+            <select
+              id="filter-confidence-band"
+              value={selectedBand}
+              onChange={(e) => {
+                setSelectedBand(e.target.value as ConfidenceBand | '');
+                setPage(1);
+              }}
+              className="h-9 bg-white border border-[var(--border-input)] text-[var(--text)] rounded-[var(--radius-control)] px-3 text-xs font-medium cursor-pointer"
+            >
+              <option value="">All Bands (High → Low)</option>
+              <option value="high">High Confidence Only</option>
+              <option value="medium">Medium Confidence Only</option>
+              <option value="low">Low Confidence Only</option>
+            </select>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-slate-500 font-medium self-end md:self-auto">
-          <span>
-            {loading ? 'Fetching pairs...' : `Displaying ${overlaps.length} of ${total} flagged pair${total === 1 ? '' : 's'}`}
-          </span>
+        <div className="text-xs text-[var(--text-secondary)] num-tabular self-end md:self-auto">
+          Showing {overlaps.length} of {total} flagged pairs
         </div>
       </section>
 
-      {/* Loading state */}
+      {/* Loading & Error States */}
       {loading && <LoadingState message="Loading candidate overlap pairs..." />}
 
-      {/* Error state */}
       {!loading && error && (
         <ErrorState
           title="Could not load Overlap Queue"
           message={error}
-          onRetry={fetchQueue}
+          onRetry={() => fetchQueue(true)}
         />
       )}
 
-      {/* Empty state */}
+      {/* Empty State */}
       {!loading && !error && overlaps.length === 0 && (
         <EmptyState
           title={selectedStatus ? 'No overlap pairs match your filters' : 'Overlap queue is clear'}
@@ -499,21 +460,10 @@ export const OverlapQueuePage: React.FC = () => {
                     setSelectedBand('');
                     setPage(1);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                  <RefreshCw className="w-3.5 h-3.5 text-[var(--text-secondary)]" aria-hidden="true" />
                   <span>Reset to Open Queue</span>
-                </button>
-              )}
-              {canScan && (
-                <button
-                  type="button"
-                  onClick={handleScan}
-                  disabled={scanning}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs cursor-pointer disabled:opacity-50"
-                >
-                  <Scan className="w-3.5 h-3.5" />
-                  <span>Run Detection Scan Now</span>
                 </button>
               )}
             </div>
@@ -521,253 +471,202 @@ export const OverlapQueuePage: React.FC = () => {
         />
       )}
 
-      {/* Overlap Cards List (Reference 7 Master-Detail Comparison Architecture) */}
+      {/* Overlap Cards List */}
       {!loading && !error && overlaps.length > 0 && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {overlaps.map((item) => {
             const form = reviewForms[item.id] || { note: '', submitting: false, error: null };
             const isPairReviewed = item.review_status !== 'open';
+
+            const caseADetail = caseDetails[item.case_a.case_no];
+            const caseBDetail = caseDetails[item.case_b.case_no];
+
+            // Compare match vs differ
+            const sameCategory = Boolean(
+              caseADetail?.category &&
+              caseBDetail?.category &&
+              caseADetail.category.toLowerCase() === caseBDetail.category.toLowerCase()
+            );
 
             return (
               <article
                 key={item.id}
                 id={`overlap-${item.id}`}
                 aria-labelledby={`pair-heading-${item.id}`}
-                className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:border-slate-300 hover:shadow-sm transition"
+                className="cb-card overflow-hidden"
               >
                 {/* Pair Header Bar */}
-                <div className="px-5 py-4 bg-slate-50/90 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="px-5 py-3.5 bg-slate-100 border-b border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                    <span className="font-mono text-xs font-bold text-white bg-slate-900 px-2.5 py-0.5 rounded shadow-2xs">
                       Pair #{item.id}
                     </span>
-                    <h3 id={`pair-heading-${item.id}`} className="font-bold text-sm text-slate-900">
-                      Potential Overlapping Cases – Coordination Required
-                    </h3>
+                    <h2 id={`pair-heading-${item.id}`} className="font-bold text-sm text-slate-900">
+                      Potential Cross-Bureau Overlap
+                    </h2>
                     <ConfidenceBandBadge band={item.band} />
                     <ReviewStatusBadge status={item.review_status} />
                   </div>
 
                   {item.reviewed_at && (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                      <Clock className="w-3.5 h-3.5 text-[var(--text-tertiary)]" aria-hidden="true" />
                       <span>
                         Reviewed {new Date(item.reviewed_at).toLocaleDateString()} by{' '}
-                        <strong className="text-slate-800">{item.reviewed_by || 'Coordinator'}</strong>
+                        <strong className="font-medium text-[var(--text)]">{item.reviewed_by || 'Coordinator'}</strong>
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Why Flagged Strip (Reference 3 Tactile Reason Pills) */}
-                <div className="px-5 py-3 bg-white border-b border-slate-100 flex items-start sm:items-center gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-900" />
-                    <span>Algorithmic Signals:</span>
-                  </div>
+                {/* Signals Row */}
+                <div className="px-5 py-2.5 bg-white border-b border-[var(--border)] flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-xs text-[var(--text-tertiary)] font-medium mr-1 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-[var(--brand)]" aria-hidden="true" />
+                    <span>Signals:</span>
+                  </span>
                   {item.reasons && item.reasons.length > 0 ? (
                     item.reasons.map((reason, idx) => (
                       <span
                         key={idx}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100/80 text-slate-700 border border-slate-200 shadow-2xs"
+                        className="px-2 py-0.5 rounded-[6px] text-xs font-medium bg-[var(--neutral-bg)] text-[var(--neutral)] border border-[var(--border)]"
                       >
-                        <Tag className="w-3 h-3 text-slate-400" />
-                        {formatReasonTag(reason)}
+                        {formatSignal(reason)}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-400 italic">Same-institution cross-bureau candidate</span>
+                    <span className="text-xs text-[var(--text-tertiary)] italic">
+                      Same-institution cross-bureau candidate
+                    </span>
                   )}
                 </div>
 
-                {/* Same Institution Strip */}
-                {(() => {
-                  const inst =
-                    caseDetails[item.case_a.case_no]?.institution ||
-                    caseDetails[item.case_b.case_no]?.institution;
-                  const isRestrictedPair =
-                    !inst &&
-                    isOfficerOtherBureau(item.case_a.bureau) &&
-                    isOfficerOtherBureau(item.case_b.bureau);
-
-                  return (
-                    <div className="px-5 py-2.5 bg-gradient-to-r from-slate-50 via-blue-50/30 to-slate-50 border-b border-slate-200 text-xs flex items-center gap-2 flex-wrap">
-                      <Building2 className="w-4 h-4 text-blue-900 shrink-0" />
-                      <span className="font-bold text-slate-700">Same Institution:</span>
-                      {inst ? (
-                        <div className="inline-flex items-center gap-2 flex-wrap">
-                          <Link
-                            to={`/institutions/${inst.permanent_id}`}
-                            className="font-bold text-slate-900 hover:text-blue-900 hover:underline"
-                            title={inst.name}
-                          >
-                            {inst.name}
-                          </Link>
-                          <span className="text-slate-300">·</span>
-                          <span className="font-mono text-blue-900 font-bold bg-blue-100/60 px-2 py-0.5 rounded text-[11px]">
-                            {inst.permanent_id}
-                          </span>
-                          <span className="text-slate-300">·</span>
-                          <span className="text-slate-600 font-medium">{inst.region} Region</span>
-                        </div>
-                      ) : isRestrictedPair ? (
-                        <RestrictedBadge />
-                      ) : (
-                        <span className="text-slate-400 italic">Loading institution profile...</span>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Side-by-Side Comparison Grid (Reference 7 Master-Detail Item Columns) */}
-                <div className="p-5 bg-slate-50/30">
+                {/* Side-by-Side Comparison */}
+                <div className="p-5 bg-white">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
-                    {/* Case A Panel */}
+                    {/* Case A */}
                     <CaseComparisonColumn
                       caseMini={item.case_a}
                       label="Case A"
-                      detail={caseDetails[item.case_a.case_no]}
+                      detail={caseADetail}
                       isLoading={caseLoading[item.case_a.case_no]}
                       errorMsg={caseErrors[item.case_a.case_no]}
                       onRetry={() => retryCaseFetch(item.case_a.case_no)}
                       isRestricted={isOfficerOtherBureau(item.case_a.bureau)}
+                      categoryMatches={sameCategory}
                     />
 
-                    {/* Case B Panel */}
+                    {/* Case B */}
                     <CaseComparisonColumn
                       caseMini={item.case_b}
                       label="Case B"
-                      detail={caseDetails[item.case_b.case_no]}
+                      detail={caseBDetail}
                       isLoading={caseLoading[item.case_b.case_no]}
                       errorMsg={caseErrors[item.case_b.case_no]}
                       onRetry={() => retryCaseFetch(item.case_b.case_no)}
                       isRestricted={isOfficerOtherBureau(item.case_b.bureau)}
+                      categoryMatches={sameCategory}
                     />
                   </div>
                 </div>
 
-                {/* Review Action & Decision Box (Reference 7 Segmented Action Drawer) */}
-                <div className="px-5 py-4 bg-slate-50/80 border-t border-slate-200">
-                  {/* Prior review note banner if already reviewed */}
+                {/* Decision Footer Box */}
+                <div className="px-5 py-4 bg-[var(--bg-subtle)] border-t border-[var(--border)] space-y-3">
+                  {/* Prior review note if already reviewed */}
                   {isPairReviewed && item.note && (
-                    <div className="mb-3 p-3.5 rounded-xl bg-white border border-slate-200 text-xs shadow-2xs">
-                      <div className="font-bold text-slate-800 mb-0.5">Recorded Coordination Note:</div>
-                      <div className="text-slate-600 italic">"{item.note}"</div>
+                    <div className="p-3 rounded-lg bg-white border border-[var(--border)] text-xs">
+                      <span className="text-[var(--text-tertiary)] font-medium">Recorded Coordination Note:</span>
+                      <p className="text-[var(--text)] italic mt-0.5">"{item.note}"</p>
                     </div>
                   )}
 
-                  {/* Submission success feedback */}
-                  {form.success && (
-                    <div className="mb-3 p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 flex items-center justify-between gap-2 shadow-2xs">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-semibold">{form.success}</span>
-                      </div>
-                      {selectedStatus === 'open' && (
-                        <button
-                          type="button"
-                          onClick={() => fetchQueue()}
-                          className="text-[11px] font-bold text-emerald-900 underline hover:text-emerald-950 cursor-pointer"
-                          title="Refresh queue to hide reviewed item"
-                        >
-                          Remove from open queue
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Submission error feedback */}
+                  {/* Submission error */}
                   {form.error && (
-                    <div className="mb-3 p-3 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-900 flex items-center gap-2 shadow-2xs">
-                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                      <span className="font-semibold">{form.error}</span>
+                    <div className="p-3 rounded-lg bg-[var(--danger-bg)] border border-[#FECDCA] text-xs text-[var(--danger)] flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      <span>{form.error}</span>
                     </div>
                   )}
 
-                  {/* Role warning for non-coordinators */}
+                  {/* Read-only warning (Muted Neutral Lock Note) */}
                   {!isCoordinator && (
-                    <div className="mb-3 flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 p-2.5 rounded-xl shadow-2xs">
-                      <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="font-medium">Coordination decisions can only be recorded by authenticated Coordinators.</span>
+                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] bg-white border border-[var(--border)] p-2.5 rounded-lg">
+                      <Lock className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
+                      <span>Coordination review decisions can only be recorded by authenticated Coordinators.</span>
                     </div>
                   )}
 
-                  {/* Review input and action buttons */}
-                  <div className="space-y-3">
-                    <div>
-                      <label htmlFor={`review-note-${item.id}`} className="block text-xs font-bold text-slate-700 mb-1">
-                        {isPairReviewed ? 'Update Coordination Note (Optional):' : 'Coordination Review Note (Optional):'}
-                      </label>
-                      <textarea
-                        id={`review-note-${item.id}`}
-                        rows={2}
-                        value={form.note !== undefined ? form.note : item.note || ''}
-                        onChange={(e) => handleNoteChange(item.id, e.target.value)}
+                  {/* Note input & decision buttons */}
+                  <div>
+                    <label htmlFor={`review-note-${item.id}`} className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      Coordination Note (Optional):
+                    </label>
+                    <textarea
+                      id={`review-note-${item.id}`}
+                      rows={2}
+                      value={form.note !== undefined ? form.note : item.note || ''}
+                      onChange={(e) => handleNoteChange(item.id, e.target.value)}
+                      disabled={form.submitting || !isCoordinator}
+                      aria-disabled={!isCoordinator}
+                      placeholder="Add an audit note or rationale for this review decision..."
+                      className="w-full text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] p-2.5 text-[var(--text)] placeholder:text-[var(--text-tertiary)] disabled:bg-[var(--bg-subtle)] disabled:text-[var(--text-tertiary)]"
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    <span className="text-xs text-[var(--text-tertiary)]">
+                      {isPairReviewed ? 'Change decision:' : 'Select decision:'}
+                    </span>
+
+                    {/* Decision buttons with recommended action emphasized */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        id={`btn-related-${item.id}`}
+                        onClick={() => handleReviewSubmit(item.id, 'related')}
                         disabled={form.submitting || !isCoordinator}
-                        placeholder="Add a coordination note (optional)"
-                        className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-900/20 focus:border-blue-900 disabled:bg-slate-100 disabled:text-slate-400 shadow-2xs transition"
-                      />
-                    </div>
+                        aria-disabled={!isCoordinator}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition shadow-xs cursor-pointer"
+                      >
+                        <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>Related</span>
+                      </button>
 
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-                      <span className="text-[11px] text-slate-500 font-medium">
-                        {isPairReviewed ? 'Change status or re-evaluate decision:' : 'Select coordination decision:'}
-                      </span>
+                      <button
+                        type="button"
+                        id={`btn-duplicate-${item.id}`}
+                        onClick={() => handleReviewSubmit(item.id, 'duplicate')}
+                        disabled={form.submitting || !isCoordinator}
+                        aria-disabled={!isCoordinator}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-bold bg-rose-50 border border-rose-300 text-rose-800 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-rose-600" aria-hidden="true" />
+                        <span>Duplicate</span>
+                      </button>
 
-                      {/* 4 Explicit Review Decisions per PRD FR10 (Reference 3 Tactile Action Pills) */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* 1. Related */}
-                        <button
-                          type="button"
-                          id={`btn-related-${item.id}`}
-                          onClick={() => handleReviewSubmit(item.id, 'related')}
-                          disabled={form.submitting || !isCoordinator}
-                          title="Flag cases as related; triggers coordination event on both cases"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-900 border border-indigo-300 hover:bg-indigo-100 disabled:opacity-50 transition cursor-pointer shadow-2xs hover:shadow-xs"
-                        >
-                          <Link2 className="w-3.5 h-3.5 text-indigo-700" />
-                          <span>Related</span>
-                        </button>
+                      <button
+                        type="button"
+                        id={`btn-not-related-${item.id}`}
+                        onClick={() => handleReviewSubmit(item.id, 'not_related')}
+                        disabled={form.submitting || !isCoordinator}
+                        aria-disabled={!isCoordinator}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-medium bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                      >
+                        <XCircle className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                        <span>Not Related</span>
+                      </button>
 
-                        {/* 2. Duplicate */}
-                        <button
-                          type="button"
-                          id={`btn-duplicate-${item.id}`}
-                          onClick={() => handleReviewSubmit(item.id, 'duplicate')}
-                          disabled={form.submitting || !isCoordinator}
-                          title="Mark cases as duplicate complaints without merging or deleting"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-purple-50 text-purple-900 border border-purple-300 hover:bg-purple-100 disabled:opacity-50 transition cursor-pointer shadow-2xs hover:shadow-xs"
-                        >
-                          <Copy className="w-3.5 h-3.5 text-purple-700" />
-                          <span>Duplicate</span>
-                        </button>
-
-                        {/* 3. Not Related */}
-                        <button
-                          type="button"
-                          id={`btn-not-related-${item.id}`}
-                          onClick={() => handleReviewSubmit(item.id, 'not_related')}
-                          disabled={form.submitting || !isCoordinator}
-                          title="Dismiss candidate overlap; cases are unrelated"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200 disabled:opacity-50 transition cursor-pointer shadow-2xs hover:shadow-xs"
-                        >
-                          <XCircle className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Not Related</span>
-                        </button>
-
-                        {/* 4. Needs More Review */}
-                        <button
-                          type="button"
-                          id={`btn-needs-review-${item.id}`}
-                          onClick={() => handleReviewSubmit(item.id, 'needs_review')}
-                          disabled={form.submitting || !isCoordinator}
-                          title="Mark as requiring further bureau consultation"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 disabled:opacity-50 transition cursor-pointer shadow-2xs hover:shadow-xs"
-                        >
-                          <HelpCircle className="w-3.5 h-3.5 text-amber-700" />
-                          <span>Needs More Review</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        id={`btn-needs-review-${item.id}`}
+                        onClick={() => handleReviewSubmit(item.id, 'needs_review')}
+                        disabled={form.submitting || !isCoordinator}
+                        aria-disabled={!isCoordinator}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-medium bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
+                        <span>Needs Review</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -777,20 +676,20 @@ export const OverlapQueuePage: React.FC = () => {
 
           {/* Pagination Navigation */}
           {totalPages > 1 && (
-            <nav aria-label="Queue Pagination" className="flex items-center justify-between border-t border-slate-200 pt-5 px-2">
+            <nav aria-label="Queue Pagination" className="flex items-center justify-between border-t border-[var(--border)] pt-4 px-1 text-xs">
               <button
                 type="button"
                 id="pagination-prev"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border-input)] bg-white text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-40 disabled:cursor-not-allowed font-medium transition cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                 <span>Previous</span>
               </button>
 
-              <span className="text-xs text-slate-600 font-semibold">
-                Page <strong className="text-slate-900">{page}</strong> of <strong className="text-slate-900">{totalPages}</strong>
+              <span className="text-[var(--text-secondary)]">
+                Page <strong className="text-[var(--text)] num-tabular">{page}</strong> of <strong className="text-[var(--text)] num-tabular">{totalPages}</strong>
               </span>
 
               <button
@@ -798,10 +697,10 @@ export const OverlapQueuePage: React.FC = () => {
                 id="pagination-next"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border-input)] bg-white text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-40 disabled:cursor-not-allowed font-medium transition cursor-pointer"
               >
                 <span>Next</span>
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4" aria-hidden="true" />
               </button>
             </nav>
           )}
@@ -810,94 +709,83 @@ export const OverlapQueuePage: React.FC = () => {
 
       {/* Manual Verification List Section */}
       {canScan && (
-        <section aria-labelledby="manual-verification-heading" className="mt-10 border-t border-slate-200 pt-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+        <section aria-labelledby="manual-verification-heading" className="mt-8 border-t border-[var(--border)] pt-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
-              <h2 id="manual-verification-heading" className="text-lg font-bold text-slate-900 tracking-tight">
+              <ShieldAlert className="w-4 h-4 text-[var(--warning)] shrink-0" aria-hidden="true" />
+              <h2 id="manual-verification-heading" className="text-base font-semibold text-[var(--text)] tracking-tight">
                 Manual Verification Governance Queue
               </h2>
-              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full shadow-2xs ${
-                manualItems.length > 0 ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-              }`}>
-                {manualItems.length} {manualItems.length === 1 ? 'case' : 'cases'}
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[var(--neutral-bg)] text-[var(--neutral)] num-tabular">
+                {manualItems.length} records
               </span>
             </div>
             <button
               type="button"
               onClick={fetchManualQueue}
               disabled={manualLoading}
-              className="text-xs font-bold text-blue-900 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+              className="text-xs font-medium text-[var(--brand)] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${manualLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${manualLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
               <span>Refresh list</span>
             </button>
           </div>
-          <p className="text-xs text-slate-500 mb-4 max-w-2xl">
-            Cases with missing or unresolvable institutional Permanent IDs flagged for coordinator verification before automated overlap indexing.
+          <p className="text-xs text-[var(--text-secondary)] mb-4 max-w-2xl">
+            Cases with missing or conflicting institutional Permanent IDs flagged for coordinator verification.
           </p>
 
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <div className="cb-card overflow-hidden">
             {manualLoading ? (
-              <div className="p-8 text-center text-xs text-slate-500">Checking data quality records...</div>
+              <div className="p-6 text-center text-xs text-[var(--text-tertiary)]">Checking records...</div>
             ) : manualItems.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500 bg-slate-50/50">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
-                <div className="font-semibold text-slate-800">All Active Complaints Resolved</div>
-                <div className="text-slate-500 mt-0.5">Every registered case maps to a canonical permanent institution ID.</div>
+              <div className="p-6 text-center text-xs text-[var(--text-secondary)] bg-[var(--bg-subtle)]">
+                <CheckCircle2 className="w-5 h-5 text-[var(--success)] mx-auto mb-1.5" aria-hidden="true" />
+                <div className="font-semibold text-[var(--text)]">All Cases Resolved</div>
+                <div className="text-[var(--text-tertiary)] mt-0.5">Every registered case maps to a canonical permanent institution ID.</div>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                <table className="w-full text-left text-xs text-[var(--text)]">
+                  <caption className="sr-only">Manual Verification Cases Table</caption>
+                  <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)] text-[var(--text-secondary)] font-medium">
                     <tr>
-                      <th className="py-3 px-4">Case / Item</th>
-                      <th className="py-3 px-4">Institution Name</th>
-                      <th className="py-3 px-4">Permanent ID</th>
-                      <th className="py-3 px-4">Issue Category</th>
-                      <th className="py-3 px-4">Diagnostic Reason</th>
-                      <th className="py-3 px-4">Bureau / Date</th>
+                      <th scope="col" className="py-2.5 px-3">Case Number</th>
+                      <th scope="col" className="py-2.5 px-3">Institution Name</th>
+                      <th scope="col" className="py-2.5 px-3">Permanent ID</th>
+                      <th scope="col" className="py-2.5 px-3">Issue Category</th>
+                      <th scope="col" className="py-2.5 px-3">Reason</th>
+                      <th scope="col" className="py-2.5 px-3">Bureau / Date</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-[var(--border)]">
                     {manualItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-amber-50/40 transition">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                      <tr key={item.id} className="hover:bg-[var(--bg-subtle)] transition">
+                        <td className="py-2.5 px-3 font-mono font-medium text-[var(--brand)]">
                           {item.case_no ? (
-                            <Link to={`/cases/${item.case_no}`} className="text-blue-900 hover:underline">
+                            <Link to={`/cases/${item.case_no}`} className="hover:underline">
                               {item.case_no}
                             </Link>
                           ) : (
-                            <span className="text-slate-500">Inst #{item.institution_id}</span>
+                            <span className="text-[var(--text-tertiary)]">Inst #{item.institution_id}</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-slate-800 font-semibold">
+                        <td className="py-2.5 px-3 font-medium text-[var(--text)]">
                           {item.institution_name}
                         </td>
-                        <td className="py-3 px-4">
-                          {item.permanent_id ? (
-                            <code className="text-slate-700 font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                              {item.permanent_id}
-                            </code>
-                          ) : (
-                            <span className="text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded text-[11px]">
-                              Missing ID
-                            </span>
+                        <td className="py-2.5 px-3 font-mono text-[var(--text-secondary)]">
+                          {item.permanent_id || (
+                            <span className="text-[var(--danger)] font-medium">Missing ID</span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                            item.issue_type === 'missing_permanent_id'
-                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
-                          }`}>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded-[6px] text-[11px] font-medium bg-[var(--neutral-bg)] text-[var(--neutral)]">
                             {item.issue_type === 'missing_permanent_id' ? 'Missing ID' : 'Conflicting ID'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={item.reason}>
+                        <td className="py-2.5 px-3 text-[var(--text-secondary)] max-w-xs truncate" title={item.reason}>
                           {item.reason}
                         </td>
-                        <td className="py-3 px-4 text-slate-500 text-[11px]">
+                        <td className="py-2.5 px-3 text-[var(--text-tertiary)] num-tabular">
                           {item.bureau || '—'} {item.received_date ? `· ${item.received_date}` : ''}
                         </td>
                       </tr>
@@ -909,12 +797,12 @@ export const OverlapQueuePage: React.FC = () => {
           </div>
         </section>
       )}
-    </main>
+    </div>
   );
 };
 
 // ============================================================================
-// Side-by-side Case Comparison Column Component (Reference 7 Master-Detail Card)
+// Side-by-side Case Comparison Column Component
 // ============================================================================
 
 interface CaseColumnProps {
@@ -925,6 +813,7 @@ interface CaseColumnProps {
   errorMsg?: string;
   onRetry: () => void;
   isRestricted?: boolean;
+  categoryMatches?: boolean;
 }
 
 const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
@@ -935,115 +824,128 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
   errorMsg,
   onRetry,
   isRestricted: isRestrictedProp,
+  categoryMatches,
 }) => {
   const isRestricted = Boolean(
     isRestrictedProp || (detail && detail.description === undefined && detail.assigned_officer === undefined)
   );
 
+  const isCaseA = label.toLowerCase().includes('a');
+  const cardTheme = isCaseA
+    ? 'border-blue-200 bg-blue-50/25'
+    : 'border-purple-200 bg-purple-50/25';
+  const labelBadge = isCaseA
+    ? 'bg-blue-600 text-white'
+    : 'bg-purple-600 text-white';
+  const caseNoLink = isCaseA
+    ? 'text-blue-700 hover:text-blue-900'
+    : 'text-purple-700 hover:text-purple-900';
+
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs flex flex-col justify-between h-full hover:border-slate-300 transition">
+    <div className={`rounded-xl border ${cardTheme} p-4 flex flex-col justify-between h-full shadow-2xs`}>
       <div className="flex-1 flex flex-col">
-        {/* Header: Label, Case No, Bureau, Status, Priority */}
-        <div className="flex items-center justify-between gap-2 pb-3 mb-3.5 border-b border-slate-100 flex-wrap">
+        {/* Header: Label, Case No, Bureau, Status */}
+        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-slate-200/80 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-900 text-white shadow-2xs">
+            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded shadow-2xs ${labelBadge}`}>
               {label}
             </span>
-            <span className="font-mono font-bold text-sm text-blue-900">
+            <Link
+              to={`/cases/${caseMini.case_no}`}
+              className={`font-mono font-bold text-xs hover:underline ${caseNoLink}`}
+            >
               {caseMini.case_no}
-            </span>
+            </Link>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
             <BureauBadge bureau={caseMini.bureau} />
             <StatusChip status={caseMini.status} />
-            {detail?.priority ? (
-              <PriorityChip priority={detail.priority} />
-            ) : isRestricted ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-400 border border-slate-200 italic">
-                <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                <span>Priority: Restricted</span>
-              </span>
-            ) : null}
+            {detail?.priority && <PriorityChip priority={detail.priority} />}
           </div>
         </div>
 
-        {/* Loading Skeleton */}
+        {/* Loading */}
         {isLoading && (
-          <div className="space-y-3 py-3 animate-pulse">
-            <div className="h-4 bg-slate-100 rounded-md w-3/4"></div>
-            <div className="h-3 bg-slate-100 rounded-md w-1/2"></div>
-            <div className="h-20 bg-slate-100 rounded-lg w-full mt-2"></div>
+          <div className="space-y-2 py-3 animate-pulse">
+            <div className="h-3 bg-slate-200 rounded w-3/4"></div>
+            <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+            <div className="h-14 bg-slate-200 rounded w-full mt-2"></div>
           </div>
         )}
 
-        {/* Error Fallback with Retry */}
+        {/* Error */}
         {!isLoading && errorMsg && (
-          <div className="p-3 my-2 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-900">
-            <div className="font-bold mb-1">Could not load full case details</div>
-            <p className="text-[11px] text-amber-800 mb-2">{errorMsg}</p>
+          <div className="p-3 my-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
+            <p className="text-xs mb-1.5">{errorMsg}</p>
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-900 underline hover:text-blue-700 cursor-pointer"
+              className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
             >
-              <RefreshCw className="w-3 h-3" /> Retry loading
+              Retry loading
             </button>
           </div>
         )}
 
-        {/* Resolved Case Details */}
+        {/* Details */}
         {!isLoading && !errorMsg && detail && (
-          <div className="space-y-3.5 text-xs flex-1 flex flex-col justify-between">
-            {/* Key Metadata Table */}
+          <div className="space-y-3 text-xs flex-1 flex flex-col justify-between">
             <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
               <div>
-                <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Category</dt>
-                <dd className="font-bold text-slate-800 capitalize truncate mt-0.5">{detail.category || '—'}</dd>
-              </div>
-
-              <div>
-                <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Received Date</dt>
-                <dd className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{detail.received_date || '—'}</span>
-                </dd>
-              </div>
-
-              <div>
-                <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Assigned Officer</dt>
-                <dd className="font-semibold text-slate-800 flex items-center gap-1 truncate mt-0.5">
-                  <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  {isRestricted ? (
-                    <RestrictedBadge />
-                  ) : (
-                    <span>{detail.assigned_officer || <span className="text-slate-400 italic font-normal">Unassigned</span>}</span>
+                <dt className="text-slate-500 font-medium">Category</dt>
+                <dd className={`font-semibold capitalize mt-0.5 ${categoryMatches ? 'text-emerald-700 font-bold' : 'text-slate-900'}`}>
+                  {formatCategory(detail.category)}
+                  {categoryMatches && (
+                    <span className="ml-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                      Match
+                    </span>
                   )}
                 </dd>
               </div>
 
               <div>
-                <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Target SLA</dt>
-                <dd className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
+                <dt className="text-slate-500 font-medium">Received Date</dt>
+                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 num-tabular">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                  <span>{detail.received_date || '—'}</span>
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-slate-500 font-medium">Assigned Officer</dt>
+                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 truncate">
+                  <User className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                  {isRestricted ? (
+                    <RestrictedBadge />
+                  ) : (
+                    <span>{detail.assigned_officer || <span className="text-slate-400 italic">Unassigned</span>}</span>
+                  )}
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-slate-500 font-medium">Target SLA</dt>
+                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 num-tabular">
                   {isRestricted ? (
                     <RestrictedBadge />
                   ) : (
                     <>
                       <span>{detail.expected_disposal_date || '—'}</span>
-                      {detail.overdue && <OverdueBadge className="scale-90" />}
+                      {detail.overdue && <OverdueBadge />}
                     </>
                   )}
                 </dd>
               </div>
             </dl>
 
-            {/* Full Complaint Description (Reference 7 Card Body) */}
-            <div className="mt-2">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                <span>Grievance Summary / Allegations:</span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-800 text-xs leading-relaxed max-h-36 overflow-y-auto font-normal">
+            {/* Description */}
+            <div>
+              <span className="text-slate-600 font-semibold flex items-center gap-1 mb-1">
+                <FileText className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                <span>Grievance Summary:</span>
+              </span>
+              <div className="p-3 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs leading-relaxed max-h-28 overflow-y-auto shadow-2xs">
                 {isRestricted ? (
                   <RestrictedBadge />
                 ) : (
@@ -1053,24 +955,15 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
             </div>
           </div>
         )}
-
-        {/* Fallback when detail is not yet loaded */}
-        {!isLoading && !errorMsg && !detail && (
-          <div className="py-3 text-xs text-slate-500">
-            <div>Bureau: <strong className="text-slate-700">{caseMini.bureau}</strong></div>
-            <div>Status: <strong className="text-slate-700">{caseMini.status}</strong></div>
-          </div>
-        )}
       </div>
 
-      {/* Case Link Footer */}
-      <div className="pt-3.5 mt-auto border-t border-slate-100 flex items-center justify-end text-xs">
+      <div className="pt-3 mt-3 border-t border-slate-200/80 flex justify-end">
         <Link
           to={`/cases/${caseMini.case_no}`}
-          className="font-bold text-blue-900 hover:text-blue-700 flex items-center gap-1 group text-xs hover:underline"
+          className="text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1"
         >
-          <span>Open Full Case Timeline</span>
-          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          <span>Open case record</span>
+          <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
         </Link>
       </div>
     </div>

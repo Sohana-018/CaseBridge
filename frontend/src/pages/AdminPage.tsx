@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert,
   Users,
@@ -7,11 +7,10 @@ import {
   Activity,
   UserPlus,
   RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
   Search,
   Key,
   Database,
+  X,
 } from 'lucide-react';
 import {
   getCurrentUser,
@@ -27,28 +26,27 @@ import {
 } from '../api/client';
 import type {
   AdminUser,
-  AdminConfigItem,
   AdminAuditLog,
   SystemHealthSummary,
   CreateAdminUserPayload,
 } from '../api/client';
 import { Link } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 
 type AdminTab = 'overview' | 'users' | 'config' | 'audit';
 
 export const AdminPage: React.FC = () => {
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'administrator';
+  const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Data states
   const [health, setHealth] = useState<SystemHealthSummary | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [configs, setConfigs] = useState<AdminConfigItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
 
   // User form modal state
@@ -75,7 +73,7 @@ export const AdminPage: React.FC = () => {
   // Overlap scan state
   const [scanning, setScanning] = useState(false);
 
-  const loadAllAdminData = React.useCallback(async () => {
+  const loadAllAdminData = useCallback(async (isRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -87,37 +85,41 @@ export const AdminPage: React.FC = () => {
       ]);
       setHealth(healthData);
       setUsers(usersData);
-      setConfigs(configData);
       const confMap: Record<string, string> = {};
       configData.forEach((c) => {
         confMap[c.key] = c.value;
       });
       setConfigEdits(confMap);
       setAuditLogs(auditData);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load administrative console data.');
+      if (isRefresh) {
+        showToast('Administrative console data refreshed', 'success');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load administrative console data.';
+      setError(msg);
+      if (isRefresh) {
+        showToast('Failed to refresh admin console', 'error');
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     if (!isAdmin) {
       setLoading(false);
       return;
     }
-
-    loadAllAdminData();
+    loadAllAdminData(false);
   }, [isAdmin, loadAllAdminData]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setActionMessage(null);
     setError(null);
-
     try {
       await createAdminUser(newUser);
       setShowAddUserModal(false);
+      const createdUsername = newUser.username;
       setNewUser({
         username: '',
         name: '',
@@ -126,68 +128,77 @@ export const AdminPage: React.FC = () => {
         email: '',
         password: '',
       });
-      setActionMessage(`User '${newUser.username}' created successfully.`);
+      showToast(`User '${createdUsername}' created successfully`, 'success');
       const updatedUsers = await getAdminUsers();
       setUsers(updatedUsers);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create user.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create user.';
+      setError(msg);
+      showToast(msg, 'error');
     }
   };
 
   const handleToggleStatus = async (user: AdminUser) => {
-    setActionMessage(null);
     setError(null);
     try {
-      const updated = await toggleAdminUserStatus(user.id, !user.is_active);
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
-      setActionMessage(
-        `User '${user.username || user.name}' is now ${updated.is_active ? 'Active' : 'Inactive'}.`
+      const res = await toggleAdminUserStatus(user.id, !user.is_active);
+      showToast(
+        `User '${user.username}' is now ${res.is_active ? 'active' : 'deactivated'}`,
+        'success'
       );
-    } catch (err: any) {
-      setError(err?.message || 'Failed to toggle status.');
+      const updatedUsers = await getAdminUsers();
+      setUsers(updatedUsers);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to toggle status.';
+      setError(msg);
+      showToast(msg, 'error');
     }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetTargetUser || !newPasswordVal) return;
-    setActionMessage(null);
+    if (!resetTargetUser) return;
     setError(null);
-
     try {
       await resetAdminUserPassword(resetTargetUser.id, newPasswordVal);
-      setActionMessage(`Password updated for user '${resetTargetUser.username || resetTargetUser.name}'.`);
+      const targetName = resetTargetUser.username;
       setResetTargetUser(null);
       setNewPasswordVal('');
-    } catch (err: any) {
-      setError(err?.message || 'Failed to reset password.');
+      showToast(`Password reset successfully for '${targetName}'`, 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to reset password.';
+      setError(msg);
+      showToast(msg, 'error');
     }
   };
 
   const handleSaveConfig = async () => {
-    setActionMessage(null);
     setError(null);
     try {
       await updateAdminConfig(configEdits);
-      setActionMessage('System configurations saved successfully.');
-      const conf = await getAdminConfig();
-      setConfigs(conf);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to save configuration.');
+      showToast('System configuration parameters saved', 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save configuration.';
+      setError(msg);
+      showToast(msg, 'error');
     }
   };
 
   const handleTriggerScan = async () => {
+    if (scanning) return;
     setScanning(true);
-    setActionMessage(null);
     setError(null);
     try {
       const res = await triggerAdminOverlapScan();
-      setActionMessage(`Scan executed: ${res.created} new candidate overlap pairs generated.`);
-      const h = await getAdminHealthSummary();
-      setHealth(h);
-    } catch (err: any) {
-      setError(err?.message || 'Overlap scan failed.');
+      showToast(
+        `Full overlap scan completed: ${res.created ?? 0} candidate pairs discovered`,
+        'success'
+      );
+      loadAllAdminData(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Overlap scan failed.';
+      setError(msg);
+      showToast(msg, 'error');
     } finally {
       setScanning(false);
     }
@@ -195,28 +206,32 @@ export const AdminPage: React.FC = () => {
 
   if (!isAdmin) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16">
-        <div className="bg-white rounded-xl shadow-xs border border-amber-200 p-8 text-center">
-          <div className="w-14 h-14 mx-auto rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-4">
-            <ShieldAlert className="w-8 h-8" />
+      <div className="cb-page-container py-16">
+        <div className="cb-card p-8 text-center max-w-xl mx-auto space-y-4">
+          <div
+            className="w-12 h-12 mx-auto rounded-full bg-[var(--danger-bg)] border border-[#FECDCA] flex items-center justify-center text-[var(--danger)]"
+            aria-hidden="true"
+          >
+            <ShieldAlert className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Administrator Access Required</h2>
-          <p className="text-sm text-slate-600 max-w-md mx-auto mb-6">
+          <h1 className="text-xl font-semibold text-[var(--text)]">
+            Administrator Access Required
+          </h1>
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
             The Administration and System Governance console is restricted to users with the{' '}
-            <code className="font-semibold text-amber-900">administrator</code> role. Your current role is{' '}
-            <code className="font-semibold text-blue-900 capitalize">{currentUser?.role || 'Guest'}</code>.
+            <code className="font-mono font-semibold text-[var(--brand)]">administrator</code> role.
           </p>
-          <div className="flex justify-center gap-3">
+          <div className="flex justify-center gap-3 pt-2">
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold rounded-lg transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-semibold rounded-lg shadow-xs transition"
             >
-              <Key className="w-4 h-4" />
+              <Key className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Log In as Administrator</span>
             </Link>
             <Link
               to="/"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[var(--border-input)] text-[var(--text)] text-xs font-medium rounded-lg hover:bg-[var(--bg-subtle)] transition"
             >
               <span>Back to Overview</span>
             </Link>
@@ -227,60 +242,46 @@ export const AdminPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="cb-page-container space-y-6">
       {/* Header */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border)]">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-950 flex items-center justify-center text-white">
-              <ShieldAlert className="w-5 h-5 text-amber-400" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-              System Administration
-            </h1>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--text)] tracking-tight">
+            System Administration
+          </h1>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
             User directory, SLA rules, system health audits & security governance
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 shrink-0">
           <button
-            onClick={loadAllAdminData}
+            type="button"
+            onClick={() => loadAllAdminData(true)}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-xs transition"
+            aria-label="Refresh administration console"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[var(--border-input)] bg-white hover:bg-[var(--bg-subtle)] text-xs font-semibold text-[var(--text)] transition shadow-xs cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-3.5 h-3.5 text-[var(--text-secondary)] ${loading ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
             <span>Refresh</span>
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Notifications / Alerts */}
-      {actionMessage && (
-        <div className="mb-6 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-sm text-emerald-800 font-medium">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>{actionMessage}</span>
-          </div>
-          <button
-            onClick={() => setActionMessage(null)}
-            className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
+      {/* In-page Error Banner */}
       {error && (
-        <div className="mb-6 p-3.5 rounded-lg bg-red-50 border border-red-200 flex items-center justify-between text-sm text-red-800 font-medium">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-            <span>{error}</span>
-          </div>
+        <div
+          role="alert"
+          className="p-3.5 rounded-lg bg-[var(--danger-bg)] border border-[var(--danger)]/30 text-xs text-[var(--danger)] flex items-center justify-between"
+        >
+          <span>{error}</span>
           <button
+            type="button"
             onClick={() => setError(null)}
-            className="text-xs text-red-700 hover:text-red-900 font-semibold"
+            className="text-xs font-medium underline hover:no-underline cursor-pointer ml-3"
           >
             Dismiss
           </button>
@@ -288,55 +289,71 @@ export const AdminPage: React.FC = () => {
       )}
 
       {/* Navigation Tabs */}
-      <div className="border-b border-slate-200 mb-6 flex space-x-6">
+      <div
+        role="tablist"
+        aria-label="Administration Sections"
+        className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-slate-300"
+      >
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'overview'}
           onClick={() => setActiveTab('overview')}
-          className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'overview'
-              ? 'border-blue-900 text-blue-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
-          <Activity className="w-4 h-4" />
+          <Activity className="w-4 h-4" aria-hidden="true" />
           <span>Health & Governance</span>
         </button>
 
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'users'}
           onClick={() => setActiveTab('users')}
-          className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'users'
-              ? 'border-blue-900 text-blue-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4" aria-hidden="true" />
           <span>User Management</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+          <span className={`px-1.5 py-0.2 rounded text-[11px] num-tabular font-bold ${activeTab === 'users' ? 'bg-blue-800 text-white' : 'bg-slate-200 text-slate-800'}`}>
             {users.length}
           </span>
         </button>
 
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'config'}
           onClick={() => setActiveTab('config')}
-          className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'config'
-              ? 'border-blue-900 text-blue-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
-          <Sliders className="w-4 h-4" />
-          <span>System Configuration</span>
+          <Sliders className="w-4 h-4" aria-hidden="true" />
+          <span>Configuration</span>
         </button>
 
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'audit'}
           onClick={() => setActiveTab('audit')}
-          className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'audit'
-              ? 'border-blue-900 text-blue-900'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
-          <History className="w-4 h-4" />
+          <History className="w-4 h-4" aria-hidden="true" />
           <span>Audit Trail</span>
         </button>
       </div>
@@ -346,109 +363,98 @@ export const AdminPage: React.FC = () => {
         <div className="space-y-6">
           {/* Top KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-              <div className="text-xs text-slate-500 font-medium">Total Users</div>
-              <div className="text-2xl font-bold text-slate-900 mt-1">{health.total_users}</div>
-              <div className="text-[11px] text-emerald-600 font-semibold mt-1">4 Active Roles</div>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Users</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_users}</div>
+              <div className="text-[11px] text-emerald-700 font-bold mt-1">4 Active Roles</div>
             </div>
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-              <div className="text-xs text-slate-500 font-medium">Total Cases</div>
-              <div className="text-2xl font-bold text-slate-900 mt-1">{health.total_cases}</div>
-              <div className="text-[11px] text-slate-500 mt-1">Cross-Bureau</div>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Cases</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_cases}</div>
+              <div className="text-[11px] text-slate-600 font-semibold mt-1">Cross-Bureau</div>
             </div>
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-              <div className="text-xs text-slate-500 font-medium">Institutions</div>
-              <div className="text-2xl font-bold text-slate-900 mt-1">{health.total_institutions}</div>
-              <div className="text-[11px] text-slate-500 mt-1">Registered Directory</div>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Institutions</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_institutions}</div>
+              <div className="text-[11px] text-slate-600 font-semibold mt-1">Canonical Registry</div>
             </div>
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-              <div className="text-xs text-slate-500 font-medium">Total Overlaps</div>
-              <div className="text-2xl font-bold text-slate-900 mt-1">{health.total_overlaps}</div>
-              <div className="text-[11px] text-blue-700 font-semibold mt-1">
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Overlaps</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_overlaps}</div>
+              <div className="text-[11px] text-amber-800 font-bold mt-1 num-tabular">
                 {health.open_overlaps} Open for Review
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-              <div className="text-xs text-slate-500 font-medium">Active Alerts</div>
-              <div className="text-2xl font-bold text-amber-600 mt-1">{health.open_alerts}</div>
-              <div className="text-[11px] text-slate-500 mt-1">Requires Attention</div>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Active Alerts</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.open_alerts}</div>
+              <div className="text-[11px] text-rose-700 font-bold mt-1">Action Required</div>
             </div>
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-              <div className="text-xs text-slate-500 font-medium">Database</div>
+            <div className="cb-card p-4 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
+              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Database</span>
               <div className="text-sm font-bold text-slate-900 mt-2 truncate">{health.db_status}</div>
-              <div className="text-[11px] text-emerald-600 font-semibold mt-1">✓ Healthy</div>
+              <div className="text-[11px] text-emerald-700 font-bold mt-1">✓ Connected</div>
             </div>
           </div>
 
           {/* Data Quality & Governance Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left: Data Quality Checks Card */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-              <div className="flex items-center gap-2 mb-4">
-                <Database className="w-5 h-5 text-blue-900" />
-                <h3 className="font-bold text-slate-900 text-base">
+            <div className="cb-card p-5 space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-[var(--border)]">
+                <Database className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />
+                <h2 className="font-semibold text-[var(--text)] text-sm">
                   Data Quality & Hygiene Indicators
-                </h3>
+                </h2>
               </div>
-              <p className="text-xs text-slate-500 mb-4">
-                Automated consistency checks across institution records and grievance timelines:
-              </p>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50">
-                  <div className="text-xs font-semibold text-slate-700">
-                    Cases Without Assigned Officer
-                  </div>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)]">
+                  <span className="text-[var(--text)]">Cases Without Assigned Officer</span>
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                    className={`px-2 py-0.5 rounded text-xs font-semibold num-tabular ${
                       health.unassigned_cases > 0
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-[var(--warning-bg)] text-[var(--warning)] border border-[#FEDF89]'
+                        : 'bg-[var(--success-bg)] text-[var(--success)] border border-[#A6F4C5]'
                     }`}
                   >
                     {health.unassigned_cases} cases
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50">
-                  <div className="text-xs font-semibold text-slate-700">
-                    Cases Missing Expected Disposal Date
-                  </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)]">
+                  <span className="text-[var(--text)]">Cases Missing Expected Disposal Date</span>
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                    className={`px-2 py-0.5 rounded text-xs font-semibold num-tabular ${
                       health.cases_missing_deadline > 0
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-[var(--warning-bg)] text-[var(--warning)] border border-[#FEDF89]'
+                        : 'bg-[var(--success-bg)] text-[var(--success)] border border-[#A6F4C5]'
                     }`}
                   >
                     {health.cases_missing_deadline} cases
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50">
-                  <div className="text-xs font-semibold text-slate-700">
-                    Cases Breaching SLA / Overdue
-                  </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)]">
+                  <span className="text-[var(--text)]">Cases Breaching SLA / Overdue</span>
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                    className={`px-2 py-0.5 rounded text-xs font-semibold num-tabular ${
                       health.overdue_cases > 0
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-[var(--danger-bg)] text-[var(--danger)] border border-[#FECDCA]'
+                        : 'bg-[var(--success-bg)] text-[var(--success)] border border-[#A6F4C5]'
                     }`}
                   >
                     {health.overdue_cases} cases
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50">
-                  <div className="text-xs font-semibold text-slate-700">
-                    Missing / Conflicting Permanent ID Items
-                  </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)]">
+                  <span className="text-[var(--text)]">Missing / Conflicting Permanent ID Items</span>
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                    className={`px-2 py-0.5 rounded text-xs font-semibold num-tabular ${
                       (health.manual_verification_count ?? 0) > 0
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-[var(--warning-bg)] text-[var(--warning)] border border-[#FEDF89]'
+                        : 'bg-[var(--success-bg)] text-[var(--success)] border border-[#A6F4C5]'
                     }`}
                   >
                     {health.manual_verification_count ?? 0} items
@@ -457,27 +463,28 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Right: Engine Management & Actions */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+            {/* Right: Engine Management */}
+            <div className="cb-card p-5 flex flex-col justify-between">
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <RefreshCw className="w-5 h-5 text-indigo-700" />
-                  <h3 className="font-bold text-slate-900 text-base">
-                    Overlap Detection Engine Trigger
-                  </h3>
+                <div className="flex items-center gap-2 pb-2 border-b border-[var(--border)] mb-3">
+                  <RefreshCw className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />
+                  <h2 className="font-semibold text-[var(--text)] text-sm">
+                    Overlap Detection Engine
+                  </h2>
                 </div>
-                <p className="text-xs text-slate-600 mb-6 leading-relaxed">
-                  Run a scan across unreviewed case pairs to detect potential cross-bureau overlaps. Previously reviewed pairs are preserved.
+                <p className="text-xs text-[var(--text-secondary)] mb-6 leading-relaxed">
+                  Run a scan across open case pairs to evaluate cosine text similarity, date proximity, and category affinities. All previously reviewed pairs are retained.
                 </p>
               </div>
 
               <button
+                type="button"
                 onClick={handleTriggerScan}
                 disabled={scanning}
-                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow-xs transition disabled:opacity-50 cursor-pointer"
+                className="w-full flex justify-center items-center gap-2 py-2 px-4 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white text-xs font-semibold rounded-lg shadow-xs transition disabled:opacity-50 cursor-pointer"
               >
-                <RefreshCw className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
-                <span>{scanning ? 'Running Detection Engine...' : 'Run Full Overlap Scan Now'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${scanning ? 'animate-spin' : ''}`} aria-hidden="true" />
+                <span>{scanning ? 'Running Detection Scan...' : 'Trigger Full Overlap Scan'}</span>
               </button>
             </div>
           </div>
@@ -486,66 +493,52 @@ export const AdminPage: React.FC = () => {
 
       {/* TAB 2: USER MANAGEMENT */}
       {activeTab === 'users' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 text-base">Authorized Users & Roles</h3>
+            <h2 className="font-semibold text-[var(--text)] text-sm">Authorized Users & Roles</h2>
             <button
+              type="button"
               onClick={() => setShowAddUserModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
             >
-              <UserPlus className="w-4 h-4" />
-              <span>Add New User</span>
+              <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Add User</span>
             </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+          <div className="cb-card overflow-hidden">
+            <table className="w-full text-left text-xs text-[var(--text)] border-collapse">
+              <caption className="sr-only">Authorized System Users Table</caption>
+              <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)] text-[var(--text-secondary)] font-medium">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    User Details
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Assigned Role
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Bureau / Cell
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th scope="col" className="px-4 py-3">User Details</th>
+                  <th scope="col" className="px-4 py-3">Role</th>
+                  <th scope="col" className="px-4 py-3">Bureau</th>
+                  <th scope="col" className="px-4 py-3">Status</th>
+                  <th scope="col" className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 text-sm">
+              <tbody className="divide-y divide-[var(--border)]">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50 transition">
+                  <tr key={u.id} className="hover:bg-[var(--bg-subtle)] transition">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{u.name}</div>
-                      <div className="text-xs text-slate-500">
-                        @{u.username || 'n/a'} · {u.email || 'no email'}
+                      <div className="font-medium text-[var(--text)]">{u.name}</div>
+                      <div className="text-[11px] text-[var(--text-tertiary)] font-mono">
+                        @{u.username} · {u.email || 'no email'}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-800 capitalize">
-                        {u.role.replace('_', ' ')}
-                      </span>
+                      <span className="capitalize">{u.role.replace('_', ' ')}</span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">
-                      {u.bureau ? (
-                        <span className="font-bold text-blue-900">{u.bureau}</span>
-                      ) : (
-                        <span className="text-slate-400">All / Central</span>
-                      )}
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">
+                      {u.bureau || 'Central'}
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
                           u.is_active
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-slate-100 text-slate-600'
+                            ? 'bg-[var(--success-bg)] text-[var(--success)] border border-[#A6F4C5]'
+                            : 'bg-[var(--neutral-bg)] text-[var(--neutral)] border border-[var(--border)]'
                         }`}
                       >
                         {u.is_active ? 'Active' : 'Inactive'}
@@ -553,21 +546,19 @@ export const AdminPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
                       <button
+                        type="button"
                         onClick={() => handleToggleStatus(u)}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded border transition cursor-pointer ${
-                          u.is_active
-                            ? 'border-slate-300 text-slate-700 hover:bg-slate-100'
-                            : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
-                        }`}
+                        className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--border-input)] bg-white hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                       >
                         {u.is_active ? 'Deactivate' : 'Activate'}
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setResetTargetUser(u);
                           setNewPasswordVal('');
                         }}
-                        className="text-xs font-semibold px-2.5 py-1 rounded border border-blue-200 text-blue-800 hover:bg-blue-50 transition cursor-pointer"
+                        className="text-xs font-medium px-2.5 py-1 rounded border border-[var(--border-input)] text-[var(--brand)] hover:bg-[var(--brand-subtle)] transition cursor-pointer"
                       >
                         Reset Password
                       </button>
@@ -582,53 +573,52 @@ export const AdminPage: React.FC = () => {
 
       {/* TAB 3: SYSTEM CONFIGURATION */}
       {activeTab === 'config' && (
-        <div className="max-w-3xl space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-            <h3 className="font-bold text-slate-900 text-base mb-1">Configurable System Parameters</h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Adjust operational rules, warning horizons, and institutional thresholds ({configs.length} active parameters):
-            </p>
+        <div className="max-w-2xl space-y-5">
+          <div className="cb-card p-5 space-y-4">
+            <div>
+              <h2 className="font-semibold text-[var(--text)] text-sm">System Parameters</h2>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                Adjust operational rules and thresholds across the application
+              </p>
+            </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label htmlFor="sla-warn-days" className="block text-xs font-medium text-[var(--text)] mb-1">
                   SLA Warning Threshold (Days before deadline)
                 </label>
                 <input
+                  id="sla-warn-days"
                   type="number"
                   value={configEdits['sla_warn_days'] || '3'}
                   onChange={(e) =>
                     setConfigEdits({ ...configEdits, sla_warn_days: e.target.value })
                   }
-                  className="w-full sm:w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full sm:w-64 h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)] bg-white"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Cases due within this many days trigger a medium priority SLA warning alert.
-                </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label htmlFor="sla-breach-days" className="block text-xs font-medium text-[var(--text)] mb-1">
                   SLA Breach Horizon (Days after overdue)
                 </label>
                 <input
+                  id="sla-breach-days"
                   type="number"
                   value={configEdits['sla_breach_days'] || '14'}
                   onChange={(e) =>
                     setConfigEdits({ ...configEdits, sla_breach_days: e.target.value })
                   }
-                  className="w-full sm:w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full sm:w-64 h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)] bg-white"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Days past deadline before escalation to high-priority breach status.
-                </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Max Active Cases per Bureau Officer
+                <label htmlFor="max-active-cases" className="block text-xs font-medium text-[var(--text)] mb-1">
+                  Max Active Cases per Officer
                 </label>
                 <input
+                  id="max-active-cases"
                   type="number"
                   value={configEdits['max_active_cases_per_officer'] || '25'}
                   onChange={(e) =>
@@ -637,20 +627,21 @@ export const AdminPage: React.FC = () => {
                       max_active_cases_per_officer: e.target.value,
                     })
                   }
-                  className="w-full sm:w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full sm:w-64 h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)] bg-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label htmlFor="system-mode-select" className="block text-xs font-medium text-[var(--text)] mb-1">
                   System Mode
                 </label>
                 <select
+                  id="system-mode-select"
                   value={configEdits['system_mode'] || 'operational'}
                   onChange={(e) =>
                     setConfigEdits({ ...configEdits, system_mode: e.target.value })
                   }
-                  className="w-full sm:w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full sm:w-64 h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)] bg-white"
                 >
                   <option value="operational">Operational Monitoring</option>
                   <option value="evaluation">Evaluation Benchmarking</option>
@@ -658,10 +649,11 @@ export const AdminPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="pt-4 border-t border-slate-200">
+              <div className="pt-3 border-t border-[var(--border)]">
                 <button
+                  type="button"
                   onClick={handleSaveConfig}
-                  className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+                  className="px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
                 >
                   Save Configuration
                 </button>
@@ -675,43 +667,38 @@ export const AdminPage: React.FC = () => {
       {activeTab === 'audit' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h3 className="font-bold text-slate-900 text-base">
-              System Audit Trail & Event Timeline
-            </h3>
+            <h2 className="font-semibold text-[var(--text)] text-sm">
+              Audit Trail & Governance Logs
+            </h2>
             <div className="relative w-full sm:w-72">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <label htmlFor="audit-search-input" className="sr-only">
+                Filter audit logs
+              </label>
+              <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-2.5" aria-hidden="true" />
               <input
+                id="audit-search-input"
                 type="text"
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
                 placeholder="Filter by actor, case, or type..."
-                className="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                className="w-full pl-9 pr-3 py-1.5 border border-[var(--border-input)] rounded-lg text-xs text-[var(--text)] bg-white"
               />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+          <div className="cb-card overflow-hidden">
+            <table className="w-full text-left text-xs text-[var(--text)] border-collapse">
+              <caption className="sr-only">System Audit Trail Records</caption>
+              <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)] text-[var(--text-secondary)] font-medium">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Timestamp
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Actor & Bureau
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Action Type
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Target Case
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    Remarks / Audit Details
-                  </th>
+                  <th scope="col" className="px-4 py-3">Timestamp</th>
+                  <th scope="col" className="px-4 py-3">Actor & Bureau</th>
+                  <th scope="col" className="px-4 py-3">Action Type</th>
+                  <th scope="col" className="px-4 py-3">Target Case</th>
+                  <th scope="col" className="px-4 py-3">Remarks / Details</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 text-xs">
+              <tbody className="divide-y divide-[var(--border)]">
                 {auditLogs
                   .filter((log) => {
                     if (!auditSearch) return true;
@@ -724,20 +711,20 @@ export const AdminPage: React.FC = () => {
                     );
                   })
                   .map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50 transition">
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    <tr key={log.id} className="hover:bg-[var(--bg-subtle)] transition">
+                      <td className="px-4 py-3 text-[var(--text-tertiary)] num-tabular whitespace-nowrap">
                         {new Date(log.ts).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-semibold text-slate-900">{log.actor}</span>
-                        <span className="ml-1 text-slate-500">({log.bureau})</span>
+                        <span className="font-medium text-[var(--text)]">{log.actor}</span>
+                        <span className="ml-1 text-[var(--text-tertiary)]">({log.bureau})</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-semibold uppercase text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--neutral-bg)] text-[var(--neutral)] font-medium text-[11px]">
                           {log.event_type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium text-blue-900">
+                      <td className="px-4 py-3 font-mono font-medium text-[var(--brand)]">
                         {log.case_no ? (
                           <Link to={`/cases/${log.case_no}`} className="hover:underline">
                             {log.case_no}
@@ -746,7 +733,7 @@ export const AdminPage: React.FC = () => {
                           `#${log.case_id}`
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{log.remarks || '—'}</td>
+                      <td className="px-4 py-3 text-[var(--text-secondary)]">{log.remarks || '—'}</td>
                     </tr>
                   ))}
               </tbody>
@@ -757,12 +744,30 @@ export const AdminPage: React.FC = () => {
 
       {/* MODAL: ADD USER */}
       {showAddUserModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900 mb-4">Add Authorized User</h3>
-            <form onSubmit={handleCreateUser} className="space-y-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-user-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-[var(--border)]">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-4">
+              <h2 id="add-user-dialog-title" className="text-sm font-semibold text-[var(--text)]">
+                Add Authorized User
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowAddUserModal(false)}
+                className="text-[var(--text-tertiary)] hover:text-[var(--text)] p-1 rounded"
+                aria-label="Close dialog"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-medium text-[var(--text)] mb-1">
                   Username
                 </label>
                 <input
@@ -771,12 +776,12 @@ export const AdminPage: React.FC = () => {
                   value={newUser.username}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                   placeholder="e.g. officer_ro"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-medium text-[var(--text)] mb-1">
                   Full Name
                 </label>
                 <input
@@ -785,16 +790,16 @@ export const AdminPage: React.FC = () => {
                   value={newUser.name}
                   onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
                   placeholder="e.g. Regional Officer North"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Role</label>
+                <label className="block text-xs font-medium text-[var(--text)] mb-1">Role</label>
                 <select
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)]"
                 >
                   <option value="bureau_officer">Bureau Officer</option>
                   <option value="coordinator">Grievance Coordinator</option>
@@ -805,13 +810,13 @@ export const AdminPage: React.FC = () => {
 
               {newUser.role === 'bureau_officer' && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  <label className="block text-xs font-medium text-[var(--text)] mb-1">
                     Bureau / Cell
                   </label>
                   <select
                     value={newUser.bureau || 'RB'}
                     onChange={(e) => setNewUser({ ...newUser, bureau: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                    className="w-full h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)]"
                   >
                     <option value="RB">Regulation Bureau (RB)</option>
                     <option value="PGRC">Public Grievance Redressal (PGRC)</option>
@@ -822,7 +827,7 @@ export const AdminPage: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-medium text-[var(--text)] mb-1">
                   Official Email
                 </label>
                 <input
@@ -830,12 +835,12 @@ export const AdminPage: React.FC = () => {
                   value={newUser.email || ''}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   placeholder="officer@domain.gov.in"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-medium text-[var(--text)] mb-1">
                   Initial Password
                 </label>
                 <input
@@ -844,21 +849,21 @@ export const AdminPage: React.FC = () => {
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   placeholder="Minimum 4 characters"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setShowAddUserModal(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  className="px-3.5 py-1.5 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                  className="px-4 py-1.5 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-[var(--radius-control)] text-xs font-semibold transition cursor-pointer"
                 >
                   Create User
                 </button>
@@ -870,19 +875,25 @@ export const AdminPage: React.FC = () => {
 
       {/* MODAL: RESET PASSWORD */}
       {resetTargetUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900 mb-2">Reset Password</h3>
-            <p className="text-xs text-slate-600 mb-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-password-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 border border-[var(--border)]">
+            <h2 id="reset-password-dialog-title" className="text-sm font-semibold text-[var(--text)] mb-2">
+              Reset Password
+            </h2>
+            <p className="text-xs text-[var(--text-secondary)] mb-4">
               Enter a new password for{' '}
-              <strong className="text-slate-900">
+              <strong className="font-semibold text-[var(--text)]">
                 {resetTargetUser.name} (@{resetTargetUser.username})
               </strong>
-              :
             </p>
-            <form onSubmit={handleResetPassword} className="space-y-4">
+            <form onSubmit={handleResetPassword} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-medium text-[var(--text)] mb-1">
                   New Password
                 </label>
                 <input
@@ -891,21 +902,21 @@ export const AdminPage: React.FC = () => {
                   value={newPasswordVal}
                   onChange={(e) => setNewPasswordVal(e.target.value)}
                   placeholder="Minimum 4 characters"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+                  className="w-full h-9 px-3 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs text-[var(--text)]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setResetTargetUser(null)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  className="px-3.5 py-1.5 border border-[var(--border-input)] rounded-[var(--radius-control)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                  className="px-4 py-1.5 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-[var(--radius-control)] text-xs font-semibold transition cursor-pointer"
                 >
                   Set Password
                 </button>

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   getInstitutionDetail,
   getCurrentUser,
@@ -8,31 +8,28 @@ import {
 } from '../api/client';
 import {
   StatusChip,
-  BureauBadge,
-  OverdueBadge,
-  PriorityChip,
   ConfidenceBandBadge,
+  BureauBadge,
 } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
+import { formatCategory, formatSignal } from '../utils/formatters';
 import {
   Building2,
   MapPin,
-  Calendar,
-  User,
-  ArrowLeft,
-  ChevronRight,
-  FolderOpen,
   Briefcase,
   Layers,
-  AlertTriangle,
-  GitCompare,
+  ArrowLeft,
+  FolderOpen,
   ArrowRight,
+  ExternalLink,
+  GitCompare,
 } from 'lucide-react';
 
 export const InstitutionDetailPage: React.FC = () => {
   const { permanent_id } = useParams<{ permanent_id: string }>();
+  const navigate = useNavigate();
   const [institution, setInstitution] = useState<InstitutionDetail | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserPayload | null>(() => getCurrentUser());
+  const [, setCurrentUser] = useState<UserPayload | null>(() => getCurrentUser());
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +37,7 @@ export const InstitutionDetailPage: React.FC = () => {
     setCurrentUser(getCurrentUser());
   }, []);
 
-  const fetchDetail = React.useCallback(async () => {
+  const fetchDetail = useCallback(async () => {
     if (!permanent_id) return;
     setLoading(true);
     setError(null);
@@ -62,21 +59,24 @@ export const InstitutionDetailPage: React.FC = () => {
     fetchDetail();
   }, [fetchDetail]);
 
+  const openOverlaps = institution?.open_overlaps || [];
+  const topOverlaps = openOverlaps.slice(0, 5);
+
   return (
-    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="cb-page-container space-y-6">
       {/* Back button */}
-      <div className="mb-6">
+      <div>
         <Link
           to="/institutions"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-900 transition"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-blue-700 transition"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Back to Institutions Directory</span>
         </Link>
       </div>
 
       {/* Loading state */}
-      {loading && <LoadingState message={`Loading institution ${permanent_id}...`} />}
+      {loading && <LoadingState message={`Loading institution profile ${permanent_id}...`} />}
 
       {/* Error state */}
       {!loading && error && (
@@ -90,172 +90,172 @@ export const InstitutionDetailPage: React.FC = () => {
       {/* Profile & Cases */}
       {!loading && !error && institution && (
         <div className="space-y-6">
-          {/* Header Card with key facts in a neat grid */}
-          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-5 border-b border-slate-100">
+          {/* Header Card */}
+          <div className="cb-card p-6 bg-white border border-slate-200 shadow-xs rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-5 border-b border-slate-200">
               <div className="flex items-start gap-3.5">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center flex-shrink-0">
-                  <Building2 className="w-6 h-6" />
+                <div
+                  className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20"
+                  aria-hidden="true"
+                >
+                  <Building2 className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-mono font-semibold text-xs px-2.5 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200">
+                    <span className="font-mono font-bold text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                       {institution.permanent_id}
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
                       {institution.region} Region
                     </span>
                     {institution.type && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                         {institution.type}
                       </span>
                     )}
                   </div>
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                     {institution.name}
                   </h1>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 text-xs">
-                <Layers className="w-4 h-4 text-blue-900" />
-                <span className="text-slate-600">Total Cases:</span>
-                <span className="font-bold text-slate-900">{institution.cases?.length || 0}</span>
+              <div className="flex items-center gap-2 self-start sm:self-auto px-3.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-950 font-medium shadow-2xs">
+                <Layers className="w-4 h-4 text-blue-700" aria-hidden="true" />
+                <span>Total cases:</span>
+                <strong className="text-blue-900 font-bold num-tabular">
+                  {institution.cases?.length || 0}
+                </strong>
               </div>
             </div>
 
-            {/* Neat Grid of Key Facts */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-5 text-xs">
-              <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-1.5 text-slate-500 font-medium mb-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  <span>LOCATION / ADDRESS</span>
-                </div>
-                <div className="font-semibold text-slate-800 text-sm">
+            {/* Clean Key Facts Description List */}
+            <dl className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 text-xs">
+              <div>
+                <dt className="flex items-center gap-1.5 text-[var(--text-tertiary)] mb-1">
+                  <MapPin className="w-3.5 h-3.5 text-[var(--text-tertiary)]" aria-hidden="true" />
+                  <span>Location / Address</span>
+                </dt>
+                <dd className="font-medium text-[var(--text)]">
                   {institution.address || 'Address on file'}
-                </div>
-                {institution.state && (
-                  <div className="text-slate-500 mt-0.5">{institution.state}</div>
-                )}
+                  {institution.state && <div className="text-[var(--text-secondary)] mt-0.5">{institution.state}</div>}
+                </dd>
               </div>
 
-              <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-1.5 text-slate-500 font-medium mb-1">
-                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                  <span>REGIONAL JURISDICTION</span>
-                </div>
-                <div className="font-semibold text-slate-800 text-sm">{institution.region} Region</div>
-                <div className="text-slate-500 mt-0.5">Zonal Bureau</div>
+              <div>
+                <dt className="flex items-center gap-1.5 text-[var(--text-tertiary)] mb-1">
+                  <Briefcase className="w-3.5 h-3.5 text-[var(--text-tertiary)]" aria-hidden="true" />
+                  <span>Jurisdiction</span>
+                </dt>
+                <dd className="font-medium text-[var(--text)]">
+                  {institution.region} Region Zonal Bureau
+                </dd>
               </div>
 
-              <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-1.5 text-slate-500 font-medium mb-1">
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span>PROGRAM TYPE</span>
-                </div>
-                <div className="font-semibold text-slate-800 text-sm">{institution.type || 'Technical / Professional'}</div>
-                <div className="text-slate-500 mt-0.5">ID: {institution.permanent_id}</div>
+              <div>
+                <dt className="flex items-center gap-1.5 text-[var(--text-tertiary)] mb-1">
+                  <Building2 className="w-3.5 h-3.5 text-[var(--text-tertiary)]" aria-hidden="true" />
+                  <span>Program Standard</span>
+                </dt>
+                <dd className="font-medium text-[var(--text)]">
+                  {institution.type || 'Technical / Professional'}
+                </dd>
               </div>
-            </div>
+            </dl>
           </div>
 
-          {/* Open Overlaps Section - Coordination Required (hidden if none) */}
-          {institution.open_overlaps && institution.open_overlaps.length > 0 && (
-            <div className="bg-white rounded-lg border border-amber-200 overflow-hidden shadow-xs">
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50/40 px-6 py-4 border-b border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 flex items-center justify-center flex-shrink-0">
-                    <AlertTriangle className="w-5 h-5 text-amber-700" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">
-                      Potential Overlapping Cases – Coordination Required
-                    </h2>
-                    <p className="text-xs text-slate-600 mt-0.5" title="Open overlaps (High + Medium)">
-                      Open overlaps (High + Medium) identified for this institution requiring joint review.
-                    </p>
-                  </div>
+          {/* Overlap Summary Card (Top 5 + Single Primary Button to Overlap Queue) */}
+          {openOverlaps.length > 0 && (
+            <div className="cb-card border-l-4 border-l-[var(--warning)] p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border)]">
+                <div>
+                  <h2 className="text-sm font-semibold text-[var(--text)] flex items-center gap-2">
+                    <GitCompare className="w-4 h-4 text-[var(--warning)]" aria-hidden="true" />
+                    <span>Potential Cross-Bureau Overlaps ({openOverlaps.length})</span>
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                    Flagged candidate pairs for this institution requiring joint review
+                  </p>
                 </div>
-                <span
-                  className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 self-start sm:self-auto"
-                  title="Open overlaps (High + Medium)"
+
+                <Link
+                  to="/overlaps"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition shadow-xs self-start sm:self-auto cursor-pointer"
                 >
-                  {institution.open_overlaps.length} Open Overlaps (High + Medium)
-                </span>
+                  <span>View all {openOverlaps.length} in Overlap Queue</span>
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </Link>
               </div>
 
-              <div className="divide-y divide-slate-100">
-                {institution.open_overlaps.map((overlap) => (
+              {/* Top 5 pairs list */}
+              <div className="space-y-3">
+                {topOverlaps.map((overlap) => (
                   <div
                     key={overlap.id}
-                    className="p-5 sm:p-6 hover:bg-slate-50/60 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] flex flex-col lg:flex-row lg:items-center justify-between gap-3"
                   >
-                    <div className="space-y-3 flex-1">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="text-xs font-mono font-bold text-slate-500 uppercase tracking-wide">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-medium text-[var(--text-secondary)]">
                           Pair #{overlap.id}
                         </span>
                         <ConfidenceBandBadge band={overlap.band} />
                       </div>
 
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                        {/* Case A */}
-                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-md border border-slate-200">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded border border-[var(--border)]">
                           <Link
                             to={`/cases/${overlap.case_a.case_no}`}
-                            className="font-mono font-bold text-xs text-blue-900 hover:underline flex items-center gap-1.5"
+                            className="font-mono text-xs font-medium text-[var(--brand)] hover:underline flex items-center gap-1"
                           >
-                            <FolderOpen className="w-3.5 h-3.5 text-blue-800" />
+                            <FolderOpen className="w-3 h-3 text-[var(--brand)]" aria-hidden="true" />
                             <span>{overlap.case_a.case_no}</span>
                           </Link>
-                          <BureauBadge bureau={overlap.case_a.bureau} />
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-[var(--neutral-bg)] text-[var(--neutral)]">
+                            {overlap.case_a.bureau}
+                          </span>
                           <StatusChip status={overlap.case_a.status} />
                         </div>
 
-                        <div className="flex items-center text-slate-400 font-bold text-xs">
-                          <GitCompare className="w-4 h-4 mx-auto rotate-90 sm:rotate-0 text-slate-400" />
-                        </div>
+                        <span className="text-xs text-[var(--text-tertiary)] font-medium">and</span>
 
-                        {/* Case B */}
-                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-md border border-slate-200">
+                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded border border-[var(--border)]">
                           <Link
                             to={`/cases/${overlap.case_b.case_no}`}
-                            className="font-mono font-bold text-xs text-blue-900 hover:underline flex items-center gap-1.5"
+                            className="font-mono text-xs font-medium text-[var(--brand)] hover:underline flex items-center gap-1"
                           >
-                            <FolderOpen className="w-3.5 h-3.5 text-blue-800" />
+                            <FolderOpen className="w-3 h-3 text-[var(--brand)]" aria-hidden="true" />
                             <span>{overlap.case_b.case_no}</span>
                           </Link>
-                          <BureauBadge bureau={overlap.case_b.bureau} />
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-[var(--neutral-bg)] text-[var(--neutral)]">
+                            {overlap.case_b.bureau}
+                          </span>
                           <StatusChip status={overlap.case_b.status} />
                         </div>
                       </div>
 
-                      {/* Overlap Reasons / Signals */}
                       {overlap.reasons && overlap.reasons.length > 0 && (
-                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[11px] text-slate-500">
-                          <span className="font-semibold text-slate-600">Signals:</span>
+                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-xs text-[var(--text-secondary)]">
+                          <span className="text-[var(--text-tertiary)]">Signals:</span>
                           {overlap.reasons.map((reason, i) => (
                             <span
                               key={i}
-                              className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] border border-slate-200"
+                              className="px-2 py-0.5 rounded-[6px] bg-white text-[var(--neutral)] text-[11px] font-medium border border-[var(--border)]"
                             >
-                              {reason}
+                              {formatSignal(reason)}
                             </span>
                           ))}
                         </div>
                       )}
                     </div>
 
-                    {/* Link to Overlap Queue entry */}
-                    <div className="lg:self-center flex-shrink-0">
-                      <Link
-                        to={`/overlaps#overlap-${overlap.id}`}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs"
-                      >
-                        <span>Review in Overlap Queue</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
+                    <Link
+                      to={`/overlaps#overlap-${overlap.id}`}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-[var(--radius-control)] text-xs font-medium text-[var(--brand)] bg-white border border-[var(--border-input)] hover:bg-[var(--brand-subtle)] transition shadow-2xs self-start lg:self-center"
+                    >
+                      <span>Review pair</span>
+                      <ArrowRight className="w-3 h-3 text-[var(--brand)]" aria-hidden="true" />
+                    </Link>
                   </div>
                 ))}
               </div>
@@ -263,33 +263,36 @@ export const InstitutionDetailPage: React.FC = () => {
           )}
 
           {/* Associated Cases Section */}
-          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
+          <div className="cb-card overflow-hidden">
+            <div className="p-5 border-b border-[var(--border)] flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  Consolidated Complaint Cases
+                <h2 className="text-sm font-semibold text-[var(--text)]">
+                  Registered Complaint Cases
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  All active and historical cases linked to {institution.name}
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                  All complaints associated with {institution.name}
                 </p>
               </div>
-              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                {institution.cases?.length || 0} Records
+              <span className="text-xs text-[var(--text-secondary)] num-tabular">
+                {institution.cases?.length || 0} cases
               </span>
             </div>
 
             {(!institution.cases || institution.cases.length === 0) ? (
-              <EmptyState
-                title="No cases registered"
-                message={`There are currently no recorded grievance or complaint cases for ${institution.name}.`}
-              />
+              <div className="p-5">
+                <EmptyState
+                  title="No cases registered"
+                  message={`There are currently no recorded grievance cases for ${institution.name}.`}
+                />
+              </div>
             ) : (
-              <div className="overflow-x-auto rounded border border-slate-200">
-                <table className="w-full text-left text-sm text-slate-700">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-[var(--text)] border-collapse">
+                  <caption className="sr-only">Cases registered for {institution.name}</caption>
+                  <thead className="sticky top-0 z-10 bg-slate-100 text-slate-800 font-bold border-b border-slate-300 text-xs">
                     <tr>
-                      <th scope="col" className="px-4 py-3">Case Number</th>
-                      <th scope="col" className="px-4 py-3">Bureau</th>
+                      <th scope="col" className="px-4 py-3">Case Reference</th>
+                      <th scope="col" className="px-3 py-3 text-center">Bureau</th>
                       <th scope="col" className="px-4 py-3">Category</th>
                       <th scope="col" className="px-4 py-3">Status</th>
                       <th scope="col" className="px-4 py-3">Received Date</th>
@@ -297,61 +300,52 @@ export const InstitutionDetailPage: React.FC = () => {
                       <th scope="col" className="px-4 py-3 text-right">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {institution.cases.map((c, index) => (
+                  <tbody className="divide-y divide-slate-200">
+                    {institution.cases.map((c) => (
                       <tr
                         key={c.case_no}
-                        className={`${
-                          index % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'
-                        } hover:bg-blue-50/40 transition-colors group`}
+                        onClick={() => navigate(`/cases/${c.case_no}`)}
+                        className="hover:bg-blue-50/50 transition-colors cursor-pointer h-12"
                       >
-                        <td className="px-4 py-3.5 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <Link
                             to={`/cases/${c.case_no}`}
-                            className="font-mono font-semibold text-xs text-blue-900 group-hover:underline flex items-center gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-mono font-bold text-xs text-blue-700 hover:text-blue-900 hover:underline"
                           >
-                            <FolderOpen className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-900" />
-                            <span>{c.case_no}</span>
+                            {c.case_no}
                           </Link>
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap">
+
+                        <td className="px-3 py-3 whitespace-nowrap text-center">
                           <BureauBadge bureau={c.bureau} />
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap capitalize text-xs text-slate-700 font-medium">
-                          {c.category}
+
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-700 font-medium">
+                          {formatCategory(c.category)}
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <StatusChip status={c.status} />
-                            {c.priority && <PriorityChip priority={c.priority} />}
-                            {c.overdue && <OverdueBadge />}
-                          </div>
+
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <StatusChip status={c.status} />
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-slate-400" />
-                            <span>{c.received_date}</span>
-                          </div>
+
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600 font-medium num-tabular">
+                          {c.received_date || '—'}
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600">
-                          {c.assigned_officer ? (
-                            <div className="flex items-center gap-1">
-                              <User className="w-3 h-3 text-slate-400" />
-                              <span>{c.assigned_officer}</span>
-                            </div>
-                          ) : currentUser?.role === 'bureau_officer' && currentUser?.bureau && currentUser.bureau.toUpperCase() !== c.bureau.toUpperCase() ? (
-                            <span className="text-slate-400 italic text-[11px]">Details restricted to the owning bureau</span>
-                          ) : (
-                            <span className="text-slate-400 italic">Unassigned</span>
-                          )}
+
+                        <td className="px-4 py-3 whitespace-nowrap text-xs font-semibold text-slate-800">
+                          {c.assigned_officer || <span className="text-slate-400 italic font-normal">Unassigned</span>}
                         </td>
-                        <td className="px-4 py-3.5 whitespace-nowrap text-right text-xs">
+
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-xs">
                           <Link
                             to={`/cases/${c.case_no}`}
-                            className="inline-flex items-center gap-1 font-semibold text-blue-900 hover:text-blue-700"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`View details of case ${c.case_no}`}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white transition shadow-2xs"
                           >
-                            <span>View Case</span>
-                            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                            <span>View</span>
+                            <ExternalLink className="w-3 h-3" aria-hidden="true" />
                           </Link>
                         </td>
                       </tr>
@@ -363,6 +357,6 @@ export const InstitutionDetailPage: React.FC = () => {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };

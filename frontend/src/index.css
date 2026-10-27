@@ -1,84 +1,178 @@
 @import "tailwindcss";
 
 :root {
-  /* Primary Navy/Blue Corporate Government Palette */
-  --color-primary: #1e3a8a;       /* Blue 900 */
-  --color-primary-hover: #172554; /* Blue 950 */
-  --color-primary-light: #eff6ff; /* Blue 50 */
-  --color-primary-border: #bfdbfe;/* Blue 200 */
-  
-  /* Background and Surface Tokens */
-  --color-bg-page: #f8fafc;       /* Slate 50 */
-  --color-card-bg: #ffffff;
-  --color-card-border: #e2e8f0;   /* Slate 200 */
-  --color-card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  /* Surfaces: Rich contrast so white cards pop instead of looking washed out */
+  --bg-page:        #EDF2F7;
+  --bg-surface:     #FFFFFF;
+  --bg-subtle:      #F8FAFC;
+  --border:         #CBD5E1;
+  --border-input:   #64748B;   /* Passes 3:1 for UI */
 
-  /* Navbar height token – update this if navbar height changes */
-  --navbar-height: 4rem; /* 64px = h-16 */
+  /* Text */
+  --text:           #0F172A;   /* 18.5:1 on white */
+  --text-secondary: #334155;   /* 8.5:1 on white */
+  --text-tertiary:  #64748B;   /* 4.8:1 on white */
 
-  /* Status Accents (PRD & Direction Requirement):
-     pending: amber | under process: blue | disposed: green | transferred: gray | escalated: purple | overdue: red */
-  --color-status-pending: #d97706;
-  --color-status-pending-bg: #fffbeb;
-  --color-status-pending-text: #92400e;
-  --color-status-pending-border: #fde68a;
+  /* Brand (Authoritative Deep Navy & Royal Blue) */
+  --brand:          #1E3A8A;   /* white on brand 10.4:1 */
+  --brand-hover:    #172554;
+  --brand-subtle:   #EFF6FF;
+  --brand-accent:   #2563EB;
 
-  --color-status-process: #2563eb;
-  --color-status-process-bg: #eff6ff;
-  --color-status-process-text: #1e40af;
-  --color-status-process-border: #bfdbfe;
+  /* Semantic Status Tokens (Rich, high-contrast values) */
+  --success:        #047857;  --success-bg:    #ECFDF5;
+  --warning:        #B45309;  --warning-bg:    #FFFBEB;
+  --danger:         #BE123C;  --danger-bg:     #FFF1F2;
+  --info:           #0369A1;  --info-bg:       #F0F9FF;
+  --escalated:      #6D28D9;  --escalated-bg:  #F5F3FF;
+  --neutral:        #334155;  --neutral-bg:    #F1F5F9;
 
-  --color-status-disposed: #16a34a;
-  --color-status-disposed-bg: #f0fdf4;
-  --color-status-disposed-text: #166534;
-  --color-status-disposed-border: #bbf7d0;
+  /* Bureau Colors */
+  --bureau-rb:      #1D4ED8;  --bureau-rb-bg:   #EFF6FF;
+  --bureau-pgrc:    #0F766E;  --bureau-pgrc-bg: #F0FDFA;
+  --bureau-ro:      #C2410C;  --bureau-ro-bg:   #FFF7ED;
+  --bureau-oc:      #7E22CE;  --bureau-oc-bg:   #FAF5FF;
 
-  --color-status-transferred: #64748b;
-  --color-status-transferred-bg: #f8fafc;
-  --color-status-transferred-text: #334155;
-  --color-status-transferred-border: #cbd5e1;
+  --focus:          #2563EB;
 
-  --color-status-escalated: #9333ea;
-  --color-status-escalated-bg: #faf5ff;
-  --color-status-escalated-text: #6b21a8;
-  --color-status-escalated-border: #e9d5ff;
+  /* Shape and depth */
+  --radius-card:    12px;
+  --radius-control: 8px;
+  --radius-pill:    999px;
+  --shadow-card:    0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
 
-  --color-status-overdue: #dc2626;
-  --color-status-overdue-bg: #fef2f2;
-  --color-status-overdue-text: #991b1b;
-  --color-status-overdue-border: #fecaca;
+  /* Navbar height token */
+  --navbar-height:  4rem; /* 64px = h-16 */
+
+  /* Type */
+  --font-sans:      "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:      ui-monospace, "JetBrains Mono", Consolas, monospace;
+
+  /* Legacy alias mappings for backward compatibility during phased rollout */
+  --color-primary: #1E3A8A;
+  --color-primary-hover: #172E6E;
+  --color-primary-light: #EEF2FF;
+  --color-primary-border: #E4E7EC;
+  --color-bg-page: #F6F7F9;
+  --color-card-bg: #FFFFFF;
+  --color-card-border: #E4E7EC;
+  --color-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+
+  --color-status-pending: #B54708;
+  --color-status-pending-bg: #FFFAEB;
+  --color-status-pending-text: #B54708;
+  --color-status-pending-border: #FEDF89;
+
+  --color-status-process: #175CD3;
+  --color-status-process-bg: #EFF8FF;
+  --color-status-process-text: #175CD3;
+  --color-status-process-border: #B2DDFF;
+
+  --color-status-disposed: #067647;
+  --color-status-disposed-bg: #ECFDF3;
+  --color-status-disposed-text: #067647;
+  --color-status-disposed-border: #A6F4C5;
+
+  --color-status-transferred: #344054;
+  --color-status-transferred-bg: #F2F4F7;
+  --color-status-transferred-text: #344054;
+  --color-status-transferred-border: #EAECF0;
+
+  --color-status-escalated: #6941C6;
+  --color-status-escalated-bg: #F9F5FF;
+  --color-status-escalated-text: #6941C6;
+  --color-status-escalated-border: #E9D7FE;
+
+  --color-status-overdue: #B42318;
+  --color-status-overdue-bg: #FEF3F2;
+  --color-status-overdue-text: #B42318;
+  --color-status-overdue-border: #FECDCA;
 }
 
 @layer base {
   html {
-    /* Offset anchor scroll targets so sticky navbar doesn't obscure them */
     scroll-padding-top: calc(var(--navbar-height) + 1.5rem);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   body {
-    background-color: var(--color-bg-page);
-    color: #1e293b; /* Slate 800 */
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   code, pre, kbd, samp {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
   }
 
-  /* Ensure every page main starts below the sticky navbar */
+  /* Single consistent page landmark spacing */
   main {
     scroll-margin-top: var(--navbar-height);
+  }
+
+  /* Universal accessible focus ring (never outline: none without replacement) */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
 @layer utilities {
-  /* Consistent card style used across all pages */
+  /* Consistent card utility with rich depth */
   .cb-card {
-    background-color: var(--color-card-bg);
-    border: 1px solid var(--color-card-border);
-    border-radius: 0.5rem;          /* rounded-lg */
-    box-shadow: var(--color-card-shadow);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
   }
+  .cb-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* Standard page container: max-width 1280px, 24px vertical padding, 32px horizontal padding */
+  .cb-page-container {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .cb-page-container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  /* Tabular numbers for clean numeric alignment without slashed zeros */
+  .num-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Text color utility helpers matching tokens */
+  .text-brand { color: var(--brand); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-tertiary { color: var(--text-tertiary); }
+  .border-control { border-color: var(--border-input); }
+  .bg-subtle { background-color: var(--bg-subtle); }
 }
