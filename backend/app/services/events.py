@@ -3,7 +3,7 @@ from typing import List, Union
 from sqlmodel import Session, select
 
 from app.errors import NotFoundError, ValidationError
-from app.models import Bureau, Case, CaseEvent, CaseStatus, EventType
+from app.models import Case, CaseEvent, CaseStatus, EventType
 from app.schemas import EventCreate
 
 
