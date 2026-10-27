@@ -6,7 +6,7 @@ from starlette.exceptions import HTTPException
 from app.db import get_session
 from app.errors import ForbiddenError, NotFoundError
 from app.models import Case
-from app.permissions import UserPayload, check_event_post_permission
+from app.permissions import UserPayload, check_event_post_permission, is_full_case_visible
 from app.routers.auth import get_current_user
 from app.schemas import EventCreate, EventRead
 from app.services.events import get_case_events, record_case_event
@@ -33,8 +33,37 @@ def get_events(
     session: Session = Depends(get_session),
     current_user: UserPayload = Depends(get_current_user),
 ):
-    """Retrieve case event timeline, ordered oldest first. Accessible to any authenticated role."""
-    return get_case_events(session=session, case_no=case_no)
+    """Retrieve case event timeline, ordered oldest first.
+
+    If a bureau_officer views events for another Bureau's case, sensitive fields
+    (remarks, attachment_ref, review notes) are redacted.
+    """
+    case = session.exec(select(Case).where(Case.case_no == case_no)).first()
+    if not case:
+        raise NotFoundError(f"Case '{case_no}' not found", details={"case_no": case_no})
+
+    events = get_case_events(session=session, case_no=case_no)
+
+    bureau_str = case.bureau.value if hasattr(case.bureau, "value") else str(case.bureau)
+    if not is_full_case_visible(current_user, bureau_str):
+        return [
+            EventRead(
+                id=ev.id,
+                ts=ev.ts,
+                actor=ev.actor,
+                bureau=ev.bureau,
+                event_type=ev.event_type,
+                from_bureau=ev.from_bureau,
+                to_bureau=ev.to_bureau,
+                from_status=ev.from_status,
+                to_status=ev.to_status,
+                remarks=None,
+                attachment_ref=None,
+            )
+            for ev in events
+        ]
+
+    return events
 
 
 @router.post(
