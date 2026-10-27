@@ -11,6 +11,7 @@ import {
   BureauBadge,
   PriorityChip,
   OverdueBadge,
+  RestrictedBadge,
 } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import { NewComplaintModal } from '../components/NewComplaintModal';
@@ -19,7 +20,6 @@ import {
   Building2,
   Calendar,
   User,
-  Filter,
   X,
   RefreshCw,
   ChevronLeft,
@@ -28,6 +28,12 @@ import {
   AlertOctagon,
   Clock,
   Plus,
+  SlidersHorizontal,
+  ArrowUpDown,
+  ExternalLink,
+  MapPin,
+  CheckCircle2,
+  Flame,
 } from 'lucide-react';
 
 const BUREAUS = ['RB', 'PGRC', 'RO', 'OC'];
@@ -41,7 +47,32 @@ const CATEGORIES = [
   'examination',
   'other',
 ];
-const STATUSES = ['pending', 'under_process', 'disposed', 'transferred', 'escalated'];
+
+function getInitials(name?: string | null): string {
+  if (!name) return '—';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getAvatarColor(name?: string | null): string {
+  if (!name) return 'bg-slate-100 text-slate-500 border-slate-200';
+  const colors = [
+    'bg-blue-100 text-blue-800 border-blue-200',
+    'bg-indigo-100 text-indigo-800 border-indigo-200',
+    'bg-teal-100 text-teal-800 border-teal-200',
+    'bg-purple-100 text-purple-800 border-purple-200',
+    'bg-amber-100 text-amber-800 border-amber-200',
+    'bg-rose-100 text-rose-800 border-rose-200',
+    'bg-emerald-100 text-emerald-800 border-emerald-200',
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+}
 
 export const CasesPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,6 +96,7 @@ export const CasesPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isNewComplaintOpen, setIsNewComplaintOpen] = useState<boolean>(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
 
   const currentUser = getCurrentUser();
   const isReadOnly = currentUser?.role === 'senior_management' || currentUser?.role === 'administrator';
@@ -166,20 +198,20 @@ export const CasesPage: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / pageSizeParam));
 
   return (
-    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Top Banner & Action Controls */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <div className="flex items-center space-x-2">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Cases Directory
             </h1>
-            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200">
-              {total} Total
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-blue-50 text-blue-900 border border-blue-200/80 shadow-2xs">
+              {total} Total Records
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Search, filter, and track all institution grievance complaints across AICTE Bureaus.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Consolidated cross-bureau complaint monitoring and tracking registry
           </p>
         </div>
 
@@ -191,7 +223,7 @@ export const CasesPage: React.FC = () => {
               <button
                 type="button"
                 disabled={true}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80 shadow-xs"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-80 shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5 text-slate-400" />
                 <span>New complaint</span>
@@ -205,10 +237,10 @@ export const CasesPage: React.FC = () => {
               type="button"
               id="new-complaint-btn"
               onClick={() => setIsNewComplaintOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-blue-900 hover:bg-blue-800 text-white transition shadow-sm hover:shadow cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New complaint</span>
+              <Plus className="w-4 h-4 text-blue-200" />
+              <span>Register Complaint</span>
             </button>
           )}
 
@@ -218,203 +250,380 @@ export const CasesPage: React.FC = () => {
             id="refresh-cases-btn"
             onClick={fetchCasesList}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 transition shadow-xs cursor-pointer"
+            title="Refresh case records"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Toolbar (Combinable & Clearable) */}
+      {/* Quick Status Filter Tabs (Reference 1 & Reference 2 hybrid) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <button
+          type="button"
+          onClick={() => updateFilter('status', null)}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full font-semibold border transition cursor-pointer whitespace-nowrap ${
+            !statusFilter
+              ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          <span>All Cases</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => updateFilter('status', 'pending')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+            statusFilter === 'pending'
+              ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold shadow-2xs'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-amber-50/60'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+          <span>Pending</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => updateFilter('status', 'under_process')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+            statusFilter === 'under_process'
+              ? 'bg-blue-100 text-blue-900 border-blue-300 font-bold shadow-2xs'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-blue-50/60'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+          <span>Under Process</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => updateFilter('status', 'escalated')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+            statusFilter === 'escalated'
+              ? 'bg-purple-100 text-purple-900 border-purple-300 font-bold shadow-2xs'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-purple-50/60'
+          }`}
+        >
+          <Flame className="w-3 h-3 text-purple-600" />
+          <span>Escalated</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => updateFilter('status', 'disposed')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+            statusFilter === 'disposed'
+              ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold shadow-2xs'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-emerald-50/60'
+          }`}
+        >
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          <span>Disposed</span>
+        </button>
+
+        <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+        {/* Overdue Quick Toggle */}
+        <button
+          type="button"
+          onClick={() => updateFilter('overdue', overdueFilter ? null : 'true')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+            overdueFilter
+              ? 'bg-rose-100 text-rose-900 border-rose-300 font-bold shadow-2xs ring-2 ring-rose-400/30'
+              : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+          }`}
+        >
+          <AlertOctagon className="w-3 h-3 text-rose-600" />
+          <span>Overdue SLA Only</span>
+        </button>
+      </div>
+
+      {/* Filter & Search Toolbar (Reference 2 VertexPoint Style) */}
       <section
         aria-labelledby="cases-filter-heading"
-        className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 mb-6 shadow-xs"
+        className="bg-white rounded-xl border border-slate-200/90 p-4 sm:p-5 shadow-xs space-y-4"
       >
         <h2 id="cases-filter-heading" className="sr-only">
           Filter Cases
         </h2>
 
-        {/* Search Bar Row */}
-        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by case number, institution name, or permanent ID..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-900 focus:border-blue-900 focus:bg-white shadow-xs transition"
-            />
-            {searchInput && (
-              <button
-                type="button"
-                onClick={handleClearSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                aria-label="Clear search text"
+        {/* Primary Row: Search Bar + Filter Pill Controls */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          {/* Search Input Box */}
+          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by case number, institution name, or permanent ID..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 bg-slate-50/80 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-900/20 focus:border-blue-900 focus:bg-white shadow-2xs transition"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  aria-label="Clear search text"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+            >
+              Search
+            </button>
+          </form>
+
+          {/* Quick Filter Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Bureau Select Pill */}
+            <div className="relative">
+              <select
+                id="case-filter-bureau"
+                value={bureauFilter}
+                onChange={(e) => updateFilter('bureau', e.target.value || null)}
+                className={`text-xs font-semibold px-3 py-2 pr-7 rounded-lg border appearance-none transition cursor-pointer ${
+                  bureauFilter
+                    ? 'bg-blue-50 text-blue-900 border-blue-300 font-bold shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                }`}
               >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-900 hover:bg-blue-950 text-white rounded-md text-sm font-semibold shadow-xs transition cursor-pointer"
-          >
-            Search
-          </button>
-        </form>
+                <option value="">Bureau: All</option>
+                {BUREAUS.map((b) => (
+                  <option key={b} value={b}>
+                    Bureau: {b}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
+                ▼
+              </div>
+            </div>
 
-        {/* Combinable Filter Selects */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-100 text-xs">
-          {/* Bureau Filter */}
-          <div>
-            <label htmlFor="case-filter-bureau" className="block text-slate-500 font-semibold mb-1">
-              Bureau
-            </label>
-            <select
-              id="case-filter-bureau"
-              value={bureauFilter}
-              onChange={(e) => updateFilter('bureau', e.target.value || null)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none cursor-pointer"
-            >
-              <option value="">All Bureaus</option>
-              {BUREAUS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Region Select Pill */}
+            <div className="relative">
+              <select
+                id="case-filter-region"
+                value={regionFilter}
+                onChange={(e) => updateFilter('region', e.target.value || null)}
+                className={`text-xs font-semibold px-3 py-2 pr-7 rounded-lg border appearance-none transition cursor-pointer ${
+                  regionFilter
+                    ? 'bg-blue-50 text-blue-900 border-blue-300 font-bold shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <option value="">Region: All</option>
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    Region: {r}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
+                ▼
+              </div>
+            </div>
 
-          {/* Region Filter */}
-          <div>
-            <label htmlFor="case-filter-region" className="block text-slate-500 font-semibold mb-1">
-              Region
-            </label>
-            <select
-              id="case-filter-region"
-              value={regionFilter}
-              onChange={(e) => updateFilter('region', e.target.value || null)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none cursor-pointer"
-            >
-              <option value="">All Regions</option>
-              {REGIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Category Select Pill */}
+            <div className="relative">
+              <select
+                id="case-filter-category"
+                value={categoryFilter}
+                onChange={(e) => updateFilter('category', e.target.value || null)}
+                className={`text-xs font-semibold px-3 py-2 pr-7 rounded-lg border appearance-none capitalize transition cursor-pointer ${
+                  categoryFilter
+                    ? 'bg-blue-50 text-blue-900 border-blue-300 font-bold shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <option value="">Category: All</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c.replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
+                ▼
+              </div>
+            </div>
 
-          {/* Category Filter */}
-          <div>
-            <label htmlFor="case-filter-category" className="block text-slate-500 font-semibold mb-1">
-              Category
-            </label>
-            <select
-              id="case-filter-category"
-              value={categoryFilter}
-              onChange={(e) => updateFilter('category', e.target.value || null)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none cursor-pointer capitalize"
-            >
-              <option value="">All Categories</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <label htmlFor="case-filter-status" className="block text-slate-500 font-semibold mb-1">
-              Status
-            </label>
-            <select
-              id="case-filter-status"
-              value={statusFilter}
-              onChange={(e) => updateFilter('status', e.target.value || null)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-md px-2.5 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none cursor-pointer capitalize"
-            >
-              <option value="">All Statuses</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace('_', ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date From Filter */}
-          <div>
-            <label htmlFor="case-filter-date-from" className="block text-slate-500 font-semibold mb-1">
-              Received From
-            </label>
-            <input
-              type="date"
-              id="case-filter-date-from"
-              value={dateFromFilter}
-              onChange={(e) => updateFilter('date_from', e.target.value || null)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-md px-2 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none"
-            />
-          </div>
-
-          {/* Date To Filter */}
-          <div>
-            <label htmlFor="case-filter-date-to" className="block text-slate-500 font-semibold mb-1">
-              Received To
-            </label>
-            <input
-              type="date"
-              id="case-filter-date-to"
-              value={dateToFilter}
-              onChange={(e) => updateFilter('date_to', e.target.value || null)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-md px-2 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Filter Summary & Overdue Toggle Row */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100 text-xs">
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Overdue Toggle Button */}
+            {/* Toggle Dates & More Filters */}
             <button
               type="button"
-              onClick={() => updateFilter('overdue', overdueFilter ? null : 'true')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold border transition cursor-pointer ${
-                overdueFilter
-                  ? 'bg-red-50 text-red-800 border-red-300 ring-1 ring-red-400'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                showAdvancedFilters || dateFromFilter || dateToFilter
+                  ? 'bg-slate-100 text-slate-900 border-slate-300'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
             >
-              <AlertOctagon className={`w-3.5 h-3.5 ${overdueFilter ? 'text-red-600' : 'text-slate-400'}`} />
-              <span>Overdue Only</span>
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <span>{showAdvancedFilters ? 'Hide Dates' : 'Date Range'}</span>
             </button>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={handleClearAllFilters}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-800 transition cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>Reset All Filters</span>
-              </button>
-            )}
-          </div>
-
-          {/* Result Count */}
-          <div className="flex items-center gap-2 text-slate-500">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <span>
-              {loading
-                ? 'Loading records...'
-                : `Showing ${cases.length} of ${total} matching case${total === 1 ? '' : 's'}`}
-            </span>
           </div>
         </div>
+
+        {/* Collapsible Date Range Sub-Bar */}
+        {showAdvancedFilters && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-slate-100 text-xs">
+            <div>
+              <label htmlFor="case-filter-date-from" className="block text-slate-500 font-semibold mb-1">
+                Received From
+              </label>
+              <input
+                type="date"
+                id="case-filter-date-from"
+                value={dateFromFilter}
+                onChange={(e) => updateFilter('date_from', e.target.value || null)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="case-filter-date-to" className="block text-slate-500 font-semibold mb-1">
+                Received To
+              </label>
+              <input
+                type="date"
+                id="case-filter-date-to"
+                value={dateToFilter}
+                onChange={(e) => updateFilter('date_to', e.target.value || null)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:ring-1 focus:ring-blue-900 focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Active Filter Chips Bar (Reference 2 VertexPoint Style) */}
+        {hasActiveFilters && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap text-xs">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">
+              Active Filters:
+            </span>
+
+            {searchQuery && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 font-medium">
+                <span>Query: "{searchQuery}"</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('search', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {bureauFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200 font-semibold">
+                <span>Bureau: {bureauFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('bureau', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {regionFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 font-medium">
+                <span>Region: {regionFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('region', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {categoryFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 font-medium capitalize">
+                <span>Category: {categoryFilter.replace('_', ' ')}</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('category', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {statusFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 font-medium capitalize">
+                <span>Status: {statusFilter.replace('_', ' ')}</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('status', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {overdueFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-200 font-semibold">
+                <span>Overdue SLA</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('overdue', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {dateFromFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 font-medium">
+                <span>From: {dateFromFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('date_from', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {dateToFilter && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 font-medium">
+                <span>To: {dateToFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => updateFilter('date_to', null)}
+                  className="hover:text-red-700 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={handleClearAllFilters}
+              className="text-xs font-bold text-rose-600 hover:text-rose-800 ml-auto transition cursor-pointer"
+            >
+              Reset All
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Loading state */}
@@ -443,7 +652,7 @@ export const CasesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleClearAllFilters}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-950 transition cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-blue-900 text-white hover:bg-blue-800 transition cursor-pointer shadow-xs"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Clear All Filters</span>
@@ -453,140 +662,175 @@ export const CasesPage: React.FC = () => {
         />
       )}
 
-      {/* Cases Table */}
+      {/* High-Density Modern Enterprise Table (Reference 2 VertexPoint Style) */}
       {!loading && !error && cases.length > 0 && (
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-xs mb-6">
+        <div className="bg-white rounded-xl border border-slate-200/90 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
-              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+            <table className="w-full text-left text-sm text-slate-700 border-collapse">
+              <thead className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <tr>
-                  <th scope="col" className="px-4 py-3">Case Number</th>
-                  <th scope="col" className="px-4 py-3">Institution</th>
-                  <th scope="col" className="px-4 py-3">Bureau</th>
-                  <th scope="col" className="px-4 py-3">Category</th>
-                  <th scope="col" className="px-4 py-3">Status</th>
-                  <th scope="col" className="px-4 py-3">Assigned Officer</th>
-                  <th scope="col" className="px-4 py-3">Received</th>
-                  <th scope="col" className="px-4 py-3">Target Disposal</th>
-                  <th scope="col" className="px-4 py-3 text-right">Action</th>
+                  <th scope="col" className="px-5 py-3.5">
+                    <div className="flex items-center gap-1.5">
+                      <span>Case Reference</span>
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                    </div>
+                  </th>
+                  <th scope="col" className="px-5 py-3.5">Institution & Region</th>
+                  <th scope="col" className="px-4 py-3.5 text-center">Bureau</th>
+                  <th scope="col" className="px-5 py-3.5">Category</th>
+                  <th scope="col" className="px-5 py-3.5">Status & Priority</th>
+                  <th scope="col" className="px-5 py-3.5">Assigned Officer</th>
+                  <th scope="col" className="px-5 py-3.5">Target SLA</th>
+                  <th scope="col" className="px-5 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {cases.map((c, index) => (
-                  <tr
-                    key={c.case_no}
-                    className={`${
-                      index % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'
-                    } hover:bg-blue-50/40 transition-colors group`}
-                  >
-                    {/* Case Number (link to /cases/:case_no) */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <Link
-                        to={`/cases/${c.case_no}`}
-                        className="font-mono font-semibold text-xs text-blue-900 group-hover:underline flex items-center gap-1.5"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-900" />
-                        <span>{c.case_no}</span>
-                      </Link>
-                    </td>
+              <tbody className="divide-y divide-slate-100/90">
+                {cases.map((c) => {
+                  const avatarColor = getAvatarColor(c.assigned_officer);
+                  const initials = getInitials(c.assigned_officer);
 
-                    {/* Institution Name (link to /institutions/:permanent_id) */}
-                    <td className="px-4 py-3.5 max-w-xs">
-                      {c.institution ? (
-                        <div>
-                          <Link
-                            to={`/institutions/${c.institution.permanent_id}`}
-                            className="font-medium text-slate-900 hover:text-blue-900 hover:underline flex items-center gap-1.5 truncate"
-                          >
-                            <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                            <span className="truncate">{c.institution.name}</span>
-                          </Link>
-                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                            {c.institution.permanent_id} · {c.institution.region}
+                  return (
+                    <tr
+                      key={c.case_no}
+                      className="hover:bg-blue-50/40 transition-colors group"
+                    >
+                      {/* Case Number & Date Received */}
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <Link
+                          to={`/cases/${c.case_no}`}
+                          className="font-mono font-bold text-xs text-blue-900 group-hover:text-blue-700 group-hover:underline flex items-center gap-1.5"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5 text-blue-700/60 group-hover:text-blue-900 shrink-0" />
+                          <span>{c.case_no}</span>
+                        </Link>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>Recv: {c.received_date}</span>
+                        </div>
+                      </td>
+
+                      {/* Institution Name & Permanent ID & Region */}
+                      <td className="px-5 py-3.5 max-w-sm">
+                        {c.institution ? (
+                          <div>
+                            <Link
+                              to={`/institutions/${c.institution.permanent_id}`}
+                              className="font-semibold text-slate-900 hover:text-blue-900 hover:underline flex items-center gap-1.5 truncate text-xs sm:text-sm"
+                              title={c.institution.name}
+                            >
+                              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{c.institution.name}</span>
+                            </Link>
+                            <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1.5 mt-0.5">
+                              <span className="font-semibold text-slate-700">{c.institution.permanent_id}</span>
+                              <span>·</span>
+                              <span className="flex items-center gap-0.5 text-slate-500">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                {c.institution.region}
+                              </span>
+                            </div>
                           </div>
+                        ) : (
+                          <RestrictedBadge />
+                        )}
+                      </td>
+
+                      {/* Bureau */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-center">
+                        <BureauBadge bureau={c.bureau} />
+                      </td>
+
+                      {/* Category */}
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-50 border border-slate-200/80 text-slate-700 capitalize">
+                          {c.category?.replace('_', ' ')}
+                        </span>
+                      </td>
+
+                      {/* Status Chip & Priority */}
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <StatusChip status={c.status} />
+                          {c.priority && <PriorityChip priority={c.priority} />}
                         </div>
-                      ) : (
-                        <span className="text-slate-400 italic text-xs">Details restricted to the owning bureau</span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Bureau */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <BureauBadge bureau={c.bureau} />
-                    </td>
+                      {/* Assigned Officer with Initials Avatar (Reference 2 style) */}
+                      <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                        {c.assigned_officer ? (
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] border shrink-0 ${avatarColor}`}
+                            >
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-800 leading-tight">
+                                {c.assigned_officer}
+                              </div>
+                              <div className="text-[10px] text-slate-400 leading-tight">
+                                Officer
+                              </div>
+                            </div>
+                          </div>
+                        ) : !c.institution ? (
+                          <RestrictedBadge />
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-slate-400 italic text-[11px]">
+                            <User className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                            <span>Unassigned</span>
+                          </div>
+                        )}
+                      </td>
 
-                    {/* Category */}
-                    <td className="px-4 py-3.5 whitespace-nowrap capitalize text-xs text-slate-700 font-medium">
-                      {c.category?.replace('_', ' ')}
-                    </td>
+                      {/* Expected Disposal Date & SLA status */}
+                      <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                        {c.expected_disposal_date ? (
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <Clock className={`w-3 h-3 shrink-0 ${c.overdue ? 'text-rose-500' : 'text-slate-400'}`} />
+                              <span
+                                className={`font-mono ${
+                                  c.overdue ? 'text-rose-700 font-bold' : 'text-slate-700'
+                                }`}
+                              >
+                                {c.expected_disposal_date}
+                              </span>
+                            </div>
+                            {c.overdue && (
+                              <div className="mt-1">
+                                <OverdueBadge />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">—</span>
+                        )}
+                      </td>
 
-                    {/* Status Chip & Overdue Marker */}
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <StatusChip status={c.status} />
-                        {c.priority && <PriorityChip priority={c.priority} />}
-                        {c.overdue && <OverdueBadge />}
-                      </div>
-                    </td>
-
-                    {/* Assigned Officer */}
-                    <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600">
-                      {c.assigned_officer ? (
-                        <div className="flex items-center gap-1">
-                          <User className="w-3 h-3 text-slate-400" />
-                          <span>{c.assigned_officer}</span>
-                        </div>
-                      ) : !c.institution ? (
-                        <span className="text-slate-400 italic text-[11px]">Details restricted to the owning bureau</span>
-                      ) : (
-                        <span className="text-slate-400 italic">Unassigned</span>
-                      )}
-                    </td>
-
-                    {/* Received Date */}
-                    <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-500">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-slate-400" />
-                        <span>{c.received_date}</span>
-                      </div>
-                    </td>
-
-                    {/* Expected Disposal Date */}
-                    <td className="px-4 py-3.5 whitespace-nowrap text-xs">
-                      {c.expected_disposal_date ? (
-                        <div className="flex items-center gap-1">
-                          <Clock className={`w-3 h-3 ${c.overdue ? 'text-red-500' : 'text-slate-400'}`} />
-                          <span className={c.overdue ? 'text-red-700 font-semibold' : 'text-slate-600'}>
-                            {c.expected_disposal_date}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 italic">—</span>
-                      )}
-                    </td>
-
-                    {/* Action */}
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right text-xs">
-                      <Link
-                        to={`/cases/${c.case_no}`}
-                        className="inline-flex items-center gap-1 font-semibold text-blue-900 hover:text-blue-700"
-                      >
-                        <span>View</span>
-                        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                      {/* Action Button */}
+                      <td className="px-5 py-3.5 whitespace-nowrap text-right text-xs">
+                        <Link
+                          to={`/cases/${c.case_no}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-blue-50 hover:text-blue-900 hover:border-blue-300 transition shadow-2xs group-hover:border-blue-300"
+                        >
+                          <span>View</span>
+                          <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-900" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           {/* Pagination Controls */}
-          <div className="px-4 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
-            <div className="flex items-center gap-3">
+          <div className="px-5 py-4 bg-slate-50/70 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-4 flex-wrap">
               <span>
-                Page <strong className="text-slate-900">{pageParam}</strong> of{' '}
-                <strong className="text-slate-900">{totalPages}</strong>
+                Showing <strong className="text-slate-900 font-semibold">{cases.length}</strong> of{' '}
+                <strong className="text-slate-900 font-semibold">{total}</strong> total cases
               </span>
 
               {/* Page size select */}
@@ -595,7 +839,7 @@ export const CasesPage: React.FC = () => {
                 <select
                   value={pageSizeParam}
                   onChange={(e) => updateFilter('page_size', e.target.value)}
-                  className="bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 text-xs focus:ring-1 focus:ring-blue-900 focus:outline-none cursor-pointer"
+                  className="bg-white border border-slate-200 rounded-md px-2 py-1 text-slate-800 text-xs font-semibold focus:ring-1 focus:ring-blue-900 focus:outline-none cursor-pointer shadow-2xs"
                 >
                   <option value="10">10</option>
                   <option value="20">20</option>
@@ -605,22 +849,27 @@ export const CasesPage: React.FC = () => {
             </div>
 
             {/* Pagination buttons */}
-            <div className="flex items-center space-x-1.5 self-end sm:self-auto">
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <span className="text-slate-500 mr-1">
+                Page <strong className="text-slate-900">{pageParam}</strong> of{' '}
+                <strong className="text-slate-900">{totalPages}</strong>
+              </span>
+
               <button
                 type="button"
                 onClick={() => updateFilter('page', (pageParam - 1).toString())}
                 disabled={pageParam <= 1}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium shadow-xs transition"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold shadow-2xs transition cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Previous</span>
+                <span>Prev</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => updateFilter('page', (pageParam + 1).toString())}
                 disabled={pageParam >= totalPages}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium shadow-xs transition"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold shadow-2xs transition cursor-pointer"
               >
                 <span>Next</span>
                 <ChevronRight className="w-3.5 h-3.5" />

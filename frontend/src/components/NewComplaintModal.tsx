@@ -37,7 +37,7 @@ const CATEGORIES = [
   { value: 'faculty', label: 'Faculty & Staff Issues' },
   { value: 'fee_refund', label: 'Fee & Refund Dispute' },
   { value: 'admission', label: 'Admission Irregularities' },
-  { value: 'approval', label: 'AICTE Approval & Norms' },
+  { value: 'approval', label: 'Approval & Norms' },
   { value: 'examination', label: 'Examination & Grading' },
   { value: 'other', label: 'Other Governance Grievance' },
 ];
@@ -308,7 +308,7 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
               <p className="text-xs text-slate-500">
                 {result
                   ? 'Grievance created and evaluated by CaseBridge detection engine'
-                  : 'Record a new grievance complaint into the AICTE centralized registry'}
+                  : 'Record a new grievance complaint into the centralized registry'}
               </p>
             </div>
           </div>

@@ -111,7 +111,7 @@ export const InstitutionDetailPage: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                     {institution.name}
                   </h1>
                 </div>
@@ -145,7 +145,7 @@ export const InstitutionDetailPage: React.FC = () => {
                   <span>REGIONAL JURISDICTION</span>
                 </div>
                 <div className="font-semibold text-slate-800 text-sm">{institution.region} Region</div>
-                <div className="text-slate-500 mt-0.5">AICTE Zonal Bureau</div>
+                <div className="text-slate-500 mt-0.5">Zonal Bureau</div>
               </div>
 
               <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
