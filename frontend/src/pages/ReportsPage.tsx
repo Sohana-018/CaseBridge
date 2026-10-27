@@ -89,54 +89,65 @@ const TABS: TabDefinition[] = [
   },
 ];
 
-// Status colors strictly mapped to single-source-of-truth tokens
-const STATUS_COLORS: Record<string, string> = {
-  pending: '#B54708',       // warning
-  under_process: '#175CD3', // info
-  escalated: '#6941C6',     // purple
-  transferred: '#344054',   // neutral
-  disposed: '#067647',      // success
+// Bureau colors matching official CaseBridge identity tokens
+const BUREAU_COLORS: Record<string, string> = {
+  rb: '#2563EB',   // Royal Blue
+  pgrc: '#0F766E', // Deep Teal
+  ro: '#C2410C',   // Rich Rust / Amber
+  oc: '#7E22CE',   // Purple
 };
 
-// Ageing severity ramp (neutral -> brand -> warning -> danger)
+// Status colors strictly mapped to single-source-of-truth tokens
+const STATUS_COLORS: Record<string, string> = {
+  pending: '#D97706',       // Amber
+  under_process: '#0284C7', // Sky Blue
+  escalated: '#9333EA',     // Purple
+  transferred: '#4F46E5',   // Indigo
+  disposed: '#059669',      // Emerald
+};
+
+// Ageing severity ramp (emerald -> blue -> amber -> red)
 const AGEING_SEVERITY: Record<string, string> = {
-  '0-7': '#475467',
-  '0-7 days': '#475467',
-  '8-30': '#1E3A8A',
-  '8-30 days': '#1E3A8A',
-  '31-90': '#B54708',
-  '31-90 days': '#B54708',
-  '90+': '#B42318',
-  '90+ days': '#B42318',
+  '0-7': '#10B981',
+  '0-7 days': '#10B981',
+  '8-30': '#2563EB',
+  '8-30 days': '#2563EB',
+  '31-90': '#F59E0B',
+  '31-90 days': '#F59E0B',
+  '90+': '#EF4444',
+  '90+ days': '#EF4444',
 };
 
 // Overlap outcomes distinct non-status colors
 const OVERLAP_OUTCOME_COLORS: Record<string, string> = {
-  open: '#98A2B3',          // light neutral
-  related: '#1E3A8A',       // brand
-  duplicate: '#B42318',     // danger
-  not_related: '#344054',   // neutral
-  needs_review: '#B54708',  // warning
+  open: '#64748B',          // slate
+  related: '#2563EB',       // royal blue
+  duplicate: '#DC2626',     // crimson
+  not_related: '#475569',   // dark slate
+  needs_review: '#D97706',  // amber
 };
 
 function getItemColor(label: string, kind: ReportKind, isTop = false): string {
   const norm = label.toLowerCase().trim();
 
+  if (kind === 'bureau') {
+    return BUREAU_COLORS[norm] || '#2563EB';
+  }
   if (kind === 'status') {
-    return STATUS_COLORS[norm] || '#344054';
+    return STATUS_COLORS[norm] || '#64748B';
   }
   if (kind === 'ageing') {
-    return AGEING_SEVERITY[norm] || '#475467';
+    return AGEING_SEVERITY[norm] || '#64748B';
   }
   if (kind === 'overlap_outcomes') {
-    return OVERLAP_OUTCOME_COLORS[norm] || '#344054';
+    return OVERLAP_OUTCOME_COLORS[norm] || '#64748B';
   }
   if (kind === 'disposal') {
-    return norm === 'disposed' ? '#067647' : '#1E3A8A';
+    return norm === 'disposed' ? '#059669' : '#2563EB';
   }
 
-  // By Bureau, By Region, By Institution: single brand colour with largest emphasised
-  return isTop ? '#172E6E' : '#1E3A8A';
+  // By Region, By Institution: royal blue gradient
+  return isTop ? '#1D4ED8' : '#3B82F6';
 }
 
 function formatDisplayLabel(label: string, kind: ReportKind): string {
@@ -354,7 +365,7 @@ export const ReportsPage: React.FC = () => {
               }
             }}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white disabled:opacity-50 transition shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition shadow-xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Export CSV</span>
@@ -362,15 +373,16 @@ export const ReportsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Accessible Tab Navigation (role="tablist" with arrow keys) */}
+      {/* Accessible Tab Navigation (Vibrant pill-style active tab) */}
       <div
         ref={tablistRef}
         role="tablist"
         aria-label="Report Categories"
-        className="flex items-center gap-1 overflow-x-auto pb-1 text-xs border-b border-[var(--border)]"
+        className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-slate-300"
       >
         {TABS.map((tab, idx) => {
           const isActive = activeKind === tab.kind;
+          const Icon = tab.icon;
           return (
             <button
               key={tab.kind}
@@ -381,39 +393,40 @@ export const ReportsPage: React.FC = () => {
               tabIndex={isActive ? 0 : -1}
               onClick={() => handleTabChange(tab.kind)}
               onKeyDown={(e) => handleKeyDown(e, idx)}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium border-b-2 transition whitespace-nowrap cursor-pointer -mb-[1px] ${
+              className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs rounded-lg transition whitespace-nowrap cursor-pointer ${
                 isActive
-                  ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
-                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--border)]'
+                  ? 'bg-blue-600 text-white font-bold shadow-xs'
+                  : 'text-slate-700 font-semibold hover:text-slate-900 hover:bg-slate-200/70'
               }`}
             >
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
               <span>{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Compact Summary Line (Merged, no 3 stacked cards, clean timestamp) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[var(--text-secondary)]">
-        <div className="flex items-center gap-3 flex-wrap">
+      {/* Compact Summary Line (Soft blue-tinted banner) */}
+      <div className="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-950 shadow-2xs">
+        <div className="flex items-center gap-3 flex-wrap font-medium">
           <span>{currentTabDef.description}</span>
-          <span className="text-[var(--text-tertiary)]" aria-hidden="true">·</span>
-          <span>Scope: <strong className="font-semibold text-[var(--text)] num-tabular">{totalCases} {activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}</strong></span>
+          <span className="text-blue-300" aria-hidden="true">·</span>
+          <span>Scope: <strong className="font-bold text-blue-900 num-tabular">{totalCases} {activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}</strong></span>
           {leaderAnalysis && activeKind !== 'disposal' && (
             <>
-              <span className="text-[var(--text-tertiary)]" aria-hidden="true">·</span>
-              <span className="font-medium text-[var(--brand)]">{leaderAnalysis}</span>
+              <span className="text-blue-300" aria-hidden="true">·</span>
+              <span className="font-bold text-blue-700">{leaderAnalysis}</span>
             </>
           )}
           {activeKind === 'ageing' && (
             <>
-              <span className="text-[var(--text-tertiary)]" aria-hidden="true">·</span>
-              <span className="text-[var(--danger)] font-medium">Overdue SLA: 38 cases</span>
+              <span className="text-blue-300" aria-hidden="true">·</span>
+              <span className="text-rose-600 font-bold">Overdue SLA: 38 cases</span>
             </>
           )}
         </div>
 
-        <div className="text-[var(--text-tertiary)] num-tabular whitespace-nowrap">
+        <div className="text-slate-500 font-medium num-tabular whitespace-nowrap text-[11px]">
           Last updated {lastUpdated}
         </div>
       </div>
@@ -445,53 +458,53 @@ export const ReportsPage: React.FC = () => {
           aria-labelledby={`tab-${activeKind}`}
           className="space-y-6"
         >
-          {/* Disposal Tab Special Highlight Cards (No colored accent borders, neutral rate text) */}
+          {/* Disposal Tab Special Highlight Cards (Rich colored top borders & colored numbers) */}
           {activeKind === 'disposal' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="cb-card p-5">
-                <span className="text-xs font-medium text-[var(--text-secondary)]">
+              <div className="cb-card p-5 border-t-4 border-t-emerald-600 shadow-xs">
+                <span className="text-xs font-bold text-slate-700">
                   Disposal Rate
                 </span>
-                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-emerald-700 tracking-tight mt-1 num-tabular">
                   {((report.disposal_rate ?? 0) * 100).toFixed(1)}%
                 </div>
-                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                <div className="text-xs text-slate-500 mt-1 font-medium">
                   8 of 200 cases closed
                 </div>
               </div>
 
-              <div className="cb-card p-5">
-                <span className="text-xs font-medium text-[var(--text-secondary)]">
+              <div className="cb-card p-5 border-t-4 border-t-teal-600 shadow-xs">
+                <span className="text-xs font-bold text-slate-700">
                   Disposed Cases
                 </span>
-                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-teal-700 tracking-tight mt-1 num-tabular">
                   {report.disposed ?? 0}
                 </div>
-                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                <div className="text-xs text-slate-500 mt-1 font-medium">
                   Formally closed & settled
                 </div>
               </div>
 
-              <div className="cb-card p-5">
-                <span className="text-xs font-medium text-[var(--text-secondary)]">
+              <div className="cb-card p-5 border-t-4 border-t-amber-500 shadow-xs">
+                <span className="text-xs font-bold text-slate-700">
                   Open / Active Cases
                 </span>
-                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-amber-800 tracking-tight mt-1 num-tabular">
                   {(report.total ?? 0) - (report.disposed ?? 0)}
                 </div>
-                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                <div className="text-xs text-slate-500 mt-1 font-medium">
                   Pending, under process, transferred, or escalated
                 </div>
               </div>
 
-              <div className="cb-card p-5">
-                <span className="text-xs font-medium text-[var(--text-secondary)]">
+              <div className="cb-card p-5 border-t-4 border-t-blue-600 shadow-xs">
+                <span className="text-xs font-bold text-slate-700">
                   Total Complaints
                 </span>
-                <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
+                <div className="text-[32px] font-bold text-blue-800 tracking-tight mt-1 num-tabular">
                   {report.total ?? 0}
                 </div>
-                <div className="text-xs text-[var(--text-tertiary)] mt-1">
+                <div className="text-xs text-slate-500 mt-1 font-medium">
                   Complete grievance volume
                 </div>
               </div>

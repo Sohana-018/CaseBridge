@@ -31,7 +31,7 @@ export const Navbar: React.FC = () => {
   const isAdmin = user?.role === 'administrator';
 
   return (
-    <header className="border-b border-[var(--border)] bg-white sticky top-0 z-40">
+    <header className="border-b border-slate-800 bg-[#0F172A] text-white sticky top-0 z-40 shadow-md">
       <div className="cb-page-container !py-0 h-16 flex items-center justify-between gap-4">
         {/* Brand + Primary Desktop navigation */}
         <div className="flex items-center gap-6 lg:gap-8 min-w-0">
@@ -41,16 +41,16 @@ export const Navbar: React.FC = () => {
             aria-label="CaseBridge Home"
           >
             <div
-              className="w-8 h-8 rounded-lg bg-[var(--brand)] flex items-center justify-center text-white shrink-0"
+              className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/25"
               aria-hidden="true"
             >
               <Layers className="w-4 h-4 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold text-base tracking-tight text-[var(--text)] leading-none">
+              <span className="font-bold text-base tracking-tight text-white leading-none">
                 CaseBridge
               </span>
-              <span className="text-[11px] text-[var(--text-tertiary)] font-normal hidden xl:block mt-0.5 leading-none">
+              <span className="text-[11px] text-blue-200/80 font-normal hidden xl:block mt-0.5 leading-none">
                 Institution Complaint Monitoring
               </span>
             </div>
@@ -58,7 +58,7 @@ export const Navbar: React.FC = () => {
 
           {/* Desktop primary nav */}
           {user && (
-            <nav className="hidden lg:flex items-center gap-1 shrink-0" aria-label="Primary">
+            <nav className="hidden lg:flex items-center gap-1.5 shrink-0" aria-label="Primary">
               {BASE_NAV_LINKS.map(({ to, end, Icon, label }) => (
                 <NavLink
                   key={to}
@@ -66,14 +66,14 @@ export const Navbar: React.FC = () => {
                   end={end}
                   aria-current={location.pathname === to ? 'page' : undefined}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-2 px-3 h-16 text-sm font-medium transition-colors border-b-2 -mb-[1px] ${
+                    `inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                       isActive
-                        ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--border)]'
+                        ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
                     }`
                   }
                 >
-                  <Icon className="w-4 h-4 shrink-0 text-current opacity-80" aria-hidden="true" />
+                  <Icon className="w-3.5 h-3.5 shrink-0 text-current opacity-90" aria-hidden="true" />
                   <span>{label}</span>
                 </NavLink>
               ))}
@@ -83,14 +83,14 @@ export const Navbar: React.FC = () => {
                   to="/admin"
                   aria-current={location.pathname === '/admin' ? 'page' : undefined}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-2 px-3 h-16 text-sm font-medium transition-colors border-b-2 -mb-[1px] ${
+                    `inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                       isActive
-                        ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
-                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--border)]'
+                        ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
                     }`
                   }
                 >
-                  <Shield className="w-4 h-4 shrink-0 text-current opacity-80" aria-hidden="true" />
+                  <Shield className="w-3.5 h-3.5 shrink-0 text-current opacity-90" aria-hidden="true" />
                   <span>Admin</span>
                 </NavLink>
               )}
@@ -105,7 +105,7 @@ export const Navbar: React.FC = () => {
           ) : (
             <NavLink
               to="/login"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-lg text-xs font-semibold shadow-xs transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
             >
               <LogIn className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Sign In</span>
@@ -117,7 +117,7 @@ export const Navbar: React.FC = () => {
       {/* Mobile nav bar */}
       {user && (
         <nav
-          className="lg:hidden flex items-center border-t border-[var(--border)] px-4 py-1.5 bg-[var(--bg-subtle)] gap-1 overflow-x-auto"
+          className="lg:hidden flex items-center border-t border-slate-800 px-4 py-2 bg-slate-900 gap-1.5 overflow-x-auto"
           aria-label="Mobile Navigation"
         >
           {BASE_NAV_LINKS.map(({ to, end, label }) => (
@@ -126,10 +126,10 @@ export const Navbar: React.FC = () => {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `shrink-0 py-1.5 px-3 rounded text-xs font-medium transition-colors ${
+                `shrink-0 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-white text-[var(--brand)] font-semibold shadow-xs border border-[var(--border)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`
               }
             >
@@ -141,10 +141,10 @@ export const Navbar: React.FC = () => {
             <NavLink
               to="/admin"
               className={({ isActive }) =>
-                `shrink-0 py-1.5 px-3 rounded text-xs font-medium transition-colors ${
+                `shrink-0 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-white text-[var(--brand)] font-semibold shadow-xs border border-[var(--border)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`
               }
             >

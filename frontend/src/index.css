@@ -1,38 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  /* Surfaces */
-  --bg-page:        #F6F7F9;
+  /* Surfaces: Rich contrast so white cards pop instead of looking washed out */
+  --bg-page:        #EDF2F7;
   --bg-surface:     #FFFFFF;
-  --bg-subtle:      #F9FAFB;
-  --border:         #E4E7EC;
-  --border-input:   #667085;   /* 4.97:1 on white, passes 3:1 for UI */
+  --bg-subtle:      #F8FAFC;
+  --border:         #CBD5E1;
+  --border-input:   #64748B;   /* Passes 3:1 for UI */
 
   /* Text */
-  --text:           #101828;   /* 17.8:1 on white */
-  --text-secondary: #475467;   /* 7.7:1 on white, 7.2:1 on page bg */
-  --text-tertiary:  #667085;   /* 5.0:1 on white, 4.6:1 on page bg. Minimum allowed */
+  --text:           #0F172A;   /* 18.5:1 on white */
+  --text-secondary: #334155;   /* 8.5:1 on white */
+  --text-tertiary:  #64748B;   /* 4.8:1 on white */
 
-  /* Brand (calm, authoritative navy identity) */
+  /* Brand (Authoritative Deep Navy & Royal Blue) */
   --brand:          #1E3A8A;   /* white on brand 10.4:1 */
-  --brand-hover:    #172E6E;
-  --brand-subtle:   #EEF2FF;   /* brand text on it 9.3:1 */
+  --brand-hover:    #172554;
+  --brand-subtle:   #EFF6FF;
+  --brand-accent:   #2563EB;
 
-  /* Semantic: text colour on its tinted background */
-  --success:        #067647;  --success-bg:    #ECFDF3;   /* 5.4:1 */
-  --warning:        #B54708;  --warning-bg:    #FFFAEB;   /* 5.2:1 */
-  --danger:         #B42318;  --danger-bg:     #FEF3F2;   /* 6.1:1 */
-  --info:           #175CD3;  --info-bg:       #EFF8FF;   /* 5.6:1 */
-  --escalated:      #6941C6;  --escalated-bg:  #F9F5FF;   /* 6.2:1 */
-  --neutral:        #344054;  --neutral-bg:    #F2F4F7;   /* 9.5:1 */
+  /* Semantic Status Tokens (Rich, high-contrast values) */
+  --success:        #047857;  --success-bg:    #ECFDF5;
+  --warning:        #B45309;  --warning-bg:    #FFFBEB;
+  --danger:         #BE123C;  --danger-bg:     #FFF1F2;
+  --info:           #0369A1;  --info-bg:       #F0F9FF;
+  --escalated:      #6D28D9;  --escalated-bg:  #F5F3FF;
+  --neutral:        #334155;  --neutral-bg:    #F1F5F9;
 
-  --focus:          #2E5BFF;
+  /* Bureau Colors */
+  --bureau-rb:      #1D4ED8;  --bureau-rb-bg:   #EFF6FF;
+  --bureau-pgrc:    #0F766E;  --bureau-pgrc-bg: #F0FDFA;
+  --bureau-ro:      #C2410C;  --bureau-ro-bg:   #FFF7ED;
+  --bureau-oc:      #7E22CE;  --bureau-oc-bg:   #FAF5FF;
+
+  --focus:          #2563EB;
 
   /* Shape and depth */
   --radius-card:    12px;
   --radius-control: 8px;
   --radius-pill:    999px;
-  --shadow-card:    0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-card:    0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
 
   /* Navbar height token */
   --navbar-height:  4rem; /* 64px = h-16 */
@@ -125,12 +133,16 @@
 }
 
 @layer utilities {
-  /* Consistent card utility */
+  /* Consistent card utility with rich depth */
   .cb-card {
     background-color: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .cb-card:hover {
+    box-shadow: var(--shadow-card-hover);
   }
 
   /* Standard page container: max-width 1280px, 24px vertical padding, 32px horizontal padding */

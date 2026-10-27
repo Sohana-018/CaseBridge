@@ -173,58 +173,58 @@ export const OverviewPage: React.FC = () => {
             <h2 id="kpi-metrics-heading" className="sr-only">Key Operational Indicators</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* 1. Total Cases */}
-              <div className="cb-card p-5 flex flex-col justify-between">
+              <div className="cb-card p-5 border-t-4 border-t-blue-600 flex flex-col justify-between bg-white shadow-xs hover:border-blue-700 transition">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <span className="text-xs font-medium text-[var(--text-secondary)]">
-                      Total Cases
+                    <span className="text-xs font-semibold text-slate-700">
+                      Total Complaints
                     </span>
-                    <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
+                    <div className="text-[34px] font-bold text-slate-900 tracking-tight mt-1 num-tabular leading-none">
                       {summary.total}
                     </div>
                   </div>
                   <div
-                    className="w-9 h-9 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] flex items-center justify-center shrink-0"
+                    className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm shadow-blue-500/30"
                     aria-hidden="true"
                   >
-                    <Layers className="w-4 h-4 text-[var(--brand)]" />
+                    <Layers className="w-5 h-5 text-white" />
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs">
-                  <span className="text-[var(--text-tertiary)]">Across 4 bureaus</span>
+                <div className="flex items-center justify-between pt-3 border-t border-slate-200 text-xs">
+                  <span className="text-slate-600 font-medium">Across 4 Bureaus</span>
                   <Link
                     to="/cases"
-                    className="font-medium text-[var(--brand)] hover:underline inline-flex items-center gap-1"
+                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1"
                   >
-                    <span>View all</span>
+                    <span>View all cases</span>
                     <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                   </Link>
                 </div>
               </div>
 
               {/* 2. Under Investigation */}
-              <div className="cb-card p-5 flex flex-col justify-between">
+              <div className="cb-card p-5 border-t-4 border-t-sky-500 flex flex-col justify-between bg-white shadow-xs hover:border-sky-600 transition">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <span className="text-xs font-medium text-[var(--text-secondary)]">
+                    <span className="text-xs font-semibold text-slate-700">
                       Under Investigation
                     </span>
-                    <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
+                    <div className="text-[34px] font-bold text-slate-900 tracking-tight mt-1 num-tabular leading-none">
                       {summary.under_process}
                     </div>
                   </div>
                   <div
-                    className="w-9 h-9 rounded-lg bg-[var(--info-bg)] border border-[#B2DDFF] flex items-center justify-center shrink-0"
+                    className="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-sky-500/30"
                     aria-hidden="true"
                   >
-                    <RotateCw className="w-4 h-4 text-[var(--info)]" />
+                    <RotateCw className="w-5 h-5 text-white" />
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs">
-                  <span className="text-[var(--text-tertiary)]">Active inquiry workflow</span>
+                <div className="flex items-center justify-between pt-3 border-t border-slate-200 text-xs">
+                  <span className="text-slate-600 font-medium">Active inquiry workflow</span>
                   <Link
                     to="/cases?status=under_process"
-                    className="font-medium text-[var(--brand)] hover:underline inline-flex items-center gap-1"
+                    className="font-semibold text-sky-700 hover:text-sky-900 hover:underline inline-flex items-center gap-1"
                   >
                     <span>View active</span>
                     <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -232,34 +232,34 @@ export const OverviewPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 3. Coordination Queue (Action required: subtle warning tint) */}
-              <div className="cb-card p-5 border-l-4 border-l-[var(--warning)] flex flex-col justify-between bg-white">
+              {/* 3. Coordination Queue (Purple Intelligence Theme) */}
+              <div className="cb-card p-5 border-t-4 border-t-purple-600 flex flex-col justify-between bg-gradient-to-b from-purple-50/50 to-white shadow-xs hover:border-purple-700 transition">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-[var(--text-secondary)]">
+                      <span className="text-xs font-semibold text-purple-950">
                         Coordination Queue
                       </span>
-                      <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[var(--warning-bg)] text-[var(--warning)] border border-[#FEDF89]">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-900 border border-purple-300">
                         Review
                       </span>
                     </div>
-                    <div className="text-[32px] font-semibold text-[var(--text)] tracking-tight mt-1 num-tabular">
+                    <div className="text-[34px] font-bold text-purple-950 tracking-tight mt-1 num-tabular leading-none">
                       {summary.open_overlaps}
                     </div>
                   </div>
                   <div
-                    className="w-9 h-9 rounded-lg bg-[var(--warning-bg)] border border-[#FEDF89] flex items-center justify-center shrink-0"
+                    className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shrink-0 shadow-sm shadow-purple-500/30"
                     aria-hidden="true"
                   >
-                    <GitCompare className="w-4 h-4 text-[var(--warning)]" />
+                    <GitCompare className="w-5 h-5 text-white" />
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs">
-                  <span className="text-[var(--text-tertiary)]">Candidate pairs flagged</span>
+                <div className="flex items-center justify-between pt-3 border-t border-purple-200/60 text-xs">
+                  <span className="text-purple-900/80 font-medium">Cross-bureau overlaps</span>
                   <Link
                     to="/overlaps"
-                    className="font-medium text-[var(--brand)] hover:underline inline-flex items-center gap-1"
+                    className="font-semibold text-purple-700 hover:text-purple-900 hover:underline inline-flex items-center gap-1"
                   >
                     <span>Review queue</span>
                     <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -267,34 +267,34 @@ export const OverviewPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 4. Overdue SLA Target (Promoted to main row, subtle danger accent) */}
-              <div className="cb-card p-5 border-l-4 border-l-[var(--danger)] flex flex-col justify-between bg-white">
+              {/* 4. Overdue SLA Target (Red Alert Theme) */}
+              <div className="cb-card p-5 border-t-4 border-t-rose-600 flex flex-col justify-between bg-gradient-to-b from-rose-50/50 to-white shadow-xs hover:border-rose-700 transition">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-[var(--text-secondary)]">
+                      <span className="text-xs font-semibold text-rose-950">
                         Overdue SLA Target
                       </span>
-                      <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[var(--danger-bg)] text-[var(--danger)] border border-[#FECDCA]">
-                        Action
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-900 border border-rose-300">
+                        Breach
                       </span>
                     </div>
-                    <div className="text-[32px] font-semibold text-[var(--danger)] tracking-tight mt-1 num-tabular">
+                    <div className="text-[34px] font-bold text-rose-700 tracking-tight mt-1 num-tabular leading-none">
                       {summary.overdue}
                     </div>
                   </div>
                   <div
-                    className="w-9 h-9 rounded-lg bg-[var(--danger-bg)] border border-[#FECDCA] flex items-center justify-center shrink-0"
+                    className="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center text-white shrink-0 shadow-sm shadow-rose-500/30"
                     aria-hidden="true"
                   >
-                    <AlertOctagon className="w-4 h-4 text-[var(--danger)]" />
+                    <AlertOctagon className="w-5 h-5 text-white" />
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs">
-                  <span className="text-[var(--text-tertiary)]">Past expected target</span>
+                <div className="flex items-center justify-between pt-3 border-t border-rose-200/60 text-xs">
+                  <span className="text-rose-900/80 font-medium">Overdue resolution target</span>
                   <Link
                     to="/cases?overdue=true"
-                    className="font-medium text-[var(--danger)] hover:underline inline-flex items-center gap-1"
+                    className="font-bold text-rose-700 hover:text-rose-900 hover:underline inline-flex items-center gap-1"
                   >
                     <span>View overdue</span>
                     <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -304,86 +304,83 @@ export const OverviewPage: React.FC = () => {
             </div>
           </section>
 
-          {/* Secondary Status Strip (Disposed, Pending, Reassigned, Escalated) */}
-          <section
-            aria-labelledby="secondary-metrics-heading"
-            className="cb-card p-4 sm:p-5"
-          >
+          {/* Secondary Status Strip (Colorful Dedicated Status Cards) */}
+          <section aria-labelledby="secondary-metrics-heading">
             <h2 id="secondary-metrics-heading" className="sr-only">Detailed Status Metrics</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border)]">
-              {/* Pending */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Pending Review */}
               <Link
                 to="/cases?status=pending"
-                className="group p-2 rounded-lg hover:bg-[var(--bg-subtle)] transition flex items-center gap-3"
+                className="group p-4 rounded-xl bg-amber-50/90 border border-amber-300 hover:border-amber-400 hover:shadow-xs transition flex items-center gap-3.5"
               >
                 <div
-                  className="w-9 h-9 rounded-lg bg-[var(--warning-bg)] text-[var(--warning)] flex items-center justify-center shrink-0 border border-[#FEDF89]"
+                  className="w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs"
                   aria-hidden="true"
                 >
-                  <Clock className="w-4 h-4 text-[var(--warning)]" />
+                  <Clock className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-[var(--text)] num-tabular">
+                  <div className="text-xl font-bold text-amber-950 num-tabular">
                     {summary.pending}
                   </div>
-                  <div className="text-xs text-[var(--text-secondary)] font-medium">Pending Review</div>
+                  <div className="text-xs text-amber-900 font-semibold">Pending Review</div>
                 </div>
               </Link>
 
-              {/* Reassigned / Transferred */}
+              {/* Reassigned Bureau */}
               <Link
                 to="/cases?status=transferred"
-                className="group p-2 rounded-lg hover:bg-[var(--bg-subtle)] transition flex items-center gap-3 pt-3 sm:pt-2 sm:pl-4"
+                className="group p-4 rounded-xl bg-indigo-50/90 border border-indigo-300 hover:border-indigo-400 hover:shadow-xs transition flex items-center gap-3.5"
               >
                 <div
-                  className="w-9 h-9 rounded-lg bg-[var(--neutral-bg)] text-[var(--neutral)] flex items-center justify-center shrink-0 border border-[var(--border)]"
+                  className="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs"
                   aria-hidden="true"
                 >
-                  <ArrowRightLeft className="w-4 h-4 text-[var(--neutral)]" />
+                  <ArrowRightLeft className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-[var(--text)] num-tabular">
+                  <div className="text-xl font-bold text-indigo-950 num-tabular">
                     {summary.transferred}
                   </div>
-                  <div className="text-xs text-[var(--text-secondary)] font-medium">Reassigned Bureau</div>
+                  <div className="text-xs text-indigo-900 font-semibold">Reassigned Bureau</div>
                 </div>
               </Link>
 
               {/* Escalated */}
               <Link
                 to="/cases?status=escalated"
-                className="group p-2 rounded-lg hover:bg-[var(--bg-subtle)] transition flex items-center gap-3 pt-3 sm:pt-2 sm:pl-4"
+                className="group p-4 rounded-xl bg-purple-50/90 border border-purple-300 hover:border-purple-400 hover:shadow-xs transition flex items-center gap-3.5"
               >
                 <div
-                  className="w-9 h-9 rounded-lg bg-[var(--escalated-bg)] text-[var(--escalated)] flex items-center justify-center shrink-0 border border-[#E9D7FE]"
+                  className="w-10 h-10 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs"
                   aria-hidden="true"
                 >
-                  <Flame className="w-4 h-4 text-[var(--escalated)]" />
+                  <Flame className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-[var(--text)] num-tabular">
+                  <div className="text-xl font-bold text-purple-950 num-tabular">
                     {summary.escalated}
                   </div>
-                  <div className="text-xs text-[var(--text-secondary)] font-medium">Escalated Priority</div>
+                  <div className="text-xs text-purple-900 font-semibold">Escalated Priority</div>
                 </div>
               </Link>
 
               {/* Disposed */}
               <Link
                 to="/cases?status=disposed"
-                className="group p-2 rounded-lg hover:bg-[var(--bg-subtle)] transition flex items-center gap-3 pt-3 sm:pt-2 sm:pl-4"
+                className="group p-4 rounded-xl bg-emerald-50/90 border border-emerald-300 hover:border-emerald-400 hover:shadow-xs transition flex items-center gap-3.5"
               >
                 <div
-                  className="w-9 h-9 rounded-lg bg-[var(--success-bg)] text-[var(--success)] flex items-center justify-center shrink-0 border border-[#A6F4C5]"
+                  className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs"
                   aria-hidden="true"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-[var(--success)]" />
+                  <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-[var(--text)] num-tabular">
+                  <div className="text-xl font-bold text-emerald-950 num-tabular">
                     {summary.disposed}
                   </div>
-                  <div className="text-xs text-[var(--text-secondary)] font-medium">Disposed / Closed</div>
+                  <div className="text-xs text-emerald-900 font-semibold">Disposed / Closed</div>
                 </div>
               </Link>
             </div>
@@ -417,44 +414,44 @@ export const OverviewPage: React.FC = () => {
             </button>
 
             {pipelineOpen && (
-              <div id="coordination-pipeline-content" className="p-5 pt-2 border-t border-[var(--border)] bg-[var(--bg-subtle)]">
+              <div id="coordination-pipeline-content" className="p-5 pt-2 border-t border-slate-200 bg-slate-50/70">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-white border border-[var(--border)] rounded-lg p-3.5 shadow-2xs">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[var(--brand)] mb-1">
-                      <Building2 className="w-4 h-4" aria-hidden="true" />
+                  <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 shadow-2xs">
+                    <div className="flex items-center gap-2 text-xs font-bold text-blue-900 mb-1.5">
+                      <Building2 className="w-4 h-4 text-blue-700" aria-hidden="true" />
                       <span>1. Canonical Registry</span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    <p className="text-xs text-blue-950/80 leading-relaxed">
                       Institutions indexed by permanent identifier across all geographic zones.
                     </p>
                   </div>
 
-                  <div className="bg-white border border-[var(--border)] rounded-lg p-3.5 shadow-2xs">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[var(--info)] mb-1">
-                      <Sliders className="w-4 h-4" aria-hidden="true" />
+                  <div className="bg-teal-50/80 border border-teal-200 rounded-xl p-4 shadow-2xs">
+                    <div className="flex items-center gap-2 text-xs font-bold text-teal-900 mb-1.5">
+                      <Sliders className="w-4 h-4 text-teal-700" aria-hidden="true" />
                       <span>2. Isolated Intake</span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    <p className="text-xs text-teal-950/80 leading-relaxed">
                       Complaints ingested into isolated bureaus (RB, PGRC, RO, OC) with role-based access.
                     </p>
                   </div>
 
-                  <div className="bg-white border border-[var(--border)] rounded-lg p-3.5 shadow-2xs">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[var(--warning)] mb-1">
-                      <GitCompare className="w-4 h-4" aria-hidden="true" />
+                  <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-4 shadow-2xs">
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-950 mb-1.5">
+                      <GitCompare className="w-4 h-4 text-amber-700" aria-hidden="true" />
                       <span>3. Overlap Engine</span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    <p className="text-xs text-amber-950/80 leading-relaxed">
                       Automated cosine text similarity, date proximity, and category scoring flag cross-bureau pairs.
                     </p>
                   </div>
 
-                  <div className="bg-white border border-[var(--border)] rounded-lg p-3.5 shadow-2xs">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[var(--success)] mb-1">
-                      <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-4 shadow-2xs">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-950 mb-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700" aria-hidden="true" />
                       <span>4. Human Adjudication</span>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    <p className="text-xs text-emerald-950/80 leading-relaxed">
                       Authorized coordinators inspect paired cases, record audit notes, and align bureau actions.
                     </p>
                   </div>
@@ -468,25 +465,25 @@ export const OverviewPage: React.FC = () => {
             {/* Bureau Workload Chart Card (7 cols) */}
             <div className="lg:col-span-7 cb-card p-5 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="w-8 h-8 rounded-lg bg-[var(--brand-subtle)] border border-[var(--border)] flex items-center justify-center shrink-0"
+                      className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm shadow-blue-500/20"
                       aria-hidden="true"
                     >
-                      <BarChart3 className="w-4 h-4 text-[var(--brand)]" />
+                      <BarChart3 className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-semibold text-[var(--text)]">Bureau Workload Distribution</h2>
-                      <p className="text-xs text-[var(--text-secondary)]">Total, Open, and Overdue complaints per Bureau</p>
+                      <h2 className="text-sm font-bold text-slate-900">Bureau Workload Distribution</h2>
+                      <p className="text-xs text-slate-600">Total, Open, and Overdue complaints per Bureau</p>
                     </div>
                   </div>
 
                   <Link
                     to="/reports"
-                    className="text-xs font-medium text-[var(--brand)] hover:underline inline-flex items-center gap-1"
+                    className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1"
                   >
-                    <span>Reports</span>
+                    <span>Detailed reports</span>
                     <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                   </Link>
                 </div>
@@ -507,57 +504,55 @@ export const OverviewPage: React.FC = () => {
                         data={workload}
                         margin={{ top: 18, right: 10, left: -15, bottom: 0 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E7EC" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#CBD5E1" />
                         <XAxis
                           dataKey="bureau"
                           tickLine={false}
-                          axisLine={{ stroke: '#E4E7EC' }}
-                          tick={{ fill: '#475467', fontSize: 12, fontWeight: 600 }}
+                          axisLine={{ stroke: '#CBD5E1' }}
+                          tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
                         />
                         <YAxis
                           tickLine={false}
                           axisLine={false}
-                          tick={{ fill: '#667085', fontSize: 11 }}
+                          tick={{ fill: '#64748B', fontSize: 11 }}
                           allowDecimals={false}
                         />
                         <Tooltip
                           contentStyle={{
                             backgroundColor: '#FFFFFF',
-                            borderRadius: '8px',
-                            color: '#101828',
+                            borderRadius: '10px',
+                            color: '#0F172A',
                             fontSize: '12px',
-                            border: '1px solid #E4E7EC',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            border: '1px solid #CBD5E1',
+                            boxShadow: '0 8px 16px -2px rgba(15, 23, 42, 0.1)',
                             padding: '8px 12px',
                           }}
-                          itemStyle={{ color: '#101828', padding: '2px 0' }}
+                          itemStyle={{ color: '#0F172A', padding: '2px 0' }}
                         />
                         <Legend
                           verticalAlign="top"
                           align="right"
                           wrapperStyle={{ paddingBottom: '12px', fontSize: '12px', color: '#475467' }}
                         />
-                        {/* Total: light outlined bar, not darkest */}
+                        {/* Total: Steel Slate */}
                         <Bar
                           dataKey="total"
                           name="Total Cases"
-                          fill="#F2F4F7"
-                          stroke="#667085"
-                          strokeWidth={1.5}
+                          fill="#94A3B8"
                           radius={[4, 4, 0, 0]}
                         />
-                        {/* Open: Brand Navy */}
+                        {/* Open: Vivid Royal Blue */}
                         <Bar
                           dataKey="open"
                           name="Open Cases"
-                          fill="#1E3A8A"
+                          fill="#2563EB"
                           radius={[4, 4, 0, 0]}
                         />
-                        {/* Overdue: Danger Red */}
+                        {/* Overdue: Bold Crimson Red */}
                         <Bar
                           dataKey="overdue"
                           name="Overdue SLA"
-                          fill="#B42318"
+                          fill="#DC2626"
                           radius={[4, 4, 0, 0]}
                         />
                       </BarChart>
@@ -570,20 +565,20 @@ export const OverviewPage: React.FC = () => {
             {/* Priority Alerts Card (5 cols) */}
             <div className="lg:col-span-5 cb-card p-5 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="w-8 h-8 rounded-lg bg-[var(--warning-bg)] border border-[#FEDF89] flex items-center justify-center shrink-0"
+                      className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-amber-500/20"
                       aria-hidden="true"
                     >
-                      <Bell className="w-4 h-4 text-[var(--warning)]" />
+                      <Bell className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-semibold text-[var(--text)]">Priority Alerts</h2>
-                      <p className="text-xs text-[var(--text-secondary)]">Impending SLA breaches & notifications</p>
+                      <h2 className="text-sm font-bold text-slate-900">Priority Alerts</h2>
+                      <p className="text-xs text-slate-600">Impending SLA breaches & notifications</p>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[var(--neutral-bg)] text-[var(--neutral)] num-tabular">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-950 border border-amber-300 num-tabular">
                     {alerts.length} Active
                   </span>
                 </div>
@@ -595,43 +590,53 @@ export const OverviewPage: React.FC = () => {
                   />
                 ) : (
                   <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                    {alerts.slice(0, 5).map((alert) => (
-                      <div
-                        key={alert.id}
-                        className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] hover:bg-white hover:border-[var(--brand)] transition shadow-2xs"
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <PriorityChip priority={alert.priority} />
-                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-[var(--neutral-bg)] text-[var(--neutral)] font-medium">
-                              {alert.type.replace('_', ' ')}
+                    {alerts.slice(0, 5).map((alert) => {
+                      const isHigh = alert.priority?.toLowerCase() === 'high';
+                      const isMed = alert.priority?.toLowerCase() === 'medium';
+                      const borderClass = isHigh
+                        ? 'border-l-4 border-l-rose-600 bg-rose-50/50 border-y border-r border-rose-200'
+                        : isMed
+                        ? 'border-l-4 border-l-amber-500 bg-amber-50/40 border-y border-r border-amber-200'
+                        : 'border-l-4 border-l-blue-500 bg-blue-50/40 border-y border-r border-blue-200';
+
+                      return (
+                        <div
+                          key={alert.id}
+                          className={`p-3 rounded-lg ${borderClass} hover:shadow-xs transition`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <PriorityChip priority={alert.priority} />
+                              <span className="text-[11px] px-2 py-0.5 rounded font-semibold bg-white text-slate-700 border border-slate-200">
+                                {alert.type.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-500 whitespace-nowrap font-medium">
+                              {formatDateTime(alert.created_at)}
                             </span>
                           </div>
-                          <span className="text-[11px] text-[var(--text-tertiary)] whitespace-nowrap">
-                            {formatDateTime(alert.created_at)}
-                          </span>
+
+                          <p className="text-xs text-slate-900 leading-snug font-medium mb-1.5">
+                            {alert.message}
+                          </p>
+
+                          {alert.case_no && (
+                            <div className="pt-1.5 border-t border-slate-200/60 flex items-center justify-between">
+                              <span className="text-xs font-mono font-bold text-slate-700">
+                                {alert.case_no}
+                              </span>
+                              <Link
+                                to={`/cases/${alert.case_no}`}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                              >
+                                <span>Inspect case</span>
+                                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                              </Link>
+                            </div>
+                          )}
                         </div>
-
-                        <p className="text-xs text-[var(--text)] leading-snug font-medium mb-1.5">
-                          {alert.message}
-                        </p>
-
-                        {alert.case_no && (
-                          <div className="pt-1.5 border-t border-[var(--border)] flex items-center justify-between">
-                            <span className="text-xs font-mono font-medium text-[var(--text-secondary)]">
-                              {alert.case_no}
-                            </span>
-                            <Link
-                              to={`/cases/${alert.case_no}`}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand)] hover:underline"
-                            >
-                              <span>Inspect case</span>
-                              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                            </Link>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

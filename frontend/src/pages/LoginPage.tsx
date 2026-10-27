@@ -308,7 +308,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-10 flex justify-center items-center gap-2 px-4 rounded-lg text-sm font-medium text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-11 flex justify-center items-center gap-2 px-4 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span>Authenticating...</span>
@@ -324,39 +324,54 @@ export const LoginPage: React.FC = () => {
 
             {/* Quick Role Access */}
             {demoAccounts && demoAccounts.length > 0 && (
-              <div className="pt-5 border-t border-[var(--border)] space-y-3">
-                <div className="flex items-center gap-1.5 text-[var(--text)]">
-                  <Sparkles className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />
-                  <span className="text-xs font-semibold">
+              <div className="pt-5 border-t border-slate-200 space-y-3">
+                <div className="flex items-center gap-1.5 text-slate-900">
+                  <Sparkles className="w-4 h-4 text-blue-600" aria-hidden="true" />
+                  <span className="text-xs font-bold">
                     Quick Role Access
                   </span>
                 </div>
-                <p className="text-xs text-[var(--text-secondary)]">
+                <p className="text-xs text-slate-600">
                   Select an authorized demo account below:
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {demoAccounts.map((acc) => (
-                    <button
-                      key={acc.username}
-                      type="button"
-                      onClick={() => handleQuickLogin(acc)}
-                      disabled={loading}
-                      className="flex flex-col justify-between p-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] hover:bg-[var(--brand-subtle)] hover:border-[var(--brand)]/30 text-left transition group cursor-pointer"
-                    >
-                      <div className="flex items-start justify-between gap-1 mb-1">
-                        <span className="text-xs font-medium text-[var(--text)] group-hover:text-[var(--brand)] leading-snug">
-                          {acc.name}
-                        </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--neutral-bg)] border border-[var(--border)] text-[var(--neutral)] shrink-0">
-                          {acc.badge}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-[var(--text-tertiary)] num-tabular">
-                        {acc.username} · {acc.password_hint}
-                      </div>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {demoAccounts.map((acc) => {
+                    const badgeUpper = (acc.badge || '').toUpperCase();
+                    const badgeColor = badgeUpper.includes('RB')
+                      ? 'bg-blue-100 text-blue-900 border-blue-300'
+                      : badgeUpper.includes('PGRC')
+                      ? 'bg-teal-100 text-teal-900 border-teal-300'
+                      : badgeUpper.includes('RO')
+                      ? 'bg-amber-100 text-amber-950 border-amber-300'
+                      : badgeUpper.includes('OC')
+                      ? 'bg-purple-100 text-purple-950 border-purple-300'
+                      : badgeUpper.includes('ADMIN')
+                      ? 'bg-rose-100 text-rose-950 border-rose-300'
+                      : 'bg-indigo-100 text-indigo-950 border-indigo-300';
+
+                    return (
+                      <button
+                        key={acc.username}
+                        type="button"
+                        onClick={() => handleQuickLogin(acc)}
+                        disabled={loading}
+                        className="flex flex-col justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-blue-50/60 hover:border-blue-300 text-left transition group cursor-pointer shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-1 mb-1.5">
+                          <span className="text-xs font-bold text-slate-800 group-hover:text-blue-700 leading-snug">
+                            {acc.name}
+                          </span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badgeColor}`}>
+                            {acc.badge}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono font-medium">
+                          {acc.username} · {acc.password_hint}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

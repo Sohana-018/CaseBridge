@@ -10,6 +10,7 @@ import {
   StatusChip,
   PriorityChip,
   RestrictedBadge,
+  BureauBadge,
 } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import { NewComplaintModal } from '../components/NewComplaintModal';
@@ -230,7 +231,7 @@ export const CasesPage: React.FC = () => {
               type="button"
               id="new-complaint-btn"
               onClick={() => setIsNewComplaintOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white transition shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
               <span>Register Complaint</span>
@@ -244,10 +245,10 @@ export const CasesPage: React.FC = () => {
             onClick={() => fetchCasesList(true)}
             disabled={loading}
             aria-label="Refresh cases records"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 transition shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-50 transition shadow-2xs cursor-pointer"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-[var(--text-secondary)] ${loading ? 'animate-spin' : ''}`}
+              className={`w-3.5 h-3.5 text-slate-600 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
             <span className="hidden sm:inline">Refresh</span>
@@ -255,7 +256,7 @@ export const CasesPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Quick Status Filter Tabs (Consistent chip style with clear selected state) */}
+      {/* Quick Status Filter Tabs (Vibrant pills with clear active states) */}
       <div
         role="region"
         aria-label="Quick Status Filters"
@@ -264,10 +265,10 @@ export const CasesPage: React.FC = () => {
         <button
           type="button"
           onClick={() => updateFilter('status', null)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold border transition cursor-pointer whitespace-nowrap ${
             !statusFilter && !overdueFilter
-              ? 'bg-[var(--brand-subtle)] text-[var(--brand)] border-[#C7D7FE] font-semibold'
-              : 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
           }`}
         >
           <span>All Cases</span>
@@ -276,68 +277,68 @@ export const CasesPage: React.FC = () => {
         <button
           type="button"
           onClick={() => updateFilter('status', 'pending')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold border transition cursor-pointer whitespace-nowrap ${
             statusFilter === 'pending'
-              ? 'bg-[var(--warning-bg)] text-[var(--warning)] border-[#FEDF89] font-semibold'
-              : 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]'
+              ? 'bg-amber-100 text-amber-950 border-amber-400 shadow-xs'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-amber-50'
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" aria-hidden="true" />
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600" aria-hidden="true" />
           <span>Pending</span>
         </button>
 
         <button
           type="button"
           onClick={() => updateFilter('status', 'under_process')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold border transition cursor-pointer whitespace-nowrap ${
             statusFilter === 'under_process'
-              ? 'bg-[var(--info-bg)] text-[var(--info)] border-[#B2DDFF] font-semibold'
-              : 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]'
+              ? 'bg-sky-100 text-sky-950 border-sky-400 shadow-xs'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-sky-50'
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--info)]" aria-hidden="true" />
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-600" aria-hidden="true" />
           <span>Under Process</span>
         </button>
 
         <button
           type="button"
           onClick={() => updateFilter('status', 'escalated')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold border transition cursor-pointer whitespace-nowrap ${
             statusFilter === 'escalated'
-              ? 'bg-[var(--escalated-bg)] text-[var(--escalated)] border-[#E9D7FE] font-semibold'
-              : 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]'
+              ? 'bg-purple-100 text-purple-950 border-purple-400 shadow-xs'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-purple-50'
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--escalated)]" aria-hidden="true" />
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-600" aria-hidden="true" />
           <span>Escalated</span>
         </button>
 
         <button
           type="button"
           onClick={() => updateFilter('status', 'disposed')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold border transition cursor-pointer whitespace-nowrap ${
             statusFilter === 'disposed'
-              ? 'bg-[var(--success-bg)] text-[var(--success)] border-[#A6F4C5] font-semibold'
-              : 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-subtle)]'
+              ? 'bg-emerald-100 text-emerald-950 border-emerald-400 shadow-xs'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-emerald-50'
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" aria-hidden="true" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" aria-hidden="true" />
           <span>Disposed</span>
         </button>
 
-        <div className="h-4 w-px bg-[var(--border)] mx-1" aria-hidden="true" />
+        <div className="h-4 w-px bg-slate-300 mx-1" aria-hidden="true" />
 
         {/* Overdue Quick Toggle */}
         <button
           type="button"
           onClick={() => updateFilter('overdue', overdueFilter ? null : 'true')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium border transition cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold border transition cursor-pointer whitespace-nowrap ${
             overdueFilter
-              ? 'bg-[var(--danger-bg)] text-[var(--danger)] border-[#FECDCA] font-semibold'
-              : 'bg-white text-[var(--danger)] border-[#FECDCA] hover:bg-[var(--danger-bg)]'
+              ? 'bg-rose-100 text-rose-950 border-rose-400 shadow-xs'
+              : 'bg-white text-rose-700 border-rose-300 hover:bg-rose-50'
           }`}
         >
-          <ShieldAlert className="w-3.5 h-3.5 text-[var(--danger)]" aria-hidden="true" />
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-600" aria-hidden="true" />
           <span>Overdue SLA Only</span>
         </button>
       </div>
@@ -384,7 +385,7 @@ export const CasesPage: React.FC = () => {
             </div>
             <button
               type="submit"
-              className="h-10 px-4 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white rounded-[var(--radius-control)] text-xs font-semibold transition cursor-pointer shrink-0"
+              className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-[var(--radius-control)] text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
             >
               Search
             </button>
@@ -651,17 +652,17 @@ export const CasesPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-[var(--text)] border-collapse">
               <caption className="sr-only">Regulatory Complaints Case Directory</caption>
-              <thead className="sticky top-0 z-10 bg-[var(--bg-subtle)] border-b border-[var(--border)] text-xs font-medium text-[var(--text-secondary)]">
+              <thead className="sticky top-0 z-10 bg-slate-100 text-slate-800 font-bold border-b border-slate-300 text-xs">
                 <tr>
                   <th scope="col" className="px-4 py-3">
                     <button
                       type="button"
                       aria-label="Sort by case reference"
                       aria-sort="none"
-                      className="flex items-center gap-1.5 font-medium text-[var(--text-secondary)] hover:text-[var(--text)] cursor-pointer"
+                      className="flex items-center gap-1.5 font-bold text-slate-800 hover:text-blue-700 cursor-pointer"
                     >
                       <span>Case Reference</span>
-                      <ArrowUpDown className="w-3.5 h-3.5 text-[var(--text-tertiary)]" aria-hidden="true" />
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
                     </button>
                   </th>
                   <th scope="col" className="px-4 py-3">Institution & Region</th>
@@ -674,28 +675,36 @@ export const CasesPage: React.FC = () => {
                   <th scope="col" className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border)]">
+              <tbody className="divide-y divide-slate-200">
                 {cases.map((c) => {
                   const initials = getInitials(c.assigned_officer);
                   const daysOverdue = c.overdue ? calculateDaysOverdue(c.expected_disposal_date) : null;
+                  const avatarBg =
+                    c.bureau === 'RB'
+                      ? 'bg-blue-100 text-blue-900 border-blue-300'
+                      : c.bureau === 'PGRC'
+                      ? 'bg-teal-100 text-teal-900 border-teal-300'
+                      : c.bureau === 'RO'
+                      ? 'bg-amber-100 text-amber-950 border-amber-300'
+                      : 'bg-purple-100 text-purple-950 border-purple-300';
 
                   return (
                     <tr
                       key={c.case_no}
                       onClick={() => navigate(`/cases/${c.case_no}`)}
-                      className="hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer h-12"
+                      className="hover:bg-blue-50/50 transition-colors cursor-pointer h-12"
                     >
                       {/* Case Number & Date Received */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <Link
                           to={`/cases/${c.case_no}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="font-mono font-medium text-xs text-[var(--brand)] hover:underline flex items-center gap-1.5"
+                          className="font-mono font-bold text-xs text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1.5"
                         >
                           <span>{c.case_no}</span>
                         </Link>
-                        <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1 mt-0.5">
-                          <Calendar className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Calendar className="w-3 h-3 text-slate-400 shrink-0" aria-hidden="true" />
                           <span>Recv: {c.received_date}</span>
                         </div>
                       </td>
@@ -707,16 +716,16 @@ export const CasesPage: React.FC = () => {
                             <Link
                               to={`/institutions/${c.institution.permanent_id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="font-medium text-[var(--text)] hover:text-[var(--brand)] hover:underline truncate block text-xs sm:text-sm"
+                              className="font-semibold text-slate-900 hover:text-blue-700 hover:underline truncate block text-xs sm:text-sm"
                               title={c.institution.name}
                             >
                               <span className="truncate">{c.institution.name}</span>
                             </Link>
-                            <div className="text-[11px] text-[var(--text-secondary)] flex items-center gap-1.5 mt-0.5">
-                              <span className="font-mono text-[var(--text-tertiary)]">{c.institution.permanent_id}</span>
+                            <div className="text-[11px] text-slate-600 flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono font-medium text-slate-500">{c.institution.permanent_id}</span>
                               <span aria-hidden="true">·</span>
-                              <span className="flex items-center gap-0.5 text-[var(--text-secondary)]">
-                                <MapPin className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
+                              <span className="flex items-center gap-0.5 text-slate-600">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" aria-hidden="true" />
                                 {c.institution.region}
                               </span>
                             </div>
@@ -726,15 +735,13 @@ export const CasesPage: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Bureau (quiet text code, no mono) */}
+                      {/* Bureau Badge with distinct colorful branding */}
                       <td className="px-3 py-3 whitespace-nowrap text-center">
-                        <span className="px-2 py-0.5 rounded-[6px] text-xs font-semibold bg-[var(--neutral-bg)] text-[var(--neutral)]">
-                          {c.bureau}
-                        </span>
+                        <BureauBadge bureau={c.bureau} />
                       </td>
 
                       {/* Category (plain formatted text) */}
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-[var(--text-secondary)]">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-700 font-medium">
                         {formatCategory(c.category)}
                       </td>
 
@@ -743,30 +750,30 @@ export const CasesPage: React.FC = () => {
                         <StatusChip status={c.status} />
                       </td>
 
-                      {/* Priority: only High gets colour (danger), Medium/Low are plain neutral */}
+                      {/* Priority */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         {c.priority && <PriorityChip priority={c.priority} />}
                       </td>
 
-                      {/* Assigned Officer with Neutral Initials Avatar */}
+                      {/* Assigned Officer with Bureau-Tinted Avatar */}
                       <td className="px-4 py-3 whitespace-nowrap text-xs">
                         {c.assigned_officer ? (
                           <div className="flex items-center gap-2">
                             <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center font-medium text-[10px] bg-[var(--neutral-bg)] text-[var(--neutral)] border border-[var(--border)] shrink-0"
+                              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] border shrink-0 ${avatarBg}`}
                               aria-hidden="true"
                             >
                               {initials}
                             </div>
-                            <span className="font-medium text-[var(--text)]">
+                            <span className="font-semibold text-slate-800">
                               {c.assigned_officer}
                             </span>
                           </div>
                         ) : !c.institution ? (
                           <RestrictedBadge />
                         ) : (
-                          <div className="flex items-center gap-1.5 text-[var(--text-tertiary)] italic text-xs">
-                            <User className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
+                          <div className="flex items-center gap-1.5 text-slate-400 italic text-xs">
+                            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
                             <span>Unassigned</span>
                           </div>
                         )}
@@ -777,19 +784,19 @@ export const CasesPage: React.FC = () => {
                         {c.expected_disposal_date ? (
                           <div>
                             <div className="flex items-center gap-1">
-                              <Clock className={`w-3.5 h-3.5 shrink-0 ${c.overdue ? 'text-[var(--danger)]' : 'text-[var(--text-tertiary)]'}`} aria-hidden="true" />
-                              <span className="text-[var(--text)] num-tabular">
+                              <Clock className={`w-3.5 h-3.5 shrink-0 ${c.overdue ? 'text-rose-600' : 'text-slate-400'}`} aria-hidden="true" />
+                              <span className="text-slate-800 font-medium num-tabular">
                                 {c.expected_disposal_date}
                               </span>
                             </div>
                             {c.overdue && (
-                              <div className="text-[11px] font-semibold text-[var(--danger)] mt-0.5">
+                              <div className="text-[11px] font-bold text-rose-600 mt-0.5">
                                 {daysOverdue ? `${daysOverdue} days overdue` : 'Overdue target'}
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-[var(--text-tertiary)] italic">—</span>
+                          <span className="text-slate-400 italic">—</span>
                         )}
                       </td>
 
@@ -799,10 +806,10 @@ export const CasesPage: React.FC = () => {
                           to={`/cases/${c.case_no}`}
                           onClick={(e) => e.stopPropagation()}
                           aria-label={`View details for case ${c.case_no}`}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-control)] text-xs font-medium text-[var(--brand)] bg-white border border-[var(--border-input)] hover:bg-[var(--brand-subtle)] transition shadow-2xs"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white transition shadow-2xs"
                         >
                           <span>View</span>
-                          <ExternalLink className="w-3 h-3 text-[var(--brand)]" aria-hidden="true" />
+                          <ExternalLink className="w-3 h-3" aria-hidden="true" />
                         </Link>
                       </td>
                     </tr>

@@ -324,7 +324,7 @@ export const OverlapQueuePage: React.FC = () => {
                 ? 'Run overlap detection engine across open cases'
                 : 'Only Coordinators and Administrators can trigger an overlap scan'
             }
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] disabled:bg-[var(--neutral-bg)] disabled:text-[var(--text-tertiary)] disabled:cursor-not-allowed transition shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition shadow-sm cursor-pointer"
           >
             <Scan className={`w-3.5 h-3.5 ${scanning ? 'animate-spin' : ''}`} aria-hidden="true" />
             <span>{scanning ? 'Scanning...' : 'Scan for Overlaps'}</span>
@@ -336,10 +336,10 @@ export const OverlapQueuePage: React.FC = () => {
             onClick={() => fetchQueue(true)}
             disabled={loading}
             aria-label="Refresh overlap queue"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 transition shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-50 transition shadow-2xs cursor-pointer"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-[var(--text-secondary)] ${loading ? 'animate-spin' : ''}`}
+              className={`w-3.5 h-3.5 text-slate-600 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
             <span className="hidden sm:inline">Refresh</span>
@@ -352,12 +352,12 @@ export const OverlapQueuePage: React.FC = () => {
         <div
           role="region"
           aria-label="Coordination Workflow Information"
-          className="cb-card p-4 bg-[var(--brand-subtle)] border-[#C7D7FE] flex items-start justify-between gap-3"
+          className="cb-card p-4 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 flex items-start justify-between gap-3 shadow-xs"
         >
           <div className="flex items-start gap-3">
-            <Info className="w-4 h-4 text-[var(--brand)] shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="text-xs text-[var(--text)] leading-relaxed">
-              <strong className="font-semibold text-[var(--brand)]">Non-destructive review: </strong>
+            <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="text-xs text-slate-800 leading-relaxed">
+              <strong className="font-bold text-blue-900">Non-destructive review: </strong>
               Coordination decisions append an audit event to both cases without altering case numbers, jurisdictions, or records.
             </div>
           </div>
@@ -365,7 +365,7 @@ export const OverlapQueuePage: React.FC = () => {
             type="button"
             onClick={handleDismissBanner}
             aria-label="Dismiss banner"
-            className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--text)] hover:bg-black/5 transition cursor-pointer shrink-0"
+            className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-black/5 transition cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -375,7 +375,7 @@ export const OverlapQueuePage: React.FC = () => {
       {/* Sticky Filter Toolbar */}
       <section
         aria-labelledby="filters-heading"
-        className="cb-card p-4 sticky top-16 z-20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs bg-white"
+        className="cb-card p-4 sticky top-16 z-20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs bg-slate-50/95 backdrop-blur-md border border-slate-300 shadow-xs"
       >
         <h2 id="filters-heading" className="sr-only">Queue Filters</h2>
 
@@ -496,12 +496,12 @@ export const OverlapQueuePage: React.FC = () => {
                 className="cb-card overflow-hidden"
               >
                 {/* Pair Header Bar */}
-                <div className="px-5 py-3.5 bg-[var(--bg-subtle)] border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="px-5 py-3.5 bg-slate-100 border-b border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="font-mono text-xs font-semibold text-[var(--text)] bg-white px-2 py-0.5 rounded border border-[var(--border)]">
+                    <span className="font-mono text-xs font-bold text-white bg-slate-900 px-2.5 py-0.5 rounded shadow-2xs">
                       Pair #{item.id}
                     </span>
-                    <h2 id={`pair-heading-${item.id}`} className="font-semibold text-sm text-[var(--text)]">
+                    <h2 id={`pair-heading-${item.id}`} className="font-bold text-sm text-slate-900">
                       Potential Cross-Bureau Overlap
                     </h2>
                     <ConfidenceBandBadge band={item.band} />
@@ -618,7 +618,7 @@ export const OverlapQueuePage: React.FC = () => {
                       {isPairReviewed ? 'Change decision:' : 'Select decision:'}
                     </span>
 
-                    {/* Secondary decision buttons with recommended action emphasized */}
+                    {/* Decision buttons with recommended action emphasized */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
@@ -626,7 +626,7 @@ export const OverlapQueuePage: React.FC = () => {
                         onClick={() => handleReviewSubmit(item.id, 'related')}
                         disabled={form.submitting || !isCoordinator}
                         aria-disabled={!isCoordinator}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] disabled:bg-[var(--neutral-bg)] disabled:text-[var(--text-tertiary)] disabled:cursor-not-allowed transition shadow-xs cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition shadow-xs cursor-pointer"
                       >
                         <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>Related</span>
@@ -638,9 +638,9 @@ export const OverlapQueuePage: React.FC = () => {
                         onClick={() => handleReviewSubmit(item.id, 'duplicate')}
                         disabled={form.submitting || !isCoordinator}
                         aria-disabled={!isCoordinator}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-medium bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-bold bg-rose-50 border border-rose-300 text-rose-800 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
                       >
-                        <Copy className="w-3.5 h-3.5 text-[var(--danger)]" aria-hidden="true" />
+                        <Copy className="w-3.5 h-3.5 text-rose-600" aria-hidden="true" />
                         <span>Duplicate</span>
                       </button>
 
@@ -650,9 +650,9 @@ export const OverlapQueuePage: React.FC = () => {
                         onClick={() => handleReviewSubmit(item.id, 'not_related')}
                         disabled={form.submitting || !isCoordinator}
                         aria-disabled={!isCoordinator}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-medium bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-medium bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
                       >
-                        <XCircle className="w-3.5 h-3.5 text-[var(--text-tertiary)]" aria-hidden="true" />
+                        <XCircle className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
                         <span>Not Related</span>
                       </button>
 
@@ -662,9 +662,9 @@ export const OverlapQueuePage: React.FC = () => {
                         onClick={() => handleReviewSubmit(item.id, 'needs_review')}
                         disabled={form.submitting || !isCoordinator}
                         aria-disabled={!isCoordinator}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-medium bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-control)] text-xs font-medium bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-2xs cursor-pointer"
                       >
-                        <HelpCircle className="w-3.5 h-3.5 text-[var(--warning)]" aria-hidden="true" />
+                        <HelpCircle className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
                         <span>Needs Review</span>
                       </button>
                     </div>
@@ -830,18 +830,32 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
     isRestrictedProp || (detail && detail.description === undefined && detail.assigned_officer === undefined)
   );
 
+  const isCaseA = label.toLowerCase().includes('a');
+  const cardTheme = isCaseA
+    ? 'border-blue-200 bg-blue-50/25'
+    : 'border-purple-200 bg-purple-50/25';
+  const labelBadge = isCaseA
+    ? 'bg-blue-600 text-white'
+    : 'bg-purple-600 text-white';
+  const caseNoLink = isCaseA
+    ? 'text-blue-700 hover:text-blue-900'
+    : 'text-purple-700 hover:text-purple-900';
+
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] p-4 flex flex-col justify-between h-full">
+    <div className={`rounded-xl border ${cardTheme} p-4 flex flex-col justify-between h-full shadow-2xs`}>
       <div className="flex-1 flex flex-col">
         {/* Header: Label, Case No, Bureau, Status */}
-        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-[var(--border)] flex-wrap">
+        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-slate-200/80 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--brand)] text-white">
+            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded shadow-2xs ${labelBadge}`}>
               {label}
             </span>
-            <span className="font-mono font-medium text-xs text-[var(--brand)]">
+            <Link
+              to={`/cases/${caseMini.case_no}`}
+              className={`font-mono font-bold text-xs hover:underline ${caseNoLink}`}
+            >
               {caseMini.case_no}
-            </span>
+            </Link>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -854,20 +868,20 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
         {/* Loading */}
         {isLoading && (
           <div className="space-y-2 py-3 animate-pulse">
-            <div className="h-3 bg-[var(--border)] rounded w-3/4"></div>
-            <div className="h-3 bg-[var(--border)] rounded w-1/2"></div>
-            <div className="h-14 bg-[var(--border)] rounded w-full mt-2"></div>
+            <div className="h-3 bg-slate-200 rounded w-3/4"></div>
+            <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+            <div className="h-14 bg-slate-200 rounded w-full mt-2"></div>
           </div>
         )}
 
         {/* Error */}
         {!isLoading && errorMsg && (
-          <div className="p-3 my-2 bg-[var(--danger-bg)] border border-[#FECDCA] rounded-lg text-xs text-[var(--danger)]">
+          <div className="p-3 my-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
             <p className="text-xs mb-1.5">{errorMsg}</p>
             <button
               type="button"
               onClick={onRetry}
-              className="text-xs font-semibold text-[var(--brand)] hover:underline cursor-pointer"
+              className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
             >
               Retry loading
             </button>
@@ -879,36 +893,40 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
           <div className="space-y-3 text-xs flex-1 flex flex-col justify-between">
             <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
               <div>
-                <dt className="text-[var(--text-tertiary)]">Category</dt>
-                <dd className={`font-medium capitalize mt-0.5 ${categoryMatches ? 'text-[var(--brand)] font-semibold' : 'text-[var(--text)]'}`}>
+                <dt className="text-slate-500 font-medium">Category</dt>
+                <dd className={`font-semibold capitalize mt-0.5 ${categoryMatches ? 'text-emerald-700 font-bold' : 'text-slate-900'}`}>
                   {formatCategory(detail.category)}
-                  {categoryMatches && <span className="ml-1 text-[10px] text-[var(--brand)] font-normal">(Match)</span>}
-                </dd>
-              </div>
-
-              <div>
-                <dt className="text-[var(--text-tertiary)]">Received Date</dt>
-                <dd className="font-medium text-[var(--text)] flex items-center gap-1 mt-0.5 num-tabular">
-                  <Calendar className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
-                  <span>{detail.received_date || '—'}</span>
-                </dd>
-              </div>
-
-              <div>
-                <dt className="text-[var(--text-tertiary)]">Assigned Officer</dt>
-                <dd className="font-medium text-[var(--text)] flex items-center gap-1 mt-0.5 truncate">
-                  <User className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
-                  {isRestricted ? (
-                    <RestrictedBadge />
-                  ) : (
-                    <span>{detail.assigned_officer || <span className="text-[var(--text-tertiary)] italic">Unassigned</span>}</span>
+                  {categoryMatches && (
+                    <span className="ml-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                      Match
+                    </span>
                   )}
                 </dd>
               </div>
 
               <div>
-                <dt className="text-[var(--text-tertiary)]">Target SLA</dt>
-                <dd className="font-medium text-[var(--text)] flex items-center gap-1 mt-0.5 num-tabular">
+                <dt className="text-slate-500 font-medium">Received Date</dt>
+                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 num-tabular">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                  <span>{detail.received_date || '—'}</span>
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-slate-500 font-medium">Assigned Officer</dt>
+                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 truncate">
+                  <User className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                  {isRestricted ? (
+                    <RestrictedBadge />
+                  ) : (
+                    <span>{detail.assigned_officer || <span className="text-slate-400 italic">Unassigned</span>}</span>
+                  )}
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-slate-500 font-medium">Target SLA</dt>
+                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 num-tabular">
                   {isRestricted ? (
                     <RestrictedBadge />
                   ) : (
@@ -923,15 +941,15 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
 
             {/* Description */}
             <div>
-              <span className="text-[var(--text-tertiary)] font-medium flex items-center gap-1 mb-1">
-                <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="text-slate-600 font-semibold flex items-center gap-1 mb-1">
+                <FileText className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
                 <span>Grievance Summary:</span>
               </span>
-              <div className="p-2.5 rounded bg-white border border-[var(--border)] text-[var(--text)] text-xs leading-relaxed max-h-28 overflow-y-auto">
+              <div className="p-3 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs leading-relaxed max-h-28 overflow-y-auto shadow-2xs">
                 {isRestricted ? (
                   <RestrictedBadge />
                 ) : (
-                  detail.description || <span className="text-[var(--text-tertiary)] italic">No description provided</span>
+                  detail.description || <span className="text-slate-400 italic">No description provided</span>
                 )}
               </div>
             </div>
@@ -939,12 +957,12 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
         )}
       </div>
 
-      <div className="pt-3 mt-3 border-t border-[var(--border)] flex justify-end">
+      <div className="pt-3 mt-3 border-t border-slate-200/80 flex justify-end">
         <Link
           to={`/cases/${caseMini.case_no}`}
-          className="text-xs font-medium text-[var(--brand)] hover:underline inline-flex items-center gap-1"
+          className="text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1"
         >
-          <span>Open case</span>
+          <span>Open case record</span>
           <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
         </Link>
       </div>

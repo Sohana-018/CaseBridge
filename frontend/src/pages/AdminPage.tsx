@@ -292,17 +292,17 @@ export const AdminPage: React.FC = () => {
       <div
         role="tablist"
         aria-label="Administration Sections"
-        className="border-b border-[var(--border)] flex space-x-6 text-xs"
+        className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs border-b border-slate-300"
       >
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === 'overview'}
           onClick={() => setActiveTab('overview')}
-          className={`pb-3 font-medium border-b-2 flex items-center gap-2 transition cursor-pointer -mb-[1px] ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'overview'
-              ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
           <Activity className="w-4 h-4" aria-hidden="true" />
@@ -314,15 +314,15 @@ export const AdminPage: React.FC = () => {
           role="tab"
           aria-selected={activeTab === 'users'}
           onClick={() => setActiveTab('users')}
-          className={`pb-3 font-medium border-b-2 flex items-center gap-2 transition cursor-pointer -mb-[1px] ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'users'
-              ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
           <Users className="w-4 h-4" aria-hidden="true" />
           <span>User Management</span>
-          <span className="px-1.5 py-0.5 rounded bg-[var(--neutral-bg)] text-[var(--neutral)] num-tabular font-medium">
+          <span className={`px-1.5 py-0.2 rounded text-[11px] num-tabular font-bold ${activeTab === 'users' ? 'bg-blue-800 text-white' : 'bg-slate-200 text-slate-800'}`}>
             {users.length}
           </span>
         </button>
@@ -332,10 +332,10 @@ export const AdminPage: React.FC = () => {
           role="tab"
           aria-selected={activeTab === 'config'}
           onClick={() => setActiveTab('config')}
-          className={`pb-3 font-medium border-b-2 flex items-center gap-2 transition cursor-pointer -mb-[1px] ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'config'
-              ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
           <Sliders className="w-4 h-4" aria-hidden="true" />
@@ -347,10 +347,10 @@ export const AdminPage: React.FC = () => {
           role="tab"
           aria-selected={activeTab === 'audit'}
           onClick={() => setActiveTab('audit')}
-          className={`pb-3 font-medium border-b-2 flex items-center gap-2 transition cursor-pointer -mb-[1px] ${
+          className={`px-3.5 py-2 font-bold rounded-lg flex items-center gap-2 transition cursor-pointer ${
             activeTab === 'audit'
-              ? 'border-[var(--brand)] text-[var(--brand)] font-semibold'
-              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
           }`}
         >
           <History className="w-4 h-4" aria-hidden="true" />
@@ -363,37 +363,37 @@ export const AdminPage: React.FC = () => {
         <div className="space-y-6">
           {/* Top KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="cb-card p-4">
-              <span className="text-xs text-[var(--text-secondary)] font-medium">Total Users</span>
-              <div className="text-2xl font-semibold text-[var(--text)] mt-1 num-tabular">{health.total_users}</div>
-              <div className="text-[11px] text-[var(--success)] font-medium mt-1">4 Active Roles</div>
+            <div className="cb-card p-4 border-t-4 border-t-blue-600 shadow-xs">
+              <span className="text-xs text-slate-600 font-bold">Total Users</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_users}</div>
+              <div className="text-[11px] text-emerald-700 font-bold mt-1">4 Active Roles</div>
             </div>
-            <div className="cb-card p-4">
-              <span className="text-xs text-[var(--text-secondary)] font-medium">Total Cases</span>
-              <div className="text-2xl font-semibold text-[var(--text)] mt-1 num-tabular">{health.total_cases}</div>
-              <div className="text-[11px] text-[var(--text-tertiary)] mt-1">Cross-Bureau</div>
+            <div className="cb-card p-4 border-t-4 border-t-indigo-600 shadow-xs">
+              <span className="text-xs text-slate-600 font-bold">Total Cases</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_cases}</div>
+              <div className="text-[11px] text-indigo-700 font-bold mt-1">Cross-Bureau</div>
             </div>
-            <div className="cb-card p-4">
-              <span className="text-xs text-[var(--text-secondary)] font-medium">Institutions</span>
-              <div className="text-2xl font-semibold text-[var(--text)] mt-1 num-tabular">{health.total_institutions}</div>
-              <div className="text-[11px] text-[var(--text-tertiary)] mt-1">Canonical Registry</div>
+            <div className="cb-card p-4 border-t-4 border-t-teal-600 shadow-xs">
+              <span className="text-xs text-slate-600 font-bold">Institutions</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_institutions}</div>
+              <div className="text-[11px] text-teal-700 font-bold mt-1">Canonical Registry</div>
             </div>
-            <div className="cb-card p-4">
-              <span className="text-xs text-[var(--text-secondary)] font-medium">Total Overlaps</span>
-              <div className="text-2xl font-semibold text-[var(--text)] mt-1 num-tabular">{health.total_overlaps}</div>
-              <div className="text-[11px] text-[var(--brand)] font-medium mt-1 num-tabular">
+            <div className="cb-card p-4 border-t-4 border-t-purple-600 shadow-xs">
+              <span className="text-xs text-slate-600 font-bold">Total Overlaps</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1 num-tabular">{health.total_overlaps}</div>
+              <div className="text-[11px] text-purple-700 font-bold mt-1 num-tabular">
                 {health.open_overlaps} Open for Review
               </div>
             </div>
-            <div className="cb-card p-4">
-              <span className="text-xs text-[var(--text-secondary)] font-medium">Active Alerts</span>
-              <div className="text-2xl font-semibold text-[var(--warning)] mt-1 num-tabular">{health.open_alerts}</div>
-              <div className="text-[11px] text-[var(--text-tertiary)] mt-1">Action Required</div>
+            <div className="cb-card p-4 border-t-4 border-t-amber-500 shadow-xs">
+              <span className="text-xs text-slate-600 font-bold">Active Alerts</span>
+              <div className="text-2xl font-bold text-amber-800 mt-1 num-tabular">{health.open_alerts}</div>
+              <div className="text-[11px] text-amber-900 font-bold mt-1">Action Required</div>
             </div>
-            <div className="cb-card p-4">
-              <span className="text-xs text-[var(--text-secondary)] font-medium">Database</span>
-              <div className="text-sm font-semibold text-[var(--text)] mt-2 truncate">{health.db_status}</div>
-              <div className="text-[11px] text-[var(--success)] font-medium mt-1">✓ Connected</div>
+            <div className="cb-card p-4 border-t-4 border-t-emerald-600 shadow-xs">
+              <span className="text-xs text-slate-600 font-bold">Database</span>
+              <div className="text-sm font-bold text-slate-900 mt-2 truncate">{health.db_status}</div>
+              <div className="text-[11px] text-emerald-700 font-bold mt-1">✓ Connected</div>
             </div>
           </div>
 

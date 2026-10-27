@@ -10,7 +10,7 @@ import {
   type CaseEvent,
   type UserPayload,
 } from '../api/client';
-import { StatusChip, PriorityChip } from '../components/Badges';
+import { StatusChip, PriorityChip, BureauBadge } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import { formatCategory, formatStatus } from '../utils/formatters';
 import { useToast } from '../components/Toast';
@@ -311,26 +311,24 @@ export const CaseDetailPage: React.FC = () => {
         <div className="space-y-6">
           {/* Title Row: Single H1 with reference in mono + badges underneath */}
           <div className="pb-4 border-b border-[var(--border)]">
-            <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--text)] tracking-tight font-mono">
+            <h1 className="text-2xl sm:text-[28px] font-bold text-slate-900 tracking-tight font-mono">
               {caseItem.case_no}
             </h1>
             <div className="flex items-center gap-2 flex-wrap mt-2">
               <StatusChip status={caseItem.status} />
-              <span className="px-2 py-0.5 rounded-[6px] text-xs font-semibold bg-[var(--neutral-bg)] text-[var(--neutral)] border border-[var(--border)]">
-                Bureau: {caseItem.bureau}
-              </span>
+              <BureauBadge bureau={caseItem.bureau} />
               {caseItem.priority && <PriorityChip priority={caseItem.priority} />}
               {caseItem.overdue && !isDisposed && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[var(--danger-bg)] text-[var(--danger)] border border-[#FECDCA]">
-                  <ShieldAlert className="w-3 h-3 text-[var(--danger)] shrink-0" aria-hidden="true" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-900 border border-rose-300 shadow-2xs">
+                  <ShieldAlert className="w-3 h-3 text-rose-600 shrink-0" aria-hidden="true" />
                   <span>SLA Overdue</span>
                 </span>
               )}
             </div>
 
             {hasBureauTransferDifference && (
-              <p className="text-xs text-[var(--text-secondary)] mt-2">
-                Note: Originally registered in <strong className="font-semibold">{prefixBureau}</strong>, transferred to <strong className="font-semibold">{caseItem.bureau}</strong>.
+              <p className="text-xs text-slate-600 mt-2 font-medium">
+                Note: Originally registered in <strong className="font-bold text-slate-900">{prefixBureau}</strong>, transferred to <strong className="font-bold text-slate-900">{caseItem.bureau}</strong>.
               </p>
             )}
           </div>
@@ -339,35 +337,35 @@ export const CaseDetailPage: React.FC = () => {
             {/* Main Column (8 cols): Summary, Metadata Description List, Timeline */}
             <div className="lg:col-span-8 space-y-6">
               {/* Affiliated Institution Link */}
-              <div className="cb-card p-5">
-                <span className="text-xs font-medium text-[var(--text-secondary)]">
+              <div className="cb-card p-5 border border-blue-200 bg-blue-50/30">
+                <span className="text-xs font-bold text-slate-700">
                   Affiliated Institution
                 </span>
                 {caseItem.institution ? (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-2">
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-9 h-9 rounded-lg bg-[var(--brand-subtle)] border border-[var(--border)] text-[var(--brand)] flex items-center justify-center shrink-0"
+                        className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20"
                         aria-hidden="true"
                       >
-                        <Building2 className="w-4 h-4" />
+                        <Building2 className="w-5 h-5 text-white" />
                       </div>
                       <div>
                         <Link
                           to={`/institutions/${caseItem.institution.permanent_id}`}
-                          className="font-semibold text-sm text-[var(--text)] hover:text-[var(--brand)] hover:underline"
+                          className="font-bold text-sm text-slate-900 hover:text-blue-700 hover:underline"
                         >
                           {caseItem.institution.name}
                         </Link>
-                        <div className="text-xs text-[var(--text-secondary)] mt-0.5">
-                          PID: <span className="font-mono text-[var(--text-tertiary)]">{caseItem.institution.permanent_id}</span> · Region: {caseItem.institution.region}
+                        <div className="text-xs text-slate-600 mt-0.5 font-medium">
+                          PID: <span className="font-mono text-slate-700 font-bold">{caseItem.institution.permanent_id}</span> · Region: {caseItem.institution.region}
                         </div>
                       </div>
                     </div>
 
                     <Link
                       to={`/institutions/${caseItem.institution.permanent_id}`}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand)] hover:underline shrink-0"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline shrink-0"
                     >
                       <span>Institution profile</span>
                       <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -463,18 +461,30 @@ export const CaseDetailPage: React.FC = () => {
                   <div className="relative pl-5 border-l-2 border-[var(--border)] space-y-5 my-2 ml-2">
                     {events.map((evt, idx) => {
                       const isInitialRegistration = idx === 0 && evt.event_type === 'created';
+                      const dotColor = evt.event_type === 'escalation'
+                        ? 'bg-rose-600'
+                        : evt.event_type === 'transfer'
+                        ? 'bg-indigo-600'
+                        : evt.event_type === 'status_change'
+                        ? 'bg-blue-600'
+                        : evt.event_type === 'review'
+                        ? 'bg-purple-600'
+                        : isInitialRegistration
+                        ? 'bg-emerald-600'
+                        : 'bg-amber-500';
+
                       return (
                         <div key={evt.id || idx} className="relative">
                           {/* Dot on line */}
                           <div
-                            className="absolute -left-[27px] top-1.5 w-2.5 h-2.5 rounded-full bg-[var(--brand)] border-2 border-white"
+                            className={`absolute -left-[27px] top-1.5 w-3 h-3 rounded-full ${dotColor} border-2 border-white shadow-xs`}
                             aria-hidden="true"
                           />
 
-                          <div className="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] text-xs">
+                          <div className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-2xs text-xs">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-[var(--text)]">
+                                <span className="font-bold text-slate-900">
                                   {isInitialRegistration
                                     ? 'Registered'
                                     : evt.event_type === 'status_change'
@@ -487,9 +497,7 @@ export const CaseDetailPage: React.FC = () => {
                                     ? 'Review Decision'
                                     : 'Remark Appended'}
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white border border-[var(--border)] text-[var(--neutral)]">
-                                  {evt.bureau}
-                                </span>
+                                <BureauBadge bureau={evt.bureau} />
                               </div>
                               <span
                                 className="text-[11px] text-[var(--text-tertiary)] num-tabular"
