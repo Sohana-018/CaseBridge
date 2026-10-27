@@ -107,71 +107,72 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
-      {/* Colima Reference Inspired Institutional Split-Screen Card */}
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl border border-slate-200/90 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+    <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-[var(--bg-page)]">
+      {/* Institutional Split-Screen Card */}
+      <div className="w-full max-w-5xl bg-[var(--bg-surface)] rounded-xl shadow-[var(--shadow-card)] border border-[var(--border)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
         {/* Left Side: Overview and key capabilities */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 p-6 sm:p-8 lg:p-10 text-white flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
-          <div className="absolute -left-16 -bottom-16 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 space-y-5">
+        <div className="lg:col-span-5 bg-[var(--brand)] p-6 sm:p-8 lg:p-10 text-white flex flex-col justify-between relative">
+          <div className="relative z-10 space-y-6">
             <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
-                CaseBridge Grievance Desk
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-white/10 text-white/90 text-xs font-medium">
+                <Layers className="w-4 h-4 text-white" aria-hidden="true" />
+                <span>CaseBridge Portal</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight leading-tight">
+                Institution Complaint Monitoring
               </h1>
-              <p className="text-xs sm:text-sm text-blue-100/80 leading-relaxed">
-                Integrated complaint tracking and overlap intelligence portal uniting Regulation Bureau, Grievance Cell, Regional Offices, and Other Cells.
+              <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
+                Centralized complaint tracking and overlap intelligence portal uniting Regulation Bureau, Grievance Cell, Regional Offices, and Other Cells.
               </p>
             </div>
 
-            <div className="pt-2 flex flex-wrap gap-1.5">
-              <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-blue-900/60 text-blue-200 border border-blue-700/50">
-                RB
+            <div className="pt-1 flex flex-wrap gap-1.5">
+              <span className="px-2.5 py-1 rounded text-xs font-medium bg-white/15 text-white border border-white/20">
+                RB · Regulation
               </span>
-              <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-teal-900/60 text-teal-200 border border-teal-700/50">
-                PGRC
+              <span className="px-2.5 py-1 rounded text-xs font-medium bg-white/15 text-white border border-white/20">
+                PGRC · Grievance
               </span>
-              <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-amber-900/60 text-amber-200 border border-amber-700/50">
-                RO
+              <span className="px-2.5 py-1 rounded text-xs font-medium bg-white/15 text-white border border-white/20">
+                RO · Regional
               </span>
-              <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-indigo-900/60 text-indigo-200 border border-indigo-700/50">
-                OC
+              <span className="px-2.5 py-1 rounded text-xs font-medium bg-white/15 text-white border border-white/20">
+                OC · Other
               </span>
             </div>
 
-            <div className="pt-4 space-y-3">
+            <div className="pt-2 space-y-3.5">
               <div className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5 text-blue-300">
-                  <GitCompare className="w-3.5 h-3.5" />
+                <div className="w-7 h-7 rounded-md bg-white/15 border border-white/20 flex items-center justify-center shrink-0 mt-0.5 text-white">
+                  <GitCompare className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-bold text-white">Cross-Bureau Overlap Engine</h2>
-                  <p className="text-[11px] text-blue-200/70">
+                  <h2 className="text-xs font-semibold text-white">Cross-Bureau Overlap Engine</h2>
+                  <p className="text-xs text-blue-100/80 leading-relaxed">
                     Continuous TF-IDF similarity scoring & permanent ID correlation
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5 text-emerald-300">
-                  <Clock className="w-3.5 h-3.5" />
+                <div className="w-7 h-7 rounded-md bg-white/15 border border-white/20 flex items-center justify-center shrink-0 mt-0.5 text-white">
+                  <Clock className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-bold text-white">Proactive SLA Monitoring</h2>
-                  <p className="text-[11px] text-blue-200/70">
+                  <h2 className="text-xs font-semibold text-white">Proactive SLA Monitoring</h2>
+                  <p className="text-xs text-blue-100/80 leading-relaxed">
                     Automated 4-tier ageing classification and escalation alerts
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 mt-0.5 text-indigo-300">
-                  <Building2 className="w-3.5 h-3.5" />
+                <div className="w-7 h-7 rounded-md bg-white/15 border border-white/20 flex items-center justify-center shrink-0 mt-0.5 text-white">
+                  <Building2 className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-bold text-white">Centralized Directory</h2>
-                  <p className="text-[11px] text-blue-200/70">
+                  <h2 className="text-xs font-semibold text-white">Centralized Directory</h2>
+                  <p className="text-xs text-blue-100/80 leading-relaxed">
                     Complete institutional profiles with immutable event logs
                   </p>
                 </div>
@@ -179,37 +180,37 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="relative z-10 pt-6 mt-6 border-t border-white/10 flex items-center justify-between text-xs text-blue-200/70">
-            <span className="font-semibold text-white">CaseBridge</span>
-            <span className="text-[11px] text-blue-200/60">Grievance Monitoring</span>
+          <div className="relative z-10 pt-6 mt-6 border-t border-white/15 flex items-center justify-between text-xs text-blue-100/80">
+            <span className="font-medium text-white">CaseBridge</span>
+            <span className="text-xs text-blue-100/70">Synthetic Demo Data</span>
           </div>
         </div>
 
         {/* Right Side: Authentication Form */}
-        <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white">
+        <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-[var(--bg-surface)]">
           <div className="max-w-md w-full mx-auto space-y-6">
             <div>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-900 text-white flex items-center justify-center shadow-md shadow-blue-900/20">
-                  <Layers className="w-6 h-6 text-blue-100" />
+                <div className="w-9 h-9 rounded-lg bg-[var(--brand)] text-white flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-white" aria-hidden="true" />
                 </div>
                 <div>
-                  <div className="text-base font-black tracking-tight text-slate-900 font-mono">
-                    CASEBRIDGE
+                  <div className="text-base font-semibold tracking-tight text-[var(--text)]">
+                    CaseBridge
                   </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  <div className="text-xs text-[var(--text-secondary)]">
                     Institution Complaint Monitoring
                   </div>
                 </div>
               </div>
 
-              <div className="h-0.5 w-full bg-slate-100 my-4" />
+              <div className="h-px w-full bg-[var(--border)] my-4" />
 
               <div className="space-y-1">
-                <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                <h2 className="text-lg font-semibold text-[var(--text)] tracking-tight">
                   Officer Authentication
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--text-secondary)]">
                   Sign in with your authorized portal credentials or use quick role access below
                 </p>
               </div>
@@ -217,23 +218,30 @@ export const LoginPage: React.FC = () => {
 
             {/* Error Banner */}
             {error && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 shadow-2xs">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-rose-800 font-medium leading-relaxed">{error}</div>
+              <div
+                role="alert"
+                className="p-3.5 rounded-lg bg-[var(--danger-bg)] border border-[var(--danger)]/30 flex items-start gap-3"
+              >
+                <AlertCircle className="w-4 h-4 text-[var(--danger)] shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="text-xs text-[var(--danger)] font-medium leading-relaxed">{error}</div>
               </div>
             )}
 
             {/* Credentials Form */}
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label
+                  htmlFor="login-username"
+                  className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5"
+                >
                   Officer Username / ID
                 </label>
-                <div className="relative rounded-lg shadow-2xs">
+                <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 text-slate-400" />
+                    <User className="h-4 w-4 text-[var(--text-tertiary)]" aria-hidden="true" />
                   </div>
                   <input
+                    id="login-username"
                     type="text"
                     required
                     value={username}
@@ -242,20 +250,24 @@ export const LoginPage: React.FC = () => {
                       if (error) setError(null);
                     }}
                     placeholder="e.g. admin or coordinator"
-                    className="block w-full pl-10 pr-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-900/20 focus:border-blue-900 transition bg-slate-50/50 focus:bg-white"
+                    className="block w-full h-10 pl-10 pr-3.5 border border-[var(--border-input)] rounded-lg text-sm text-[var(--text)] placeholder:text-[var(--text-tertiary)] bg-[var(--bg-surface)] transition focus:border-[var(--brand)]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label
+                  htmlFor="login-password"
+                  className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5"
+                >
                   Password
                 </label>
-                <div className="relative rounded-lg shadow-2xs">
+                <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Lock className="h-4 w-4 text-slate-400" />
+                    <Lock className="h-4 w-4 text-[var(--text-tertiary)]" aria-hidden="true" />
                   </div>
                   <input
+                    id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
@@ -264,25 +276,30 @@ export const LoginPage: React.FC = () => {
                       if (error) setError(null);
                     }}
                     placeholder="••••••••"
-                    className="block w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-900/20 focus:border-blue-900 transition bg-slate-50/50 focus:bg-white"
+                    className="block w-full h-10 pl-10 pr-10 border border-[var(--border-input)] rounded-lg text-sm text-[var(--text)] placeholder:text-[var(--text-tertiary)] bg-[var(--bg-surface)] transition focus:border-[var(--brand)]"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-hidden cursor-pointer"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[var(--text-tertiary)] hover:text-[var(--text)] cursor-pointer"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-2 text-slate-600 cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-[var(--text-secondary)] cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-900 focus:ring-blue-900 cursor-pointer"
+                    className="w-4 h-4 rounded border-[var(--border-input)] text-[var(--brand)] cursor-pointer"
                   />
                   <span>Remember this session</span>
                 </label>
@@ -291,15 +308,15 @@ export const LoginPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl shadow-md shadow-blue-900/20 text-sm font-bold text-white bg-blue-900 hover:bg-blue-800 active:scale-[0.99] transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full h-10 flex justify-center items-center gap-2 px-4 rounded-lg text-sm font-medium text-white bg-[var(--brand)] hover:bg-[var(--brand-hover)] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span>Authenticating...</span>
                 ) : (
                   <>
-                    <ShieldCheck className="w-4 h-4 text-blue-200" />
+                    <ShieldCheck className="w-4 h-4 text-white" aria-hidden="true" />
                     <span>Sign In to Portal</span>
-                    <ArrowRight className="w-4 h-4 ml-1" />
+                    <ArrowRight className="w-4 h-4 ml-1" aria-hidden="true" />
                   </>
                 )}
               </button>
@@ -307,15 +324,15 @@ export const LoginPage: React.FC = () => {
 
             {/* Quick Role Access */}
             {demoAccounts && demoAccounts.length > 0 && (
-              <div className="pt-5 border-t border-slate-200/90 space-y-3">
-                <div className="flex items-center gap-1.5 text-slate-800">
-                  <Sparkles className="w-4 h-4 text-blue-900" />
-                  <span className="text-xs font-extrabold uppercase tracking-wider">
+              <div className="pt-5 border-t border-[var(--border)] space-y-3">
+                <div className="flex items-center gap-1.5 text-[var(--text)]">
+                  <Sparkles className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />
+                  <span className="text-xs font-semibold">
                     Quick Role Access
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Select an authorized account below:
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Select an authorized demo account below:
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -325,17 +342,17 @@ export const LoginPage: React.FC = () => {
                       type="button"
                       onClick={() => handleQuickLogin(acc)}
                       disabled={loading}
-                      className="flex flex-col justify-between p-2.5 rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-blue-50/70 hover:border-blue-300 text-left transition group cursor-pointer shadow-2xs"
+                      className="flex flex-col justify-between p-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] hover:bg-[var(--brand-subtle)] hover:border-[var(--brand)]/30 text-left transition group cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-1 mb-1">
-                        <span className="text-xs font-bold text-slate-900 group-hover:text-blue-900 leading-snug">
+                        <span className="text-xs font-medium text-[var(--text)] group-hover:text-[var(--brand)] leading-snug">
                           {acc.name}
                         </span>
-                        <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 shrink-0 group-hover:border-blue-300 group-hover:text-blue-900">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--neutral-bg)] border border-[var(--border)] text-[var(--neutral)] shrink-0">
                           {acc.badge}
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
+                      <div className="text-[11px] text-[var(--text-tertiary)] num-tabular">
                         {acc.username} · {acc.password_hint}
                       </div>
                     </button>

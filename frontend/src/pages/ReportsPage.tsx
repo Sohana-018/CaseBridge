@@ -4,9 +4,8 @@ import { getReport, downloadReportCsv, type ReportData } from '../api/client';
 import { StatusChip, BureauBadge } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import { useToast } from '../components/Toast';
-import { formatCategory, formatStatus, formatOutcome } from '../utils/formatters';
+import { formatStatus, formatOutcome } from '../utils/formatters';
 import {
-  BarChart3,
   Building2,
   PieChart,
   Clock,
@@ -16,7 +15,6 @@ import {
   MapPin,
   RefreshCw,
   Download,
-  Percent,
 } from 'lucide-react';
 import {
   ResponsiveContainer,

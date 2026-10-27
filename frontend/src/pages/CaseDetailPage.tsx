@@ -10,21 +10,17 @@ import {
   type CaseEvent,
   type UserPayload,
 } from '../api/client';
-import { StatusChip, PriorityChip, RestrictedBadge } from '../components/Badges';
+import { StatusChip, PriorityChip } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import { formatCategory, formatStatus } from '../utils/formatters';
 import { useToast } from '../components/Toast';
 import {
   ArrowLeft,
   Building2,
-  Calendar,
-  Clock,
-  User,
   Activity,
   ArrowRight,
   ShieldAlert,
   GitCommit,
-  CheckCircle2,
   ArrowRightLeft,
   Flame,
   MessageSquare,

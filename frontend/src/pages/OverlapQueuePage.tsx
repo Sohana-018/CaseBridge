@@ -35,7 +35,6 @@ import {
   Info,
   Calendar,
   User,
-  Building2,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
@@ -217,7 +216,7 @@ export const OverlapQueuePage: React.FC = () => {
     try {
       const res = await scanOverlaps();
       showToast(
-        `Overlap scan complete: ${res.scanned ?? 0} active cases examined, ${res.created ?? 0} candidate pairs flagged`,
+        `Overlap scan complete: ${res.created ?? 0} candidate pairs discovered`,
         'success'
       );
       fetchQueue(false);

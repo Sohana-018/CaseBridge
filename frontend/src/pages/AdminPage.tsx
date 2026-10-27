@@ -26,7 +26,6 @@ import {
 } from '../api/client';
 import type {
   AdminUser,
-  AdminConfigItem,
   AdminAuditLog,
   SystemHealthSummary,
   CreateAdminUserPayload,
@@ -48,7 +47,6 @@ export const AdminPage: React.FC = () => {
   // Data states
   const [health, setHealth] = useState<SystemHealthSummary | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [configs, setConfigs] = useState<AdminConfigItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
 
   // User form modal state
@@ -87,7 +85,6 @@ export const AdminPage: React.FC = () => {
       ]);
       setHealth(healthData);
       setUsers(usersData);
-      setConfigs(configData);
       const confMap: Record<string, string> = {};
       configData.forEach((c) => {
         confMap[c.key] = c.value;
@@ -144,7 +141,7 @@ export const AdminPage: React.FC = () => {
   const handleToggleStatus = async (user: AdminUser) => {
     setError(null);
     try {
-      const res = await toggleAdminUserStatus(user.id);
+      const res = await toggleAdminUserStatus(user.id, !user.is_active);
       showToast(
         `User '${user.username}' is now ${res.is_active ? 'active' : 'deactivated'}`,
         'success'
@@ -178,11 +175,8 @@ export const AdminPage: React.FC = () => {
   const handleSaveConfig = async () => {
     setError(null);
     try {
-      const updates = Object.entries(configEdits).map(([key, value]) => ({ key, value }));
-      await updateAdminConfig(updates);
+      await updateAdminConfig(configEdits);
       showToast('System configuration parameters saved', 'success');
-      const updatedConfigs = await getAdminConfig();
-      setConfigs(updatedConfigs);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save configuration.';
       setError(msg);
@@ -197,7 +191,7 @@ export const AdminPage: React.FC = () => {
     try {
       const res = await triggerAdminOverlapScan();
       showToast(
-        `Full overlap scan completed: ${res.scanned ?? 0} cases scanned, ${res.created ?? 0} candidate pairs discovered`,
+        `Full overlap scan completed: ${res.created ?? 0} candidate pairs discovered`,
         'success'
       );
       loadAllAdminData(false);
@@ -276,6 +270,23 @@ export const AdminPage: React.FC = () => {
           </button>
         </div>
       </section>
+
+      {/* In-page Error Banner */}
+      {error && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-lg bg-[var(--danger-bg)] border border-[var(--danger)]/30 text-xs text-[var(--danger)] flex items-center justify-between"
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-xs font-medium underline hover:no-underline cursor-pointer ml-3"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div

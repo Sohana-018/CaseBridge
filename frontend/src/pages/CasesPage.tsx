@@ -17,7 +17,6 @@ import { formatCategory } from '../utils/formatters';
 import { useToast } from '../components/Toast';
 import {
   Search,
-  Building2,
   Calendar,
   User,
   X,
