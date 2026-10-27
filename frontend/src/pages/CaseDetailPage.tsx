@@ -10,22 +10,20 @@ import {
   type CaseEvent,
   type UserPayload,
 } from '../api/client';
-import { StatusChip, BureauBadge, PriorityChip, OverdueBadge } from '../components/Badges';
+import { StatusChip, PriorityChip, RestrictedBadge } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
+import { formatCategory, formatStatus } from '../utils/formatters';
+import { useToast } from '../components/Toast';
 import {
   ArrowLeft,
   Building2,
   Calendar,
   Clock,
   User,
-  AlertCircle,
-  FileText,
   Activity,
   ArrowRight,
   ShieldAlert,
   GitCommit,
-  Tag,
-  CheckCircle,
   CheckCircle2,
   ArrowRightLeft,
   Flame,
@@ -40,8 +38,31 @@ const ALL_STATUSES = ['pending', 'under_process', 'disposed', 'transferred', 'es
 const ALL_BUREAUS = ['RB', 'PGRC', 'RO', 'OC'];
 const PRIORITIES: Array<'low' | 'medium' | 'high'> = ['low', 'medium', 'high'];
 
+function computeSlaExplanation(c: CaseItem): { text: string; isDanger: boolean } | null {
+  if (!c.expected_disposal_date) return null;
+  const target = new Date(c.expected_disposal_date).getTime();
+
+  if (c.status === 'disposed') {
+    // If last action date or disposal date exists
+    const closedDate = c.last_action_date ? new Date(c.last_action_date).getTime() : new Date().getTime();
+    const diffDays = Math.round((closedDate - target) / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) {
+      return { text: `Disposed ${diffDays} days after SLA target`, isDanger: false };
+    }
+    return { text: 'Closed on time within SLA', isDanger: false };
+  }
+
+  const now = new Date().getTime();
+  const diffDays = Math.round((now - target) / (1000 * 60 * 60 * 24));
+  if (diffDays > 0) {
+    return { text: `${diffDays} days overdue past SLA target`, isDanger: true };
+  }
+  return { text: `Due in ${Math.abs(diffDays)} days`, isDanger: false };
+}
+
 export const CaseDetailPage: React.FC = () => {
   const { case_no } = useParams<{ case_no: string }>();
+  const { showToast } = useToast();
   const [caseItem, setCaseItem] = useState<CaseItem | null>(null);
   const [events, setEvents] = useState<CaseEvent[]>([]);
   const [currentUser, setCurrentUser] = useState<UserPayload | null>(() => getCurrentUser());
@@ -52,25 +73,20 @@ export const CaseDetailPage: React.FC = () => {
     setCurrentUser(getCurrentUser());
   }, []);
 
-  // Actions dialog states
+  // Action Dialog States
   const [activeDialog, setActiveDialog] = useState<
     'status' | 'transfer' | 'escalate' | 'remark' | 'edit_details' | null
   >(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Form field states
+  // Form Fields
   const [newStatus, setNewStatus] = useState<string>('');
   const [statusRemarks, setStatusRemarks] = useState<string>('');
-
   const [newBureau, setNewBureau] = useState<string>('');
   const [transferRemarks, setTransferRemarks] = useState<string>('');
-
   const [escalateRemarks, setEscalateRemarks] = useState<string>('');
-
   const [remarkText, setRemarkText] = useState<string>('');
-
   const [patchNextAction, setPatchNextAction] = useState<string>('');
   const [patchExpectedDate, setPatchExpectedDate] = useState<string>('');
   const [patchOfficer, setPatchOfficer] = useState<string>('');
@@ -102,7 +118,6 @@ export const CaseDetailPage: React.FC = () => {
     fetchCaseAndEvents();
   }, [fetchCaseAndEvents]);
 
-  // Open dialog and pre-populate defaults based on current case state
   const openDialog = (type: 'status' | 'transfer' | 'escalate' | 'remark' | 'edit_details') => {
     setDialogError(null);
     if (!caseItem) return;
@@ -130,14 +145,12 @@ export const CaseDetailPage: React.FC = () => {
     setActiveDialog(type);
   };
 
-  // Close dialog handler
   const closeDialog = () => {
     if (isSubmitting) return;
     setActiveDialog(null);
     setDialogError(null);
   };
 
-  // 1. Submit Status Change
   const handleStatusSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!case_no || !newStatus) return;
@@ -149,17 +162,16 @@ export const CaseDetailPage: React.FC = () => {
         to_status: newStatus,
         remarks: statusRemarks.trim() || undefined,
       });
-      setActiveDialog(null);
-      setActionSuccess(`Case status updated to ${newStatus.replace('_', ' ')}.`);
-      await fetchCaseAndEvents();
+      closeDialog();
+      showToast(`Case status transitioned to ${formatStatus(newStatus)}`, 'success');
+      fetchCaseAndEvents();
     } catch (err: unknown) {
-      setDialogError(err instanceof Error ? err.message : 'Failed to change status.');
+      setDialogError(err instanceof Error ? err.message : 'Failed to update case status.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 2. Submit Bureau Transfer
   const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!case_no || !newBureau) return;
@@ -171,9 +183,9 @@ export const CaseDetailPage: React.FC = () => {
         to_bureau: newBureau,
         remarks: transferRemarks.trim() || undefined,
       });
-      setActiveDialog(null);
-      setActionSuccess(`Case successfully transferred to ${newBureau} Bureau.`);
-      await fetchCaseAndEvents();
+      closeDialog();
+      showToast(`Case reallocated to ${newBureau} Bureau`, 'success');
+      fetchCaseAndEvents();
     } catch (err: unknown) {
       setDialogError(err instanceof Error ? err.message : 'Failed to transfer case.');
     } finally {
@@ -181,14 +193,9 @@ export const CaseDetailPage: React.FC = () => {
     }
   };
 
-  // 3. Submit Escalation
   const handleEscalateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!case_no) return;
-    if (!escalateRemarks.trim()) {
-      setDialogError('Escalation reason is required.');
-      return;
-    }
+    if (!case_no || !escalateRemarks.trim()) return;
     setIsSubmitting(true);
     setDialogError(null);
     try {
@@ -196,9 +203,9 @@ export const CaseDetailPage: React.FC = () => {
         event_type: 'escalation',
         remarks: escalateRemarks.trim(),
       });
-      setActiveDialog(null);
-      setActionSuccess('Case escalated and priority coordination alert triggered.');
-      await fetchCaseAndEvents();
+      closeDialog();
+      showToast('Case escalated to senior coordination desk', 'success');
+      fetchCaseAndEvents();
     } catch (err: unknown) {
       setDialogError(err instanceof Error ? err.message : 'Failed to escalate case.');
     } finally {
@@ -206,14 +213,9 @@ export const CaseDetailPage: React.FC = () => {
     }
   };
 
-  // 4. Submit Remark
   const handleRemarkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!case_no) return;
-    if (!remarkText.trim()) {
-      setDialogError('Remark text is required.');
-      return;
-    }
+    if (!case_no || !remarkText.trim()) return;
     setIsSubmitting(true);
     setDialogError(null);
     try {
@@ -221,9 +223,9 @@ export const CaseDetailPage: React.FC = () => {
         event_type: 'remark',
         remarks: remarkText.trim(),
       });
-      setActiveDialog(null);
-      setActionSuccess('Remark added to case timeline.');
-      await fetchCaseAndEvents();
+      closeDialog();
+      showToast('Audit remark appended to timeline', 'success');
+      fetchCaseAndEvents();
     } catch (err: unknown) {
       setDialogError(err instanceof Error ? err.message : 'Failed to append remark.');
     } finally {
@@ -231,7 +233,6 @@ export const CaseDetailPage: React.FC = () => {
     }
   };
 
-  // 5. Submit Edit Details
   const handleEditDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!case_no) return;
@@ -239,14 +240,14 @@ export const CaseDetailPage: React.FC = () => {
     setDialogError(null);
     try {
       await patchCase(case_no, {
-        next_action: patchNextAction.trim() || null,
-        expected_disposal_date: patchExpectedDate || null,
-        assigned_officer: patchOfficer.trim() || null,
-        priority: patchPriority || 'medium',
+        next_action: patchNextAction.trim() || undefined,
+        expected_disposal_date: patchExpectedDate || undefined,
+        assigned_officer: patchOfficer.trim() || undefined,
+        priority: patchPriority,
       });
-      setActiveDialog(null);
-      setActionSuccess('Case schedule and assignment details updated.');
-      await fetchCaseAndEvents();
+      closeDialog();
+      showToast('Case details successfully updated', 'success');
+      fetchCaseAndEvents();
     } catch (err: unknown) {
       setDialogError(err instanceof Error ? err.message : 'Failed to update case details.');
     } finally {
@@ -270,53 +271,6 @@ export const CaseDetailPage: React.FC = () => {
     }
   };
 
-  const renderEventTypeBadge = (eventType: string) => {
-    const norm = (eventType || '').toLowerCase();
-    switch (norm) {
-      case 'created':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-900 border border-blue-200">
-            <CheckCircle className="w-3 h-3" />
-            Created
-          </span>
-        );
-      case 'status_change':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-300">
-            <Activity className="w-3 h-3" />
-            Status Change
-          </span>
-        );
-      case 'transfer':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-            <ArrowRight className="w-3 h-3" />
-            Transfer
-          </span>
-        );
-      case 'escalation':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-800 border border-purple-200">
-            <AlertCircle className="w-3 h-3 text-purple-600" />
-            Escalation
-          </span>
-        );
-      case 'remark':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200">
-            <Tag className="w-3 h-3" />
-            Remark
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-            {eventType}
-          </span>
-        );
-    }
-  };
-
   const isDisposed = caseItem?.status === 'disposed';
   const isReadOnlyRole = currentUser?.role === 'senior_management' || currentUser?.role === 'administrator';
   const isOfficerDiffBureau =
@@ -324,27 +278,30 @@ export const CaseDetailPage: React.FC = () => {
     Boolean(currentUser?.bureau && caseItem?.bureau && currentUser.bureau.toUpperCase() !== caseItem.bureau.toUpperCase());
   const isRestricted = isOfficerDiffBureau;
 
+  const prefixBureau = caseItem?.case_no.split('-')[0];
+  const hasBureauTransferDifference = prefixBureau && caseItem?.bureau && prefixBureau !== caseItem.bureau;
+  const slaInfo = caseItem ? computeSlaExplanation(caseItem) : null;
+
   return (
-    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="cb-page-container space-y-6">
       {/* Back button */}
-      <div className="mb-6 flex items-center justify-between">
+      <div>
         <Link
           to={caseItem?.institution?.permanent_id ? `/institutions/${caseItem.institution.permanent_id}` : '/cases'}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-900 transition"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--brand)] transition"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           <span>
             {caseItem?.institution?.name
               ? `Back to ${caseItem.institution.name}`
-              : 'Back to Cases'}
+              : 'Back to Cases Directory'}
           </span>
         </Link>
       </div>
 
-      {/* Loading state */}
-      {loading && <LoadingState message={`Fetching case ${case_no} and timeline events...`} />}
+      {/* Loading & Error States */}
+      {loading && <LoadingState message={`Fetching case ${case_no} and timeline...`} />}
 
-      {/* Error state */}
       {!loading && error && (
         <ErrorState
           title="Case Not Found or Error"
@@ -353,413 +310,367 @@ export const CaseDetailPage: React.FC = () => {
         />
       )}
 
-      {/* Case Details & Timeline */}
+      {/* Main Two-Column Layout */}
       {!loading && !error && caseItem && (
         <div className="space-y-6">
-          {/* Header Card with key facts in a neat grid */}
-          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                  <span className="font-mono font-bold text-sm px-2.5 py-1 rounded bg-blue-50 text-blue-900 border border-blue-200">
-                    {caseItem.case_no}
-                  </span>
-                  <BureauBadge bureau={caseItem.bureau} />
-                  <StatusChip status={caseItem.status} />
-                  {caseItem.priority ? (
-                    <PriorityChip priority={caseItem.priority} />
-                  ) : isRestricted ? (
-                    <span className="text-slate-400 italic text-[11px] px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+          {/* Title Row: Single H1 with reference in mono + badges underneath */}
+          <div className="pb-4 border-b border-[var(--border)]">
+            <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--text)] tracking-tight font-mono">
+              {caseItem.case_no}
+            </h1>
+            <div className="flex items-center gap-2 flex-wrap mt-2">
+              <StatusChip status={caseItem.status} />
+              <span className="px-2 py-0.5 rounded-[6px] text-xs font-semibold bg-[var(--neutral-bg)] text-[var(--neutral)] border border-[var(--border)]">
+                Bureau: {caseItem.bureau}
+              </span>
+              {caseItem.priority && <PriorityChip priority={caseItem.priority} />}
+              {caseItem.overdue && !isDisposed && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[var(--danger-bg)] text-[var(--danger)] border border-[#FECDCA]">
+                  <ShieldAlert className="w-3 h-3 text-[var(--danger)] shrink-0" aria-hidden="true" />
+                  <span>SLA Overdue</span>
+                </span>
+              )}
+            </div>
+
+            {hasBureauTransferDifference && (
+              <p className="text-xs text-[var(--text-secondary)] mt-2">
+                Note: Originally registered in <strong className="font-semibold">{prefixBureau}</strong>, transferred to <strong className="font-semibold">{caseItem.bureau}</strong>.
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Main Column (8 cols): Summary, Metadata Description List, Timeline */}
+            <div className="lg:col-span-8 space-y-6">
+              {/* Affiliated Institution Link */}
+              <div className="cb-card p-5">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">
+                  Affiliated Institution
+                </span>
+                {caseItem.institution ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-2">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-9 h-9 rounded-lg bg-[var(--brand-subtle)] border border-[var(--border)] text-[var(--brand)] flex items-center justify-center shrink-0"
+                        aria-hidden="true"
+                      >
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <Link
+                          to={`/institutions/${caseItem.institution.permanent_id}`}
+                          className="font-semibold text-sm text-[var(--text)] hover:text-[var(--brand)] hover:underline"
+                        >
+                          {caseItem.institution.name}
+                        </Link>
+                        <div className="text-xs text-[var(--text-secondary)] mt-0.5">
+                          PID: <span className="font-mono text-[var(--text-tertiary)]">{caseItem.institution.permanent_id}</span> · Region: {caseItem.institution.region}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`/institutions/${caseItem.institution.permanent_id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand)] hover:underline shrink-0"
+                    >
+                      <span>Institution profile</span>
+                      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-xs text-[var(--text-tertiary)] italic">
+                    Institution details restricted to owning bureau
+                  </div>
+                )}
+              </div>
+
+              {/* Grievance Description */}
+              <div className="cb-card p-5">
+                <h2 className="text-xs font-medium text-[var(--text-secondary)] mb-2">
+                  Grievance Summary & Description
+                </h2>
+                <div className="text-sm text-[var(--text)] leading-relaxed">
+                  {caseItem.description || (
+                    <span className="italic text-[var(--text-tertiary)]">
                       Details restricted to the owning bureau
                     </span>
-                  ) : null}
-                  {caseItem.overdue && <OverdueBadge />}
-                </div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                  Case File {caseItem.case_no}
-                </h1>
-              </div>
-
-              {caseItem.overdue && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-800 px-3.5 py-2 rounded-md text-xs font-medium self-start sm:self-auto">
-                  <ShieldAlert className="w-4 h-4 text-red-600 flex-shrink-0" />
-                  <span>SLA target exceeded. Operational escalation active.</span>
-                </div>
-              )}
-
-              {isRestricted && (
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2 rounded-md text-xs font-medium self-start sm:self-auto">
-                  <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
-                  <span>Cross-bureau view ({caseItem.bureau}): Details restricted to the owning bureau</span>
-                </div>
-              )}
-            </div>
-
-            {/* Institution Affiliation Link Card */}
-            {caseItem.institution ? (
-              <div className="my-5 p-3.5 rounded-md bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-md bg-blue-100 text-blue-900 flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Affiliated Institution
-                    </span>
-                    <div className="font-bold text-slate-900 text-sm">
-                      {caseItem.institution.name}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      ID: <span className="font-mono font-semibold">{caseItem.institution.permanent_id}</span> · Region: {caseItem.institution.region}
-                    </div>
-                  </div>
-                </div>
-
-                <Link
-                  to={`/institutions/${caseItem.institution.permanent_id}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-white border border-slate-300 text-blue-900 hover:bg-slate-50 transition self-start sm:self-auto shadow-xs"
-                >
-                  <span>Institution Profile</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            ) : (
-              <div className="my-5 p-3.5 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-500 italic flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-slate-400" />
-                <span>Affiliated Institution: Details restricted to the owning bureau</span>
-              </div>
-            )}
-
-            {/* Complaint Description */}
-            <div className="mb-5">
-              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                <span>Grievance Summary & Description</span>
-              </h2>
-              <div className="p-3.5 rounded-md bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed font-normal">
-                {caseItem.description ? (
-                  caseItem.description
-                ) : (
-                  <span className="italic text-slate-500">Details restricted to the owning bureau</span>
-                )}
-              </div>
-            </div>
-
-            {/* Neat Key Facts Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-4 border-t border-slate-100">
-              <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                <div className="text-slate-500 font-medium mb-1">GRIEVANCE CATEGORY</div>
-                <div className="font-bold text-slate-800 text-sm capitalize">{caseItem.category}</div>
-                <div className="text-slate-500 mt-0.5">Classification</div>
-              </div>
-
-              <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                <div className="text-slate-500 font-medium mb-1 flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>ASSIGNED OFFICER</span>
-                </div>
-                <div className="font-bold text-slate-800 text-sm">
-                  {caseItem.assigned_officer ? (
-                    caseItem.assigned_officer
-                  ) : isRestricted ? (
-                    <span className="italic font-normal text-slate-400">Details restricted to the owning bureau</span>
-                  ) : (
-                    'Unassigned'
                   )}
                 </div>
-                <div className="text-slate-500 mt-0.5">Handling official</div>
               </div>
 
-              <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                <div className="text-slate-500 font-medium mb-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>RECEIVED DATE</span>
-                </div>
-                <div className="font-bold text-slate-800 text-sm">{caseItem.received_date}</div>
-                <div className="text-slate-500 mt-0.5">Intake date</div>
-              </div>
-
-              <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                <div className="text-slate-500 font-medium mb-1 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>EXPECTED DISPOSAL</span>
-                </div>
-                <div className={`font-bold text-sm ${caseItem.overdue ? 'text-red-700' : 'text-slate-800'}`}>
-                  {caseItem.expected_disposal_date ? (
-                    caseItem.expected_disposal_date
-                  ) : isRestricted ? (
-                    <span className="italic font-normal text-slate-400">Details restricted to the owning bureau</span>
-                  ) : (
-                    'Not scheduled'
-                  )}
-                </div>
-                <div className="text-slate-500 mt-0.5">
-                  {caseItem.overdue ? 'Overdue target' : 'Target SLA deadline'}
-                </div>
-              </div>
-            </div>
-
-            {/* Action History Row */}
-            {(caseItem.next_action || caseItem.last_action) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mt-3">
-                {caseItem.last_action && (
-                  <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                    <div className="text-slate-500 font-medium mb-1">LAST ACTION RECORDED</div>
-                    <div className="font-semibold text-slate-800">{caseItem.last_action}</div>
-                    {caseItem.last_action_date && (
-                      <div className="text-slate-500 mt-0.5">On {caseItem.last_action_date}</div>
-                    )}
-                  </div>
-                )}
-                {caseItem.next_action && (
-                  <div className="p-3 rounded-md bg-blue-50/60 border border-blue-200">
-                    <div className="text-blue-900 font-semibold mb-1">PLANNED NEXT ACTION</div>
-                    <div className="font-semibold text-slate-900">{caseItem.next_action}</div>
-                    <div className="text-slate-500 mt-0.5">Pending follow-up</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Actions Panel */}
-          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 mb-5">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-blue-900" />
-                  <span>Case Actions & Operations</span>
+              {/* Clean Description List (No Boxed Tiles) */}
+              <div className="cb-card p-5">
+                <h2 className="text-xs font-medium text-[var(--text-secondary)] mb-4">
+                  Case Metadata
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Execute workflow operations, cross-bureau transfers, priority escalations, or edit case attributes.
-                </p>
-              </div>
-
-              {isDisposed && !isReadOnlyRole && !isOfficerDiffBureau && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold self-start sm:self-auto">
-                  <Lock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Disposed Case · Only Remarks Allowed</span>
-                </div>
-              )}
-            </div>
-
-            {/* Action Success Alert Banner */}
-            {actionSuccess && (
-              <div
-                role="status"
-                className="mb-5 p-3.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between gap-3 shadow-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span>{actionSuccess}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActionSuccess(null)}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer"
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
-
-            {/* Role-based permissions notice / buttons */}
-            {isReadOnlyRole ? (
-              <div className="p-4 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center gap-2.5">
-                <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>
-                  Actions panel is read-only for this role ({currentUser?.role === 'senior_management' ? 'Senior Management' : 'Administrator'}).
-                </span>
-              </div>
-            ) : isOfficerDiffBureau ? (
-              <div className="p-4 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center gap-2.5">
-                <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>
-                  Case actions are restricted to the owning bureau ({caseItem.bureau}). Details restricted to the owning bureau.
-                </span>
-              </div>
-            ) : (
-              /* Action Buttons Grid for Coordinator and Own Bureau Officer */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {/* 1. Change Status */}
-                <button
-                  type="button"
-                  onClick={() => openDialog('status')}
-                  disabled={isDisposed}
-                  title={isDisposed ? 'Disposed cases cannot change status.' : 'Change case workflow status'}
-                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                    isDisposed
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                      : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
-                  }`}
-                >
-                  <Activity className="w-4 h-4 text-blue-700" />
-                  <span>Change Status</span>
-                </button>
-
-                {/* 2. Transfer */}
-                <button
-                  type="button"
-                  onClick={() => openDialog('transfer')}
-                  disabled={isDisposed}
-                  title={isDisposed ? 'Disposed cases cannot be transferred.' : 'Transfer to another Bureau'}
-                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                    isDisposed
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                      : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
-                  }`}
-                >
-                  <ArrowRightLeft className="w-4 h-4 text-teal-700" />
-                  <span>Transfer Bureau</span>
-                </button>
-
-                {/* 3. Escalate */}
-                <button
-                  type="button"
-                  onClick={() => openDialog('escalate')}
-                  disabled={isDisposed}
-                  title={isDisposed ? 'Disposed cases cannot be escalated.' : 'Escalate case to senior management'}
-                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                    isDisposed
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                      : 'bg-white border-slate-300 text-purple-900 hover:bg-purple-50 hover:border-purple-600 cursor-pointer'
-                  }`}
-                >
-                  <Flame className="w-4 h-4 text-purple-600" />
-                  <span>Escalate</span>
-                </button>
-
-                {/* 4. Add Remark */}
-                <button
-                  type="button"
-                  onClick={() => openDialog('remark')}
-                  title="Append a note or remark to timeline"
-                  className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 transition shadow-xs cursor-pointer"
-                >
-                  <MessageSquare className="w-4 h-4 text-slate-600" />
-                  <span>Add Remark</span>
-                </button>
-
-                {/* 5. Edit Details */}
-                <button
-                  type="button"
-                  onClick={() => openDialog('edit_details')}
-                  disabled={isDisposed}
-                  title={isDisposed ? 'Disposed cases cannot be modified.' : 'Directly patch schedule, officer, and priority'}
-                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-md text-xs font-semibold border transition shadow-xs ${
-                    isDisposed
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                      : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-blue-900 hover:text-blue-900 cursor-pointer'
-                  }`}
-                >
-                  <Edit3 className="w-4 h-4 text-amber-700" />
-                  <span>Edit Details</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Timeline Section */}
-          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-6">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-md bg-blue-50 text-blue-900 flex items-center justify-center">
-                  <GitCommit className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Case Event Timeline</h2>
-                  <p className="text-xs text-slate-500">
-                    Chronological audit history (oldest first)
-                  </p>
-                </div>
-              </div>
-
-              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                {events.length} Events
-              </span>
-            </div>
-
-            {isRestricted && (
-              <div className="mb-4 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
-                <span>Cross-bureau Case: Detailed remarks restricted to the owning bureau ({caseItem.bureau}).</span>
-              </div>
-            )}
-
-            {events.length === 0 ? (
-              <EmptyState
-                title="No events logged"
-                message={
-                  isRestricted
-                    ? 'Details restricted to the owning bureau.'
-                    : 'No chronological events have been appended to this case yet.'
-                }
-              />
-            ) : (
-              <div className="relative pl-6 border-l-2 border-slate-300 space-y-6 my-4 ml-4">
-                {events.map((evt, idx) => (
-                  <div key={evt.id || idx} className="relative">
-                    {/* Vertical line dot */}
-                    <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-blue-900 border-2 border-white ring-2 ring-slate-300" />
-
-                    {/* Event Entry */}
-                    <div className="p-4 rounded-md bg-slate-50 border border-slate-200 hover:border-slate-300 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {renderEventTypeBadge(evt.event_type)}
-                          <BureauBadge bureau={evt.bureau} />
-                        </div>
-                        {/* Time in muted text */}
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{formatTimestamp(evt.ts)}</span>
-                        </div>
-                      </div>
-
-                      {/* Actor in muted text */}
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-2">
-                        <User className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-semibold text-slate-800">{evt.actor}</span>
-                        <span className="text-slate-400">· {evt.bureau} Bureau</span>
-                      </div>
-
-                      {/* State transitions (if any) */}
-                      {(evt.from_status || evt.to_status || evt.from_bureau || evt.to_bureau) && (
-                        <div className="flex items-center gap-2 my-2 text-xs flex-wrap">
-                          {evt.to_status && (
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">
-                              <span className="text-slate-500">Status:</span>
-                              {evt.from_status && <span className="line-through text-slate-400">{evt.from_status}</span>}
-                              <ArrowRight className="w-3 h-3 text-blue-900" />
-                              <span className="font-semibold text-slate-900">{evt.to_status}</span>
-                            </div>
-                          )}
-                          {evt.to_bureau && (
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">
-                              <span className="text-slate-500">Bureau:</span>
-                              {evt.from_bureau && <span className="line-through text-slate-400">{evt.from_bureau}</span>}
-                              <ArrowRight className="w-3 h-3 text-blue-900" />
-                              <span className="font-semibold text-slate-900">{evt.to_bureau}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Remarks */}
-                      <div className="mt-2 text-xs sm:text-sm text-slate-700 font-normal leading-relaxed bg-white p-3 rounded border border-slate-200">
-                        {evt.remarks ? (
-                          <p>{evt.remarks}</p>
-                        ) : (
-                          <p className="text-slate-400 italic">
-                            {isRestricted ? 'Details restricted to the owning bureau' : 'No additional remarks recorded.'}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <dt className="text-[var(--text-tertiary)] mb-1">Category</dt>
+                    <dd className="font-semibold text-[var(--text)]">
+                      {formatCategory(caseItem.category)}
+                    </dd>
                   </div>
-                ))}
+
+                  <div>
+                    <dt className="text-[var(--text-tertiary)] mb-1">Assigned Officer</dt>
+                    <dd className="font-semibold text-[var(--text)]">
+                      {caseItem.assigned_officer || (isRestricted ? 'Restricted' : 'Unassigned')}
+                    </dd>
+                  </div>
+
+                  <div>
+                    <dt className="text-[var(--text-tertiary)] mb-1">Received Date</dt>
+                    <dd className="font-semibold text-[var(--text)] num-tabular">
+                      {caseItem.received_date || '—'}
+                    </dd>
+                  </div>
+
+                  <div>
+                    <dt className="text-[var(--text-tertiary)] mb-1">Target SLA Date</dt>
+                    <dd className={`font-semibold num-tabular ${caseItem.overdue && !isDisposed ? 'text-[var(--danger)]' : 'text-[var(--text)]'}`}>
+                      {caseItem.expected_disposal_date || '—'}
+                    </dd>
+                  </div>
+                </dl>
+
+                {/* Planned Next Action (Hidden or Relabeled if Disposed) */}
+                {!isDisposed && caseItem.next_action && (
+                  <div className="mt-4 pt-4 border-t border-[var(--border)] text-xs">
+                    <span className="text-[var(--text-tertiary)]">Planned Next Action:</span>
+                    <p className="font-medium text-[var(--text)] mt-0.5">{caseItem.next_action}</p>
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Chronological Timeline Section (Clean vertical line) */}
+              <div className="cb-card p-5">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-4">
+                  <div className="flex items-center gap-2">
+                    <GitCommit className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />
+                    <h2 className="text-sm font-semibold text-[var(--text)]">Event Timeline</h2>
+                  </div>
+                  <span className="text-xs text-[var(--text-secondary)] num-tabular">
+                    {events.length} events
+                  </span>
+                </div>
+
+                {events.length === 0 ? (
+                  <EmptyState
+                    title="No events logged"
+                    message={
+                      isRestricted
+                        ? 'Details restricted to the owning bureau.'
+                        : 'No events have been appended to this case yet.'
+                    }
+                  />
+                ) : (
+                  <div className="relative pl-5 border-l-2 border-[var(--border)] space-y-5 my-2 ml-2">
+                    {events.map((evt, idx) => {
+                      const isInitialRegistration = idx === 0 && evt.event_type === 'created';
+                      return (
+                        <div key={evt.id || idx} className="relative">
+                          {/* Dot on line */}
+                          <div
+                            className="absolute -left-[27px] top-1.5 w-2.5 h-2.5 rounded-full bg-[var(--brand)] border-2 border-white"
+                            aria-hidden="true"
+                          />
+
+                          <div className="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] text-xs">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-[var(--text)]">
+                                  {isInitialRegistration
+                                    ? 'Registered'
+                                    : evt.event_type === 'status_change'
+                                    ? 'Status Updated'
+                                    : evt.event_type === 'transfer'
+                                    ? 'Transferred'
+                                    : evt.event_type === 'escalation'
+                                    ? 'Escalated'
+                                    : evt.event_type === 'review'
+                                    ? 'Review Decision'
+                                    : 'Remark Appended'}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white border border-[var(--border)] text-[var(--neutral)]">
+                                  {evt.bureau}
+                                </span>
+                              </div>
+                              <span
+                                className="text-[11px] text-[var(--text-tertiary)] num-tabular"
+                                title={evt.ts || ''}
+                              >
+                                {formatTimestamp(evt.ts)}
+                              </span>
+                            </div>
+
+                            <div className="text-[11px] text-[var(--text-secondary)] mb-2">
+                              Recorded by <strong className="font-semibold text-[var(--text)]">{evt.actor}</strong>
+                            </div>
+
+                            {/* State transitions */}
+                            {!isInitialRegistration && (evt.from_status || evt.to_status || evt.from_bureau || evt.to_bureau) && (
+                              <div className="flex items-center gap-2 my-1.5 flex-wrap">
+                                {evt.to_status && (
+                                  <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-[var(--border)] text-[var(--text)]">
+                                    <span className="text-[var(--text-tertiary)]">Status:</span>
+                                    {evt.from_status && (
+                                      <>
+                                        <span className="text-[var(--text-secondary)]">
+                                          {formatStatus(evt.from_status)}
+                                        </span>
+                                        <ArrowRight className="w-3 h-3 text-[var(--brand)]" aria-hidden="true" />
+                                      </>
+                                    )}
+                                    <span className="font-semibold text-[var(--brand)]">
+                                      {formatStatus(evt.to_status)}
+                                    </span>
+                                  </div>
+                                )}
+                                {evt.to_bureau && (
+                                  <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-[var(--border)] text-[var(--text)]">
+                                    <span className="text-[var(--text-tertiary)]">Bureau:</span>
+                                    {evt.from_bureau && (
+                                      <>
+                                        <span className="text-[var(--text-secondary)]">{evt.from_bureau}</span>
+                                        <ArrowRight className="w-3 h-3 text-[var(--brand)]" aria-hidden="true" />
+                                      </>
+                                    )}
+                                    <span className="font-semibold text-[var(--brand)]">{evt.to_bureau}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Remarks */}
+                            {evt.remarks && (
+                              <p className="mt-2 text-xs text-[var(--text)] bg-white p-2.5 rounded border border-[var(--border)] leading-relaxed">
+                                {evt.remarks}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sticky Right Sidebar (4 cols): Status, SLA, Actions Panel */}
+            <div className="lg:col-span-4 sticky top-20 space-y-5">
+              {/* SLA & Status Overview */}
+              <div className="cb-card p-5 space-y-3">
+                <h2 className="text-xs font-medium text-[var(--text-secondary)]">
+                  SLA Target & Disposal Status
+                </h2>
+
+                {slaInfo && (
+                  <div
+                    className={`p-3 rounded-lg border text-xs font-medium ${
+                      slaInfo.isDanger
+                        ? 'bg-[var(--danger-bg)] border-[#FECDCA] text-[var(--danger)]'
+                        : 'bg-[var(--success-bg)] border-[#A6F4C5] text-[var(--success)]'
+                    }`}
+                  >
+                    {slaInfo.text}
+                  </div>
+                )}
+
+                <div className="pt-2 text-xs text-[var(--text-secondary)] space-y-1.5">
+                  <div className="flex justify-between">
+                    <span>Target Date:</span>
+                    <strong className="font-semibold text-[var(--text)] num-tabular">
+                      {caseItem.expected_disposal_date || '—'}
+                    </strong>
+                  </div>
+                  {caseItem.last_action_date && (
+                    <div className="flex justify-between">
+                      <span>Last Activity:</span>
+                      <strong className="font-semibold text-[var(--text)] num-tabular">
+                        {caseItem.last_action_date}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions & Operations Card */}
+              <div className="cb-card p-5 space-y-3">
+                <h2 className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-[var(--brand)]" aria-hidden="true" />
+                  <span>Case Operations</span>
+                </h2>
+
+                {/* Read-only role notification */}
+                {isReadOnlyRole ? (
+                  <div className="p-3 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] text-xs text-[var(--text-secondary)] flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
+                    <span>Read-only permissions for {currentUser?.role?.replace('_', ' ')}.</span>
+                  </div>
+                ) : isOfficerDiffBureau ? (
+                  <div className="p-3 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border)] text-xs text-[var(--text-secondary)] flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" aria-hidden="true" />
+                    <span>Operations restricted to owning bureau ({caseItem.bureau}).</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 pt-1">
+                    {/* 1. Change Status */}
+                    <button
+                      type="button"
+                      onClick={() => openDialog('status')}
+                      disabled={isDisposed}
+                      className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-[var(--radius-control)] text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] disabled:bg-[var(--neutral-bg)] disabled:text-[var(--text-tertiary)] disabled:cursor-not-allowed transition cursor-pointer shadow-xs"
+                    >
+                      <Activity className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Change Status</span>
+                    </button>
+
+                    {/* 2. Transfer Bureau */}
+                    <button
+                      type="button"
+                      onClick={() => openDialog('transfer')}
+                      disabled={isDisposed}
+                      className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-[var(--radius-control)] text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Transfer Bureau</span>
+                    </button>
+
+                    {/* 3. Escalate */}
+                    <button
+                      type="button"
+                      onClick={() => openDialog('escalate')}
+                      disabled={isDisposed}
+                      className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-[var(--radius-control)] text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--escalated)] hover:bg-[var(--escalated-bg)] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                    >
+                      <Flame className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Escalate Case</span>
+                    </button>
+
+                    {/* 4. Append Remark */}
+                    <button
+                      type="button"
+                      onClick={() => openDialog('remark')}
+                      className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-[var(--radius-control)] text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Add Audit Remark</span>
+                    </button>
+
+                    {/* 5. Edit Details */}
+                    <button
+                      type="button"
+                      onClick={() => openDialog('edit_details')}
+                      disabled={isDisposed}
+                      className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-[var(--radius-control)] text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Edit Details</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -771,20 +682,21 @@ export const CaseDetailPage: React.FC = () => {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
+          aria-labelledby="dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isSubmitting) closeDialog();
           }}
         >
-          <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+          <div className="bg-white rounded-xl shadow-xl border border-[var(--border)] w-full max-w-lg overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                {activeDialog === 'status' && <Activity className="w-4 h-4 text-blue-700" />}
-                {activeDialog === 'transfer' && <ArrowRightLeft className="w-4 h-4 text-teal-700" />}
-                {activeDialog === 'escalate' && <Flame className="w-4 h-4 text-purple-600" />}
-                {activeDialog === 'remark' && <MessageSquare className="w-4 h-4 text-slate-700" />}
-                {activeDialog === 'edit_details' && <Edit3 className="w-4 h-4 text-amber-700" />}
+            <div className="px-5 py-4 bg-[var(--bg-subtle)] border-b border-[var(--border)] flex items-center justify-between">
+              <h2 id="dialog-title" className="text-sm font-semibold text-[var(--text)] flex items-center gap-2">
+                {activeDialog === 'status' && <Activity className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />}
+                {activeDialog === 'transfer' && <ArrowRightLeft className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />}
+                {activeDialog === 'escalate' && <Flame className="w-4 h-4 text-[var(--escalated)]" aria-hidden="true" />}
+                {activeDialog === 'remark' && <MessageSquare className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />}
+                {activeDialog === 'edit_details' && <Edit3 className="w-4 h-4 text-[var(--brand)]" aria-hidden="true" />}
 
                 <span>
                   {activeDialog === 'status' && 'Change Case Status'}
@@ -793,41 +705,40 @@ export const CaseDetailPage: React.FC = () => {
                   {activeDialog === 'remark' && 'Add Remark'}
                   {activeDialog === 'edit_details' && 'Edit Case Details'}
                 </span>
-              </h3>
+              </h2>
 
               <button
                 type="button"
                 onClick={closeDialog}
                 disabled={isSubmitting}
-                className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition disabled:opacity-50 cursor-pointer"
+                className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--text)] hover:bg-[var(--bg-subtle)] transition disabled:opacity-50 cursor-pointer"
                 aria-label="Close dialog"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
-            {/* In-Dialog Error Notice from Shared Error Format */}
+            {/* In-Dialog Error Notice */}
             {dialogError && (
-              <div className="mx-5 mt-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-900 text-xs flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="mx-5 mt-4 p-3 rounded-lg bg-[var(--danger-bg)] border border-[#FECDCA] text-[var(--danger)] text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
                 <div className="flex-1 font-medium">{dialogError}</div>
               </div>
             )}
 
-            {/* Modal Body / Form */}
-            {/* 1. Change Status Form */}
+            {/* Modal Forms */}
             {activeDialog === 'status' && (
               <form onSubmit={handleStatusSubmit} className="p-5 space-y-4">
-                <div className="text-xs text-slate-600">
+                <div className="text-xs text-[var(--text-secondary)]">
                   Current status:{' '}
-                  <span className="font-semibold capitalize text-slate-900">
-                    {caseItem?.status?.replace('_', ' ')}
-                  </span>
+                  <strong className="font-semibold text-[var(--text)]">
+                    {formatStatus(caseItem?.status)}
+                  </strong>
                 </div>
 
                 <div>
-                  <label htmlFor="select-new-status" className="block text-xs font-semibold text-slate-700 mb-1">
-                    New Status <span className="text-red-500">*</span>
+                  <label htmlFor="select-new-status" className="block text-xs font-semibold text-[var(--text)] mb-1">
+                    New Status <span className="text-[var(--danger)]">*</span>
                   </label>
                   <select
                     id="select-new-status"
@@ -835,18 +746,18 @@ export const CaseDetailPage: React.FC = () => {
                     onChange={(e) => setNewStatus(e.target.value)}
                     required
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] px-3 py-2 text-[var(--text)]"
                   >
                     {ALL_STATUSES.filter((s) => s !== caseItem?.status).map((s) => (
                       <option key={s} value={s}>
-                        {s.replace('_', ' ').toUpperCase()}
+                        {formatStatus(s)}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label htmlFor="status-remarks" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="status-remarks" className="block text-xs font-semibold text-[var(--text)] mb-1">
                     Notes / Remarks
                   </label>
                   <textarea
@@ -856,41 +767,40 @@ export const CaseDetailPage: React.FC = () => {
                     onChange={(e) => setStatusRemarks(e.target.value)}
                     placeholder="Provide context or explanation for this status transition..."
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md p-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] p-2.5 text-[var(--text)] placeholder:text-[var(--text-tertiary)]"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
                     onClick={closeDialog}
                     disabled={isSubmitting}
-                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-[var(--radius-control)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || !newStatus}
-                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs cursor-pointer disabled:opacity-50"
+                    className="px-4 py-1.5 rounded-[var(--radius-control)] text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition shadow-xs cursor-pointer disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Updating Status...' : 'Confirm Status Change'}
+                    {isSubmitting ? 'Updating...' : 'Confirm Status Change'}
                   </button>
                 </div>
               </form>
             )}
 
-            {/* 2. Transfer Bureau Form */}
             {activeDialog === 'transfer' && (
               <form onSubmit={handleTransferSubmit} className="p-5 space-y-4">
-                <div className="text-xs text-slate-600">
+                <div className="text-xs text-[var(--text-secondary)]">
                   Current handling bureau:{' '}
-                  <span className="font-semibold font-mono text-slate-900">{caseItem?.bureau}</span>
+                  <strong className="font-semibold text-[var(--text)]">{caseItem?.bureau}</strong>
                 </div>
 
                 <div>
-                  <label htmlFor="select-new-bureau" className="block text-xs font-semibold text-slate-700 mb-1">
-                    Transfer To Bureau <span className="text-red-500">*</span>
+                  <label htmlFor="select-new-bureau" className="block text-xs font-semibold text-[var(--text)] mb-1">
+                    Transfer To Bureau <span className="text-[var(--danger)]">*</span>
                   </label>
                   <select
                     id="select-new-bureau"
@@ -898,7 +808,7 @@ export const CaseDetailPage: React.FC = () => {
                     onChange={(e) => setNewBureau(e.target.value)}
                     required
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900 font-mono"
+                    className="w-full text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] px-3 py-2 text-[var(--text)]"
                   >
                     {ALL_BUREAUS.filter((b) => b !== caseItem?.bureau).map((b) => (
                       <option key={b} value={b}>
@@ -906,14 +816,11 @@ export const CaseDetailPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Per PRD rules, a case cannot be transferred to the same bureau.
-                  </p>
                 </div>
 
                 <div>
-                  <label htmlFor="transfer-remarks" className="block text-xs font-semibold text-slate-700 mb-1">
-                    Transfer Instructions / Notes
+                  <label htmlFor="transfer-remarks" className="block text-xs font-semibold text-[var(--text)] mb-1">
+                    Transfer Instructions
                   </label>
                   <textarea
                     id="transfer-remarks"
@@ -922,23 +829,23 @@ export const CaseDetailPage: React.FC = () => {
                     onChange={(e) => setTransferRemarks(e.target.value)}
                     placeholder="Specify transfer rationale and handover instructions..."
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md p-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] p-2.5 text-[var(--text)] placeholder:text-[var(--text-tertiary)]"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
                     onClick={closeDialog}
                     disabled={isSubmitting}
-                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-[var(--radius-control)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || !newBureau}
-                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-teal-800 text-white hover:bg-teal-700 transition shadow-xs cursor-pointer disabled:opacity-50"
+                    className="px-4 py-1.5 rounded-[var(--radius-control)] text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? 'Transferring...' : 'Confirm Bureau Transfer'}
                   </button>
@@ -946,43 +853,42 @@ export const CaseDetailPage: React.FC = () => {
               </form>
             )}
 
-            {/* 3. Escalate Form */}
             {activeDialog === 'escalate' && (
               <form onSubmit={handleEscalateSubmit} className="p-5 space-y-4">
-                <div className="p-3 rounded-md bg-purple-50 border border-purple-200 text-purple-900 text-xs">
-                  <span className="font-bold">Operational Escalation: </span>
-                  Escalating updates this case status to <em>Escalated</em> and triggers an in-app priority alert for coordinating officials.
+                <div className="p-3 rounded-lg bg-[var(--escalated-bg)] border border-[#E9D7FE] text-[var(--escalated)] text-xs">
+                  <span className="font-semibold">Operational Escalation: </span>
+                  Escalating updates this case status to <em>Escalated</em> and creates a high-priority alert for review.
                 </div>
 
                 <div>
-                  <label htmlFor="escalate-remarks" className="block text-xs font-semibold text-slate-700 mb-1">
-                    Escalation Reason <span className="text-red-500">* (Required)</span>
+                  <label htmlFor="escalate-remarks" className="block text-xs font-semibold text-[var(--text)] mb-1">
+                    Escalation Reason <span className="text-[var(--danger)]">*</span>
                   </label>
                   <textarea
                     id="escalate-remarks"
                     rows={3}
                     value={escalateRemarks}
                     onChange={(e) => setEscalateRemarks(e.target.value)}
-                    placeholder="Provide explicit reasons for escalation (e.g. repeated complaints, non-responsiveness, serious violation)..."
+                    placeholder="Provide explicit reasons for escalation..."
                     required
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md p-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-900"
+                    className="w-full text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] p-2.5 text-[var(--text)] placeholder:text-[var(--text-tertiary)]"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
                     onClick={closeDialog}
                     disabled={isSubmitting}
-                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-[var(--radius-control)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || !escalateRemarks.trim()}
-                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-purple-800 text-white hover:bg-purple-700 transition shadow-xs cursor-pointer disabled:opacity-50"
+                    className="px-4 py-1.5 rounded-[var(--radius-control)] text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? 'Escalating...' : 'Confirm Escalation'}
                   </button>
@@ -990,12 +896,11 @@ export const CaseDetailPage: React.FC = () => {
               </form>
             )}
 
-            {/* 4. Add Remark Form */}
             {activeDialog === 'remark' && (
               <form onSubmit={handleRemarkSubmit} className="p-5 space-y-4">
                 <div>
-                  <label htmlFor="remark-text" className="block text-xs font-semibold text-slate-700 mb-1">
-                    Remark Text <span className="text-red-500">* (Required)</span>
+                  <label htmlFor="remark-text" className="block text-xs font-semibold text-[var(--text)] mb-1">
+                    Remark Text <span className="text-[var(--danger)]">*</span>
                   </label>
                   <textarea
                     id="remark-text"
@@ -1005,23 +910,23 @@ export const CaseDetailPage: React.FC = () => {
                     placeholder="Enter remark, note of phone conversation, or audit observation..."
                     required
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md p-2.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] p-2.5 text-[var(--text)] placeholder:text-[var(--text-tertiary)]"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
                     onClick={closeDialog}
                     disabled={isSubmitting}
-                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-[var(--radius-control)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || !remarkText.trim()}
-                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-blue-900 text-white hover:bg-blue-800 transition shadow-xs cursor-pointer disabled:opacity-50"
+                    className="px-4 py-1.5 rounded-[var(--radius-control)] text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? 'Appending...' : 'Append Remark'}
                   </button>
@@ -1029,11 +934,10 @@ export const CaseDetailPage: React.FC = () => {
               </form>
             )}
 
-            {/* 5. Edit Details Form */}
             {activeDialog === 'edit_details' && (
               <form onSubmit={handleEditDetailsSubmit} className="p-5 space-y-3.5">
                 <div>
-                  <label htmlFor="patch-next-action" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="patch-next-action" className="block text-xs font-semibold text-[var(--text)] mb-1">
                     Planned Next Action
                   </label>
                   <input
@@ -1043,12 +947,12 @@ export const CaseDetailPage: React.FC = () => {
                     onChange={(e) => setPatchNextAction(e.target.value)}
                     placeholder="e.g. Await institution reply, Schedule hearing..."
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full h-9 text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] px-3 text-[var(--text)]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="patch-expected-date" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="patch-expected-date" className="block text-xs font-semibold text-[var(--text)] mb-1">
                     Expected Disposal Date
                   </label>
                   <input
@@ -1057,12 +961,12 @@ export const CaseDetailPage: React.FC = () => {
                     value={patchExpectedDate}
                     onChange={(e) => setPatchExpectedDate(e.target.value)}
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full h-9 text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] px-3 text-[var(--text)]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="patch-officer" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="patch-officer" className="block text-xs font-semibold text-[var(--text)] mb-1">
                     Assigned Officer
                   </label>
                   <input
@@ -1072,12 +976,12 @@ export const CaseDetailPage: React.FC = () => {
                     onChange={(e) => setPatchOfficer(e.target.value)}
                     placeholder="e.g. A. Rao"
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
+                    className="w-full h-9 text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] px-3 text-[var(--text)]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="patch-priority" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="patch-priority" className="block text-xs font-semibold text-[var(--text)] mb-1">
                     Priority Level
                   </label>
                   <select
@@ -1085,29 +989,29 @@ export const CaseDetailPage: React.FC = () => {
                     value={patchPriority}
                     onChange={(e) => setPatchPriority(e.target.value as 'low' | 'medium' | 'high')}
                     disabled={isSubmitting}
-                    className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900 uppercase"
+                    className="w-full h-9 text-xs bg-white border border-[var(--border-input)] rounded-[var(--radius-control)] px-3 text-[var(--text)] uppercase"
                   >
-                    <option value="low">LOW</option>
-                    <option value="medium">MEDIUM</option>
-                    <option value="high">HIGH</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
                   </select>
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
                     onClick={closeDialog}
                     disabled={isSubmitting}
-                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-[var(--radius-control)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-amber-700 text-white hover:bg-amber-600 transition shadow-xs cursor-pointer disabled:opacity-50"
+                    className="px-4 py-1.5 rounded-[var(--radius-control)] text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition shadow-xs cursor-pointer disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Saving Details...' : 'Save Case Details'}
+                    {isSubmitting ? 'Saving...' : 'Save Details'}
                   </button>
                 </div>
               </form>
@@ -1115,6 +1019,6 @@ export const CaseDetailPage: React.FC = () => {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 };
