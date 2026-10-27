@@ -29,6 +29,7 @@ wheels/
 .installed.cfg
 *.egg
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 
@@ -56,3 +57,10 @@ dist-ssr/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Test reports & temp files
+/test-results/
+/playwright-report/
+/blob-report/
+.playwright/
+.tempmediaStorage/
