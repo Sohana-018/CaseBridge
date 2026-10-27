@@ -2,16 +2,18 @@ import React from 'react';
 import {
   AlertCircle,
   ArrowRightLeft,
-  CheckCircle,
+  CheckCircle2,
   Clock,
-  Copy,
   Flame,
   HelpCircle,
   Link2,
   Lock,
   ShieldAlert,
   XCircle,
+  ArrowUp,
+  Copy,
 } from 'lucide-react';
+import { formatStatus, formatSignal } from '../utils/formatters';
 
 interface StatusChipProps {
   status: string;
@@ -19,8 +21,8 @@ interface StatusChipProps {
 }
 
 /**
- * Tactile status chips inspired by modern Dribbble pill design:
- * Soft gradient washes, subtle colored ambient shadows, crisp micro-borders.
+ * Status badge = dot or icon + text on its tinted background.
+ * Pill shape (rounded-full) is reserved ONLY for statuses.
  */
 export const StatusChip: React.FC<StatusChipProps> = ({ status, className = '' }) => {
   const norm = (status || '').toLowerCase().trim();
@@ -29,141 +31,134 @@ export const StatusChip: React.FC<StatusChipProps> = ({ status, className = '' }
     case 'pending':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900 border border-amber-300/80 shadow-[0_2px_6px_rgba(245,158,11,0.15)] transition-all ${className}`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FFFAEB] text-[#B54708] border border-[#FEDF89] ${className}`}
         >
-          <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+          <Clock className="w-3 h-3 text-[#B54708] shrink-0" aria-hidden="true" />
           <span>Pending</span>
         </span>
       );
     case 'under_process':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-900 border border-blue-300/80 shadow-[0_2px_6px_rgba(59,130,246,0.15)] transition-all ${className}`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EFF8FF] text-[#175CD3] border border-[#B2DDFF] ${className}`}
         >
-          <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse shrink-0"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#175CD3] shrink-0" aria-hidden="true" />
           <span>Under Process</span>
         </span>
       );
     case 'disposed':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-900 border border-emerald-300/80 shadow-[0_2px_6px_rgba(16,185,129,0.15)] transition-all ${className}`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#ECFDF3] text-[#067647] border border-[#A6F4C5] ${className}`}
         >
-          <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+          <CheckCircle2 className="w-3 h-3 text-[#067647] shrink-0" aria-hidden="true" />
           <span>Disposed</span>
         </span>
       );
     case 'transferred':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border border-slate-300 shadow-[0_2px_6px_rgba(100,116,139,0.1)] transition-all ${className}`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#F2F4F7] text-[#344054] border border-[#EAECF0] ${className}`}
         >
-          <ArrowRightLeft className="w-3 h-3 text-slate-500 shrink-0" />
+          <ArrowRightLeft className="w-3 h-3 text-[#344054] shrink-0" aria-hidden="true" />
           <span>Transferred</span>
         </span>
       );
     case 'escalated':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-50 via-fuchsia-50 to-rose-50 text-purple-900 border border-purple-300 shadow-[0_2px_6px_rgba(168,85,247,0.18)] transition-all ${className}`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#F9F5FF] text-[#6941C6] border border-[#E9D7FE] ${className}`}
         >
-          <Flame className="w-3 h-3 text-purple-600 shrink-0" />
+          <Flame className="w-3 h-3 text-[#6941C6] shrink-0" aria-hidden="true" />
           <span>Escalated</span>
         </span>
       );
     default:
       return (
         <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs ${className}`}
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#F2F4F7] text-[#344054] border border-[#EAECF0] ${className}`}
         >
-          {status}
+          {formatStatus(status)}
         </span>
       );
   }
 };
 
+/**
+ * Priority Chip: Only High gets colour (danger, with an up-arrow icon).
+ * Medium and Low are plain neutral text with no amber/warning color.
+ */
 export const PriorityChip: React.FC<{ priority?: string; className?: string }> = ({
   priority,
   className = '',
 }) => {
   const norm = (priority || 'medium').toLowerCase().trim();
 
-  switch (norm) {
-    case 'high':
-      return (
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gradient-to-r from-rose-50 to-red-50 text-rose-900 border border-rose-300 shadow-[0_2px_6px_rgba(244,63,94,0.15)] ${className}`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-600 shrink-0" />
-          <span>Priority: High</span>
-        </span>
-      );
-    case 'medium':
-      return (
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-900 border border-amber-300 shadow-[0_2px_6px_rgba(245,158,11,0.12)] ${className}`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-          <span>Priority: Medium</span>
-        </span>
-      );
-    case 'low':
-      return (
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs ${className}`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
-          <span>Priority: Low</span>
-        </span>
-      );
-    default:
-      return (
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 ${className}`}
-        >
-          Priority: {priority}
-        </span>
-      );
+  if (norm === 'high') {
+    return (
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[#FEF3F2] text-[#B42318] border border-[#FECDCA] ${className}`}
+      >
+        <ArrowUp className="w-3 h-3 text-[#B42318] shrink-0" aria-hidden="true" />
+        <span>Priority: High</span>
+      </span>
+    );
   }
+
+  if (norm === 'low') {
+    return (
+      <span
+        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-[#475467] bg-[#F2F4F7] border border-[#EAECF0] ${className}`}
+      >
+        <span>Priority: Low</span>
+      </span>
+    );
+  }
+
+  // Medium (default): plain neutral text, never amber
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-[#475467] bg-[#F2F4F7] border border-[#EAECF0] ${className}`}
+    >
+      <span>Priority: Medium</span>
+    </span>
+  );
 };
 
 export const RestrictedBadge: React.FC<{ className?: string }> = ({ className = '' }) => {
   return (
-    <span className={`inline-flex items-center gap-1 text-slate-400 font-normal italic text-xs ${className}`}>
-      <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+    <span className={`inline-flex items-center gap-1 text-[#667085] font-normal italic text-xs ${className}`}>
+      <Lock className="w-3 h-3 text-[#667085] shrink-0" aria-hidden="true" />
       <span>Restricted</span>
     </span>
   );
 };
 
+/**
+ * Bureau chip: quiet rectangular chip (6px radius, neutral-bg, neutral text, no mono).
+ */
 export const BureauBadge: React.FC<{ bureau: string; className?: string }> = ({
   bureau,
   className = '',
 }) => {
-  const styles: Record<string, string> = {
-    RB: 'bg-blue-50 text-blue-900 border-blue-300 shadow-[0_2px_6px_rgba(30,58,138,0.10)]',
-    PGRC: 'bg-teal-50 text-teal-900 border-teal-300 shadow-[0_2px_6px_rgba(13,148,136,0.10)]',
-    RO: 'bg-amber-50 text-amber-900 border-amber-300 shadow-[0_2px_6px_rgba(217,119,6,0.10)]',
-    OC: 'bg-indigo-50 text-indigo-900 border-indigo-300 shadow-[0_2px_6px_rgba(79,70,229,0.10)]',
-  };
-
-  const style = styles[bureau] || 'bg-slate-100 text-slate-700 border-slate-200';
-
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border tracking-wide ${style} ${className}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-[6px] text-xs font-semibold bg-[#F2F4F7] text-[#344054] border border-[#EAECF0] ${className}`}
     >
       {bureau}
     </span>
   );
 };
 
+/**
+ * Overdue Badge: Danger token, text + icon, no pulse glow.
+ */
 export const OverdueBadge: React.FC<{ className?: string }> = ({ className = '' }) => {
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-red-600 to-rose-600 text-white border border-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.35)] animate-pulse ${className}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#FEF3F2] text-[#B42318] border border-[#FECDCA] ${className}`}
     >
-      <ShieldAlert className="w-3 h-3 text-white shrink-0" />
+      <ShieldAlert className="w-3 h-3 text-[#B42318] shrink-0" aria-hidden="true" />
       <span>Overdue</span>
     </span>
   );
@@ -179,18 +174,18 @@ export const ConfidenceBandBadge: React.FC<{ band?: string; className?: string }
     case 'high':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-rose-50 via-pink-50 to-red-50 text-rose-900 border border-rose-300 shadow-[0_2px_8px_rgba(244,63,94,0.18)] ${className}`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold bg-[#FEF3F2] text-[#B42318] border border-[#FECDCA] ${className}`}
         >
-          <Flame className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+          <Flame className="w-3 h-3 text-[#B42318] shrink-0" aria-hidden="true" />
           <span>High Confidence</span>
         </span>
       );
     case 'medium':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-900 border border-amber-300 shadow-[0_2px_8px_rgba(245,158,11,0.15)] ${className}`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-[#FFFAEB] text-[#B54708] border border-[#FEDF89] ${className}`}
         >
-          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <AlertCircle className="w-3 h-3 text-[#B54708] shrink-0" aria-hidden="true" />
           <span>Medium Confidence</span>
         </span>
       );
@@ -198,15 +193,24 @@ export const ConfidenceBandBadge: React.FC<{ band?: string; className?: string }
     default:
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs ${className}`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-[#F2F4F7] text-[#475467] border border-[#EAECF0] ${className}`}
         >
-          <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#667085] shrink-0" aria-hidden="true" />
           <span>Low Confidence</span>
         </span>
       );
   }
 };
 
+/**
+ * Review Status Badge for Overlap decisions:
+ * Distinct, non-status colors:
+ * - Related = brand
+ * - Duplicate = danger
+ * - Not Related = neutral
+ * - Needs Review = warning
+ * - Open = light neutral
+ */
 export const ReviewStatusBadge: React.FC<{ status?: string; className?: string }> = ({
   status,
   className = '',
@@ -217,56 +221,71 @@ export const ReviewStatusBadge: React.FC<{ status?: string; className?: string }
     case 'open':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-900 border border-blue-300 shadow-[0_2px_6px_rgba(59,130,246,0.15)] select-none ${className}`}
-          title="Review Status: Open"
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-[#F2F4F7] text-[#344054] border border-[#EAECF0] select-none ${className}`}
         >
-          <Clock className="w-3 h-3 text-blue-600 shrink-0" />
+          <Clock className="w-3 h-3 text-[#667085] shrink-0" aria-hidden="true" />
           <span>Open Review</span>
         </span>
       );
     case 'related':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-900 border border-indigo-300 shadow-[0_2px_6px_rgba(99,102,241,0.15)] ${className}`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-[#EEF2FF] text-[#1E3A8A] border border-[#C7D7FE] ${className}`}
         >
-          <Link2 className="w-3 h-3 text-indigo-600 shrink-0" />
+          <Link2 className="w-3 h-3 text-[#1E3A8A] shrink-0" aria-hidden="true" />
           <span>Related Cases</span>
         </span>
       );
     case 'duplicate':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-50 to-fuchsia-50 text-purple-900 border border-purple-300 shadow-[0_2px_6px_rgba(168,85,247,0.15)] ${className}`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-[#FEF3F2] text-[#B42318] border border-[#FECDCA] ${className}`}
         >
-          <Copy className="w-3 h-3 text-purple-600 shrink-0" />
+          <Copy className="w-3 h-3 text-[#B42318] shrink-0" aria-hidden="true" />
           <span>Duplicate</span>
         </span>
       );
     case 'not_related':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs ${className}`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-[#F2F4F7] text-[#344054] border border-[#EAECF0] ${className}`}
         >
-          <XCircle className="w-3 h-3 text-slate-500 shrink-0" />
+          <XCircle className="w-3 h-3 text-[#667085] shrink-0" aria-hidden="true" />
           <span>Not Related</span>
         </span>
       );
     case 'needs_review':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900 border border-amber-300 shadow-[0_2px_6px_rgba(245,158,11,0.12)] ${className}`}
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-[#FFFAEB] text-[#B54708] border border-[#FEDF89] ${className}`}
         >
-          <HelpCircle className="w-3 h-3 text-amber-600 shrink-0" />
+          <HelpCircle className="w-3 h-3 text-[#B54708] shrink-0" aria-hidden="true" />
           <span>Needs More Review</span>
         </span>
       );
     default:
       return (
         <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 ${className}`}
+          className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-[#F2F4F7] text-[#344054] border border-[#EAECF0] ${className}`}
         >
           {status}
         </span>
       );
   }
+};
+
+/**
+ * Signal Chip: quiet rectangular chip for explainability tags, formatted nicely.
+ */
+export const SignalChip: React.FC<{ signal: string; className?: string }> = ({
+  signal,
+  className = '',
+}) => {
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-[6px] bg-[#F2F4F7] text-[#344054] text-xs font-medium border border-[#EAECF0] ${className}`}
+    >
+      {formatSignal(signal)}
+    </span>
+  );
 };
