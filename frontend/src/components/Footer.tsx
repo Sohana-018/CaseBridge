@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
