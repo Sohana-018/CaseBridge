@@ -105,14 +105,23 @@ app.include_router(alerts.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 
-# Parse CORS origins from environment
+# Parse CORS origins from environment (strip trailing paths if accidentally provided)
 raw_cors = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174")
-origins = [origin.strip() for origin in raw_cors.split(",") if origin.strip()]
+origins: list[str] = []
+for item in raw_cors.split(","):
+    item = item.strip()
+    if not item:
+        continue
+    if "://" in item:
+        parts = item.split("/")
+        origins.append(f"{parts[0]}//{parts[2]}")
+    else:
+        origins.append(item)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
