@@ -94,10 +94,10 @@ export const Navbar: React.FC = () => {
                     end={end}
                     aria-current={location.pathname === to ? 'page' : undefined}
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                      `inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
                         isActive
-                          ? 'bg-blue-50 text-blue-800 border border-blue-200/90 shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                          ? 'bg-[#1E3A8A] text-white shadow-xs'
+                          : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
                       }`
                     }
                   >
@@ -111,10 +111,10 @@ export const Navbar: React.FC = () => {
                     to="/admin"
                     aria-current={location.pathname === '/admin' ? 'page' : undefined}
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                      `inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
                         isActive
-                          ? 'bg-blue-50 text-blue-800 border border-blue-200/90 shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                          ? 'bg-[#1E3A8A] text-white shadow-xs'
+                          : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
                       }`
                     }
                   >
@@ -156,10 +156,10 @@ export const Navbar: React.FC = () => {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `shrink-0 py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors ${
+                `shrink-0 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    ? 'bg-[#1E3A8A] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
                 }`
               }
             >
@@ -171,10 +171,10 @@ export const Navbar: React.FC = () => {
             <NavLink
               to="/admin"
               className={({ isActive }) =>
-                `shrink-0 py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors ${
+                `shrink-0 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    ? 'bg-[#1E3A8A] text-white shadow-xs'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
                 }`
               }
             >

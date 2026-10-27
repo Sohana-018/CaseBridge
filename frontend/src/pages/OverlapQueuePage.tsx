@@ -548,7 +548,7 @@ export const OverlapQueuePage: React.FC = () => {
           {/* 1. TOP FILTER BAR (Compact) */}
           <section
             aria-labelledby="filters-heading"
-            className="cb-card px-4 py-2.5 bg-white border border-slate-200 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs shrink-0"
+            className="cb-card px-4 py-2.5 bg-white border border-slate-200 border-t-4 border-t-[#1E3A8A] rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs shrink-0"
           >
             <h2 id="filters-heading" className="sr-only">Queue Filters</h2>
 
@@ -719,7 +719,7 @@ export const OverlapQueuePage: React.FC = () => {
                         onClick={() => setActivePairId(item.id)}
                         className={`w-full text-left p-3 rounded-lg border transition cursor-pointer flex flex-col gap-2 ${
                           isActive
-                            ? 'border-blue-600 bg-blue-50/60 shadow-xs ring-1 ring-blue-500/20'
+                            ? 'border-l-4 border-l-[#1E3A8A] border-blue-600 bg-blue-50/80 shadow-xs ring-1 ring-blue-500/20'
                             : 'border-slate-200 bg-white hover:bg-slate-50/80 hover:border-slate-300'
                         }`}
                       >
@@ -1011,9 +1011,9 @@ export const OverlapQueuePage: React.FC = () => {
                           id={`btn-duplicate-${activeItem.id}`}
                           onClick={() => handleReviewSubmit(activeItem.id, 'duplicate')}
                           disabled={reviewForms[activeItem.id]?.submitting}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-rose-50 border border-rose-300 text-rose-800 hover:bg-rose-100 disabled:opacity-50 transition shadow-2xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 transition shadow-xs cursor-pointer"
                         >
-                          <Copy className="w-3.5 h-3.5 text-rose-600" aria-hidden="true" />
+                          <Copy className="w-3.5 h-3.5" aria-hidden="true" />
                           <span>Duplicate</span>
                         </button>
 
@@ -1176,8 +1176,8 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
 
   const isCaseA = label.toLowerCase().includes('a');
   const cardTheme = isCaseA
-    ? 'border-blue-200/90 bg-blue-50/20'
-    : 'border-indigo-200/90 bg-indigo-50/20';
+    ? 'border-blue-300 bg-white border-t-4 border-t-blue-600'
+    : 'border-indigo-300 bg-white border-t-4 border-t-indigo-600';
   const labelBadge = isCaseA
     ? 'bg-blue-600 text-white'
     : 'bg-indigo-600 text-white';
