@@ -1,9 +1,14 @@
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
-from app.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.errors import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
 from app.main import app
 
 error_router = APIRouter(prefix="/api/v1/test-errors")
+
+
+@error_router.get("/unauthorized")
+def trigger_unauthorized():
+    raise UnauthorizedError("Missing or invalid token", details={"header": "missing"})
 
 
 @error_router.get("/not-found")
@@ -71,3 +76,14 @@ def test_standard_404_format():
     data = response.json()
     assert "error" in data
     assert data["error"]["code"] == "NOT_FOUND"
+
+
+def test_unauthorized_error_format():
+    """Verify HTTP 401 response matches PRD Section 10 standard error structure."""
+    response = client.get("/api/v1/test-errors/unauthorized")
+    assert response.status_code == 401
+    data = response.json()
+    assert "error" in data
+    assert data["error"]["code"] == "UNAUTHORIZED"
+    assert data["error"]["message"] == "Missing or invalid token"
+    assert data["error"]["details"] == {"header": "missing"}

@@ -188,23 +188,29 @@ def test_me_returns_right_user(client: TestClient):
 
 
 def test_missing_or_invalid_token_returns_401(client: TestClient):
-    """Test that missing or invalid Authorization header returns HTTP 401 UNAUTHORIZED."""
+    """Test that missing or invalid Authorization header returns HTTP 401 UNAUTHORIZED in standard error format."""
     # 1. Missing header
     res_missing = client.get("/api/v1/me")
     assert res_missing.status_code == 401
     data_missing = res_missing.json()
     assert "error" in data_missing
     assert data_missing["error"]["code"] == "UNAUTHORIZED"
+    assert "message" in data_missing["error"]
+    assert "details" in data_missing["error"]
 
     # 2. Invalid header format
     res_bad_format = client.get("/api/v1/me", headers={"Authorization": "Basic 12345"})
     assert res_bad_format.status_code == 401
-    assert res_bad_format.json()["error"]["code"] == "UNAUTHORIZED"
+    data_bad_format = res_bad_format.json()
+    assert data_bad_format["error"]["code"] == "UNAUTHORIZED"
+    assert "message" in data_bad_format["error"]
 
     # 3. Invalid token signature
     res_invalid_token = client.get("/api/v1/me", headers={"Authorization": "Bearer invalid.jwt.token"})
     assert res_invalid_token.status_code == 401
-    assert res_invalid_token.json()["error"]["code"] == "UNAUTHORIZED"
+    data_invalid = res_invalid_token.json()
+    assert data_invalid["error"]["code"] == "UNAUTHORIZED"
+    assert "message" in data_invalid["error"]
 
 
 
