@@ -47,11 +47,10 @@ export const LoginPage: React.FC = () => {
       }
     }
 
-    // Fetch demo accounts
+    // Fetch accounts
     getDemoAccounts()
       .then((accounts) => setDemoAccounts(Array.isArray(accounts) ? accounts : []))
-      .catch((err) => {
-        console.warn('Could not load demo accounts:', err);
+      .catch(() => {
         setDemoAccounts([]);
       });
   }, [navigate]);
@@ -195,7 +194,7 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Side: Authentication Form & Quick Demo Roles */}
+        {/* Right Side: Authentication Form & Authorized Accounts */}
         <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white">
           <div className="max-w-md w-full mx-auto space-y-6">
             {/* Header with Institutional Seal */}
@@ -209,7 +208,7 @@ export const LoginPage: React.FC = () => {
                     CASEBRIDGE
                   </div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Institution Complaint Monitoring · Prototype
+                    Institution Complaint Monitoring
                   </div>
                 </div>
               </div>
@@ -324,17 +323,17 @@ export const LoginPage: React.FC = () => {
               </button>
             </form>
 
-            {/* Quick Demo Access Pills (One-Click Role Demonstration) */}
+            {/* Authorized Accounts List */}
             {demoAccounts && demoAccounts.length > 0 && (
               <div className="pt-5 border-t border-slate-200/90 space-y-3">
                 <div className="flex items-center gap-1.5 text-slate-800">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <Sparkles className="w-4 h-4 text-blue-900" />
                   <span className="text-xs font-extrabold uppercase tracking-wider">
-                    One-Click Role Demonstration
+                    Sign in as
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Select any account below to instantly authenticate and evaluate role-based controls:
+                  Select an authorized account below:
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -366,7 +365,7 @@ export const LoginPage: React.FC = () => {
 
           {/* Footer note */}
           <div className="pt-6 mt-6 border-t border-slate-100 text-center text-[11px] text-slate-400">
-            Internal evaluation prototype · Synthetic records only
+            CaseBridge Grievance Monitoring Platform
           </div>
         </div>
       </div>

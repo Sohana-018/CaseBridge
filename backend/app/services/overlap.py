@@ -34,12 +34,10 @@ from app.models import (
 )
 from app.services.alerts import create_overlap_alert
 
-# ---------------------------------------------------------------------------
 # Tuned thresholds (docs/eval.md).
 # Tuned on the development split of data/labelled_pairs.csv (institution-level split):
 # High requires shared reference OR (sim >= 0.16 AND same/related category).
 # Medium requires sim >= 0.14 (category alone gives Low).
-# ---------------------------------------------------------------------------
 SIMILARITY_HIGH = 0.16
 SIMILARITY_MEDIUM = 0.14
 CANDIDATE_MAX_DAYS = 365

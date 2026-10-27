@@ -121,8 +121,8 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
         .then((res) => {
           setInstResults(res.items || []);
         })
-        .catch((err: unknown) => {
-          console.warn('Institution search failed:', err);
+        .catch(() => {
+          setInstResults([]);
         })
         .finally(() => {
           setInstLoading(false);
@@ -231,8 +231,8 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
       setSubmitStep('Scanning for potential cross-bureau case overlaps...');
       try {
         await scanOverlaps();
-      } catch (scanErr) {
-        console.warn('Scan overlaps step skipped or not permitted for this role:', scanErr);
+      } catch {
+        // Non-coordinator roles cannot scan; gracefully proceed
       }
 
       // 3. Fetch overlaps involving the new case_no (filter returned pages in client)
@@ -256,8 +256,8 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
         matchingOverlaps = allItems.filter(
           (o) => o.case_a?.case_no === created.case_no || o.case_b?.case_no === created.case_no
         );
-      } catch (overlapErr) {
-        console.warn('Could not fetch overlaps for case:', overlapErr);
+      } catch {
+        // Overlap lookup non-blocking for modal completion
       }
 
       // 4. Refresh Overview counts afterwards

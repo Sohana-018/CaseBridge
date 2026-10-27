@@ -5,9 +5,8 @@ from sqlalchemy import JSON, CheckConstraint, Column, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
-# ============================================================================
-# Section 7: Enumerations
-# ============================================================================
+# Enumerations
+
 
 class Bureau(str, Enum):
     RB = "RB"
@@ -92,9 +91,8 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ============================================================================
-# Section 7: Tables
-# ============================================================================
+# Database Tables
+
 
 class Institution(SQLModel, table=True):
     __tablename__ = "institutions"

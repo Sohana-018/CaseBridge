@@ -47,13 +47,13 @@ def client_and_session_fixture():
     with Session(engine) as session:
         inst = Institution(
             permanent_id="DEMO-1042",
-            name="Example Institute of Technology (demo)",
+            name="Example Institute of Technology",
             region=Region.SOUTH,
             state="Karnataka",
         )
         other_inst = Institution(
             permanent_id="DEMO-9999",
-            name="Unrelated Institute (demo)",
+            name="Unrelated Institute",
             region=Region.NORTH,
         )
         session.add(inst)
