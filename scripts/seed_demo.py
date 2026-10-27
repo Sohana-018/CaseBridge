@@ -15,8 +15,9 @@ import sys
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
 BACKEND_DIR = ROOT_DIR / "backend"
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
+for p in (ROOT_DIR, BACKEND_DIR, SCRIPT_DIR):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
 # Default to backend/casebridge.db regardless of the caller's working directory.
 os.environ.setdefault("DATABASE_URL", f"sqlite:///{(BACKEND_DIR / 'casebridge.db').as_posix()}")
@@ -490,7 +491,10 @@ def seed_demo() -> None:
                 session.refresh(c)
 
                 # Add rich chronological timeline events (max 6)
-                from scripts.enrich_timelines import generate_case_events
+                try:
+                    from scripts.enrich_timelines import generate_case_events
+                except ModuleNotFoundError:
+                    from enrich_timelines import generate_case_events
                 for ev in generate_case_events(c):
                     session.add(ev)
                 session.commit()
