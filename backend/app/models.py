@@ -8,14 +8,14 @@ from sqlmodel import Field, SQLModel
 
 
 # ============================================================================
-# Section 7: Enumerations (assumptions; labelled as demo)
+# Section 7: Enumerations
 # ============================================================================
 
 class Bureau(str, Enum):
     RB = "RB"
     PGRC = "PGRC"
-    RO = "RO"  # Regional Office (demo)
-    OC = "OC"  # Other Cell (demo)
+    RO = "RO"  # Regional Office
+    OC = "OC"  # Other Cell
 
 
 class CaseStatus(str, Enum):
@@ -223,7 +223,7 @@ class Counter(SQLModel, table=True):
 
 
 class Config(SQLModel, table=True):
-    """Key-value application configuration and demo rules."""
+    """Key-value application configuration and operational rules."""
     __tablename__ = "config"
 
     key: str = Field(primary_key=True)

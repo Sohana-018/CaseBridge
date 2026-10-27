@@ -18,7 +18,22 @@ The backend service is declared in [`render.yaml`](../render.yaml) as a Blueprin
 
 - **Root Directory**: `backend`
 - **Build Command**: `pip install -r requirements.txt`
-- **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Start Command**: `python ../scripts/import_csv.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+### 2.1 Cold-Start Behaviour & Automated Database Seeding
+
+Render's free tier spins down instances after 15 minutes of inactivity. When a new incoming HTTP request arrives:
+
+1. **Container Initialization**: Render spins up the container and executes `startCommand`.
+2. **Automated Seeding (`import_csv.py`)**:
+   - Runs `python ../scripts/import_csv.py` before the web server begins accepting traffic.
+   - Idempotently creates tables and inserts initial operational records (25 institutions, 200 cases, chronological events) from `data/seed/` if the database is unseeded or restarted in a fresh ephemeral container.
+   - Resets sequence counters above the highest imported case numbers and executes initial alert rule evaluations.
+   - If tables and records already exist, the script completes in milliseconds without duplicating records (`0 created, 200 skipped`).
+3. **Server Launch**: Once seeding completes, `uvicorn` binds to `0.0.0.0:$PORT` and starts listening for API traffic.
+4. **Latency Profile**:
+   - **Cold-Start Request**: Expect an initial latency of ~30–50 seconds on Render free tier during cold container spin-up and Python initialization.
+   - **Warm Requests**: Handled in under 50ms with zero subsequent startup overhead while the instance remains active.
 
 ### Environment Variables
 

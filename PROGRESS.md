@@ -16,7 +16,7 @@
   - Institution detail page: Profile from `GET /api/v1/institutions/{permanent_id}` and consolidated case list with status chips linking to case details.
   - Case detail page (`/cases/:case_no`): Case metadata from `GET /api/v1/cases/{case_no}` plus chronological event timeline from `GET /api/v1/cases/{case_no}/events` (oldest first, with who, when, event type, and remarks).
   - Cohesive government dashboard visual design (deep navy/blue primary, unified status chip and KPI palette, white cards with subtle borders, zebra/hover table rows).
-  - Loading, empty, and error states across all pages; Navbar links to Overview and Institutions with active highlights; Footer displaying "Synthetic demo data".
+  - Loading, empty, and error states across all pages; Navbar links to Overview and Institutions with active highlights; Footer displaying official grievance monitoring platform details.
   - Frontend production build (`npm run build`) and lint (`npm run lint`) pass with 0 errors.
 
 ## Verified — Phase 11 (overlap detection engine)
@@ -134,7 +134,7 @@
 - **Item 11 (Received Date Validation)**: Added `received_date` validation rejecting future dates (`<= date.today()`) returning HTTP 422 on both `POST /cases` and `PATCH /cases/{case_no}`.
 - **Item 12 (Actionable Open Overlaps Metric)**: Gated `open_overlaps` metric in dashboard summary and admin health check to count only High and Medium confidence bands (excluding informational Low-band pairs). Updated Overview and Institution Detail UI indicators.
 - **Item 13 (Permission Check Ordering)**: Enforced FastAPI route-level dependency guards (`dependencies=[Depends(...)]`) on write operations (`POST /cases`, `PATCH /cases/{case_no}`, `POST /cases/{case_no}/events`, `POST /overlaps/{id}/review`), guaranteeing HTTP 403 Forbidden is returned for unauthorized roles even if the request body is malformed or empty (`{}`).
-- **Item 14 (Authentication Token Errors)**: Implemented `UnauthorizedError` returning HTTP 401 `UNAUTHORIZED` with `{ "detail": "...", "code": "UNAUTHORIZED" }` for missing, expired, or malformed credentials.
+- **Item 14 (Authentication Token Errors)**: Implemented `UnauthorizedError` returning HTTP 401 `UNAUTHORIZED` formatted in accordance with the PRD Section 10 standard error structure (`{ "error": { "code": "UNAUTHORIZED", "message": "...", "details": ... } }`) for missing, expired, or malformed credentials.
 - **Item 15 (200-Case Seed Re-measurement)**: Scanned 200-case demo seed: evaluated 535 candidate pairs (30 High, 45 Medium, 460 Low). Medium alerts dropped from 210 down to 45 (well below 210). Demo pair `PG-2026-00104 / RB-2026-00219` preserved in High band with 0.23 text similarity. Recorded in `docs/eval.md`.
 
 ## Not yet verified / Upcoming

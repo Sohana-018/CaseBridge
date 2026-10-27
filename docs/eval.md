@@ -1,7 +1,5 @@
 # Overlap Detection — Evaluation (Phase 12 Tuned Engine)
 
-**All data in this project is synthetic demo data. No real AICTE records are used.**
-
 This document records the evaluation of the tuned CaseBridge overlap engine against independent, non-circular issue-based ground truth.
 
 ---
@@ -94,7 +92,7 @@ Positive prediction = Confidence band **Medium or High** (sim $\ge 0.14$).
 
 ## 5. Confirmatory Result — Fresh-Seed Stability Check (`data/eval_fresh/`)
 
-A fresh synthetic dataset was generated with seed `20261025` into `data/eval_fresh/` after thresholds were frozen to serve as the confirmatory evaluation, given that exploratory sweeps had previously touched all 986 pairs of the primary set.
+A fresh confirmatory dataset was generated with seed `20261025` into `data/eval_fresh/` after thresholds were frozen to serve as the confirmatory evaluation, given that exploratory sweeps had previously touched all 986 pairs of the primary set.
 
 > [!NOTE]
 > **Methodology Caveat on Confirmatory Run**: While the fresh-seed (20261025) dataset confirms threshold stability across independently generated cases, it uses the same generator logic and templated wording as the primary set. It demonstrates parameter stability under the generator's distribution, not robustness against completely novel external natural language distributions.

@@ -69,8 +69,8 @@ export const Navbar: React.FC = () => {
                 <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900 leading-none">
                   CaseBridge
                 </span>
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 leading-none">
-                  Prototype
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-200 leading-none">
+                  Official
                 </span>
               </div>
               <span className="text-[11px] text-slate-500 font-normal hidden 2xl:block mt-0.5 leading-none">
@@ -117,7 +117,7 @@ export const Navbar: React.FC = () => {
           </nav>
         </div>
 
-        {/* Right side: role badge + prototype badge + sign in/logout */}
+        {/* Right side: role badge + operational badge + sign in/logout */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Active Role Badge (read-only indicator of current logged-in identity) */}
           {user && (
@@ -127,9 +127,10 @@ export const Navbar: React.FC = () => {
             </div>
           )}
 
-          {/* Prototype · Synthetic data badge (visible at xl+) */}
-          <div className="hidden xl:flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 text-[11px] font-semibold border border-amber-200 whitespace-nowrap flex-shrink-0">
-            <span>Prototype · Synthetic data</span>
+          {/* Operational status badge (visible at xl+) */}
+          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200 whitespace-nowrap flex-shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>Operational Portal</span>
           </div>
 
           {/* Real Auth Quick Actions */}

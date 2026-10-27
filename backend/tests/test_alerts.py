@@ -141,7 +141,7 @@ def test_each_alert_type_appears_for_right_case_and_not_others(client_and_sessio
     assert alert_b["type"] == "sla_breach"
     assert alert_b["priority"] == "high"
     assert alert_b["status"] == "open"
-    assert "demo rule" in alert_b["message"]
+    assert "SLA breach" in alert_b["message"]
 
     # Check warning alert
     res_warn = client.get("/api/v1/alerts?case_no=PG-2026-WARN")
@@ -152,7 +152,7 @@ def test_each_alert_type_appears_for_right_case_and_not_others(client_and_sessio
     assert alert_w["type"] == "sla_warning"
     assert alert_w["priority"] == "medium"
     assert alert_w["status"] == "open"
-    assert "demo rule" in alert_w["message"]
+    assert "SLA rule" in alert_w["message"]
 
     # Check reminder alert
     res_remind = client.get("/api/v1/alerts?case_no=RO-2026-REMIND")
@@ -163,7 +163,7 @@ def test_each_alert_type_appears_for_right_case_and_not_others(client_and_sessio
     assert alert_r["type"] == "pending_reminder"
     assert alert_r["priority"] == "low"
     assert alert_r["status"] == "open"
-    assert "demo rule" in alert_r["message"]
+    assert "policy rule" in alert_r["message"]
 
     # Check normal and disposed cases have no alerts
     res_normal = client.get("/api/v1/alerts?case_no=OC-2026-NORMAL")

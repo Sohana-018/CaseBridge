@@ -7,8 +7,6 @@ The engine is deliberately explainable:
   reasons;
 - nothing is auto-merged, auto-closed or auto-disposed. A coordinator makes
   every linking decision by hand.
-
-All data is synthetic demo data.
 """
 
 from __future__ import annotations

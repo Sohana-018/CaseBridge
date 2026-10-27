@@ -1070,7 +1070,7 @@ export const CaseDetailPage: React.FC = () => {
                     type="text"
                     value={patchOfficer}
                     onChange={(e) => setPatchOfficer(e.target.value)}
-                    placeholder="e.g. A. Rao (demo)"
+                    placeholder="e.g. A. Rao"
                     disabled={isSubmitting}
                     className="w-full text-xs bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-900"
                   />

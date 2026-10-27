@@ -186,16 +186,16 @@ export const LoginPage: React.FC = () => {
             </div>
           </form>
 
-          {/* Quick Demo Access Pills */}
+          {/* Quick Role Access Pills */}
           <div className="mt-8 pt-6 border-t border-slate-200">
             <div className="flex items-center gap-1.5 mb-3 text-slate-700">
-              <Sparkles className="w-4 h-4 text-amber-600" />
+              <Sparkles className="w-4 h-4 text-blue-600" />
               <span className="text-xs font-bold uppercase tracking-wider">
-                One-Click Role Demonstration
+                Quick Role Access
               </span>
             </div>
             <p className="text-xs text-slate-500 mb-3">
-              Click any account below to instantly authenticate and evaluate role permissions:
+              Select an account below to sign in and access role permissions:
             </p>
 
             <div className="grid grid-cols-1 gap-2">

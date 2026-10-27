@@ -5,12 +5,30 @@ from sqlmodel import Session, select
 
 from app.models import Bureau, Config, User, UserRole
 
+import os
+import sys
+
 logger = logging.getLogger(__name__)
 
 
-def hash_password(password: str) -> str:
+def get_bcrypt_rounds() -> int:
+    """Return bcrypt rounds from environment or lower default during test execution."""
+    env_rounds = os.getenv("BCRYPT_ROUNDS")
+    if env_rounds:
+        try:
+            return int(env_rounds)
+        except ValueError:
+            pass
+    if "pytest" in sys.modules or os.getenv("TESTING") == "1":
+        return 4
+    return 12
+
+
+def hash_password(password: str, rounds: Optional[int] = None) -> str:
     """Hash plain-text password using bcrypt with random salt."""
-    salt = bcrypt.gensalt()
+    if rounds is None:
+        rounds = get_bcrypt_rounds()
+    salt = bcrypt.gensalt(rounds=rounds)
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
@@ -72,7 +90,7 @@ DEFAULT_CONFIG_ENTRIES = [
     ("sla_breach_days", "14"),
     ("max_active_cases_per_officer", "25"),
     ("auto_scan_enabled", "true"),
-    ("system_mode", "demo"),
+    ("system_mode", "operational"),
     ("organization_name", "All India Council for Technical Education (AICTE)"),
 ]
 

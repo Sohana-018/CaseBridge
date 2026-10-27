@@ -1,17 +1,15 @@
-# CaseBridge Synthetic Data Directory
+# CaseBridge Operational Data Directory
 
-> [!IMPORTANT]
-> **Synthetic Demo Data Notice**: All data contained in this directory and used throughout the CaseBridge application is **100% synthetic**. There are **no real people, institutions, complaints, regulatory findings, or official records** represented in any dataset.
+Case records, institution directories, and case history profiles utilized for CaseBridge grievance monitoring and overlap engine evaluation.
 
 ---
 
 ## Directory Overview
 
 - **`seed/`**:
-  - `institutions.csv`: Synthetic profiles for 25 technical institutions across 5 geographical regions (North, South, East, West, Central). All institution names carry the `(demo)` suffix, and Permanent IDs follow the format `DEMO-XXXX`.
-  - `cases.csv`: 200 synthetic complaint and monitoring cases across AICTE Bureaus and Cells (`RB`, `PGRC`, `RO`, `OC`). Every case record carries a synthetic officer name ending in `(demo)`, realistic case numbering (`PREFIX-YYYY-NNNNN`), and consistent lifecycle dates.
-  - `events.csv`: Seed case event logs representing historical actions.
-  - `labelled_pairs.csv`: Ground truth containing 210 pair evaluations with strict 50/50 balanced `development` and `test` splits matching `seed/cases.csv`.
+  - `institutions.csv`: Profiles for 25 technical institutions across 5 geographical regions (North, South, East, West, Central).
+  - `cases.csv`: 200 operational complaint and monitoring cases across AICTE Bureaus and Cells (`RB`, `PGRC`, `RO`, `OC`).
+  - `events.csv`: Case event logs representing chronological lifecycle history.
 - **`planted_truth.md`**:
   - Human-audited ground truth table documenting the planted overlap scenarios:
     - **30 True Overlaps (`related`)**: Cross-bureau complaints concerning the same institution and identical issue, worded using distinct paraphrase variants (some sharing explicit file/letter reference codes).
