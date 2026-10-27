@@ -40,7 +40,7 @@ def test_insert_and_read_institution_case_and_event(session: Session):
     # 1. Insert Institution
     inst = Institution(
         permanent_id="DEMO-1042",
-        name="Example Institute of Technology (demo)",
+        name="Example Institute of Technology",
         address="123 Academic Campus Road",
         region=Region.SOUTH,
         state="Karnataka",
@@ -62,7 +62,7 @@ def test_insert_and_read_institution_case_and_event(session: Session):
         description="Complaint regarding unqualified faculty in mechanical department",
         received_date=date(2026, 9, 12),
         status=CaseStatus.UNDER_PROCESS,
-        assigned_officer="A. Rao (demo)",
+        assigned_officer="A. Rao",
         last_action="Notice sent to institution",
         last_action_date=date(2026, 10, 2),
         next_action="Await institution reply",
@@ -82,7 +82,7 @@ def test_insert_and_read_institution_case_and_event(session: Session):
     # 3. Insert CaseEvent (append-only)
     event = CaseEvent(
         case_id=c.id,
-        actor="A. Rao (demo)",
+        actor="A. Rao",
         bureau=Bureau.PGRC,
         event_type=EventType.REMARK,
         remarks="Notice sent to institution",
@@ -99,7 +99,7 @@ def test_insert_and_read_institution_case_and_event(session: Session):
     # 4. Read back using select queries
     queried_inst = session.exec(select(Institution).where(Institution.permanent_id == "DEMO-1042")).first()
     assert queried_inst is not None
-    assert queried_inst.name == "Example Institute of Technology (demo)"
+    assert queried_inst.name == "Example Institute of Technology"
     assert queried_inst.region == Region.SOUTH
 
     queried_case = session.exec(select(Case).where(Case.case_no == "PG-2026-00104")).first()
@@ -109,7 +109,7 @@ def test_insert_and_read_institution_case_and_event(session: Session):
 
     queried_events = session.exec(select(CaseEvent).where(CaseEvent.case_id == queried_case.id)).all()
     assert len(queried_events) == 1
-    assert queried_events[0].actor == "A. Rao (demo)"
+    assert queried_events[0].actor == "A. Rao"
     assert queried_events[0].event_type == EventType.REMARK
 
 

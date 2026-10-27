@@ -79,7 +79,7 @@ export const OverlapQueuePage: React.FC = () => {
   const isCoordinator = currentUser?.role === 'coordinator';
   const canScan = currentUser?.role === 'coordinator' || currentUser?.role === 'administrator';
 
-  // Manual verification items (Phase 11: missing or conflicting permanent_id)
+  // Manual verification items: missing or conflicting permanent_id
   const [manualItems, setManualItems] = useState<ManualVerificationItem[]>([]);
   const [manualLoading, setManualLoading] = useState<boolean>(false);
   const isOfficerOtherBureau = (bureau: string) =>
@@ -808,7 +808,7 @@ export const OverlapQueuePage: React.FC = () => {
         </div>
       )}
 
-      {/* Manual Verification List Section (FR12 / Phase 11 Acceptance) */}
+      {/* Manual Verification List Section */}
       {canScan && (
         <section aria-labelledby="manual-verification-heading" className="mt-10 border-t border-slate-200 pt-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">

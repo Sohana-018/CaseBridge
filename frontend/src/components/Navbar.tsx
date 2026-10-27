@@ -116,7 +116,7 @@ export const Navbar: React.FC = () => {
           )}
         </div>
 
-        {/* Right side: role badge + prototype badge + sign in/logout */}
+        {/* Right side: role badge + sign in/logout */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Active Role Badge (read-only indicator of current logged-in identity) */}
           {user && (
@@ -126,10 +126,6 @@ export const Navbar: React.FC = () => {
             </div>
           )}
 
-          {/* Prototype · Synthetic data badge (visible at xl+) */}
-          <div className="hidden xl:flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 text-[11px] font-semibold border border-amber-200 whitespace-nowrap flex-shrink-0">
-            <span>Prototype · Synthetic data</span>
-          </div>
 
           {/* Real Auth Quick Actions */}
           <div className="flex items-center gap-1">
