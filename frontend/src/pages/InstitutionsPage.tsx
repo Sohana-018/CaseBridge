@@ -18,8 +18,6 @@ import {
   Building2,
   RefreshCw,
   X,
-  Layers,
-  GitCompare,
   AlertTriangle,
   ArrowRight,
   ChevronRight,
@@ -292,84 +290,74 @@ export const InstitutionsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 1. 4-COLUMN KPI STRIP (Strictly solid colors, no gradients) */}
-      <section aria-labelledby="institutions-kpi-heading">
-        <h2 id="institutions-kpi-heading" className="sr-only">Directory Key Indicators</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-          {/* 1. Total Registered */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs flex items-start justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Total Registered
+      {/* 1. COMMAND STAT STRIP (Single-row flat design, NO gradients) */}
+      <section
+        aria-labelledby="institutions-stat-strip-heading"
+        className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs my-4 overflow-x-auto"
+      >
+        <h2 id="institutions-stat-strip-heading" className="sr-only">Institutions Directory Key Metrics</h2>
+        <div className="flex items-center justify-between gap-4 min-w-[720px]">
+          <div className="flex items-center divide-x divide-slate-200 flex-1">
+            {/* Item 1: Total Registered */}
+            <div className="flex items-center gap-2 pr-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                Total Registered:
               </span>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-1 num-tabular">
+              <span className="text-lg font-bold text-slate-900 num-tabular">
                 {kpiStats.totalRegistered}
-              </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Institutions</span>
-            </div>
-            <div
-              className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0"
-              aria-hidden="true"
-            >
-              <Building2 className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* 2. Active Grievances */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs flex items-start justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Active Grievances
               </span>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-1 num-tabular">
+            </div>
+
+            {/* Item 2: Active Grievances */}
+            <div className="flex items-center gap-2 px-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                Active Grievances:
+              </span>
+              <span className="text-lg font-bold text-blue-700 num-tabular">
                 {kpiStats.activeGrievances}
-              </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Institutions with open cases</span>
-            </div>
-            <div
-              className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0"
-              aria-hidden="true"
-            >
-              <Layers className="w-4 h-4" />
-            </div>
-          </div>
-
-          {/* 3. Cross-Bureau Overlaps */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs flex items-start justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Cross-Bureau Overlaps
               </span>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-1 num-tabular">
+            </div>
+
+            {/* Item 3: Cross-Bureau Overlaps */}
+            <div className="flex items-center gap-2 px-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                Cross-Bureau Overlaps:
+              </span>
+              <span className="text-lg font-bold text-amber-800 num-tabular">
                 {kpiStats.crossBureauOverlaps}
-              </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Flagged in Overlap Queue</span>
+              </span>
+              {kpiStats.crossBureauOverlaps > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                  Queue
+                </span>
+              )}
             </div>
-            <div
-              className="w-9 h-9 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0"
-              aria-hidden="true"
-            >
-              <GitCompare className="w-4 h-4" />
+
+            {/* Item 4: High Priority / SLA */}
+            <div className="flex items-center gap-2 pl-4">
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                High Priority / SLA:
+              </span>
+              <span className="text-lg font-bold text-rose-700 num-tabular">
+                {kpiStats.slaWatch}
+              </span>
+              {kpiStats.slaWatch > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
+                  Watch
+                </span>
+              )}
             </div>
           </div>
 
-          {/* 4. High Priority / SLA Watch */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs flex items-start justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                High Priority / SLA Watch
-              </span>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-1 num-tabular">
-                {kpiStats.slaWatch}
-              </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Overdue or high-priority inquiries</span>
-            </div>
-            <div
-              className="w-9 h-9 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0"
-              aria-hidden="true"
+          {/* Far Right Action Link */}
+          <div className="pl-4 shrink-0 border-l border-slate-200">
+            <Link
+              to="/overlaps"
+              className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
             >
-              <AlertTriangle className="w-4 h-4" />
-            </div>
+              <span>Filter queue</span>
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </Link>
           </div>
         </div>
       </section>

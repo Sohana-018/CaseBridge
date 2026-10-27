@@ -14,18 +14,12 @@ import { PriorityChip } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
 import { useToast } from '../components/Toast';
 import {
-  Clock,
-  RotateCw,
   CheckCircle2,
-  ArrowRightLeft,
-  Flame,
-  AlertOctagon,
   ArrowRight,
   BarChart3,
   RefreshCw,
   ShieldAlert,
   GitCompare,
-  Layers,
   Building2,
   Calendar,
   Sliders,
@@ -306,231 +300,109 @@ export const OverviewPage: React.FC = () => {
       {/* 2. CONSOLIDATED UNIFIED METRIC BLOCK */}
       {!loading && !error && summary && (
         <div className="space-y-5">
-          <section aria-labelledby="kpi-metrics-heading">
-            <h2 id="kpi-metrics-heading" className="sr-only">Key Operational Indicators</h2>
-
-            {/* Top Row: 4 Core KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* 1. Total Complaints */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                      Total Complaints
-                    </span>
-                    <div
-                      className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0"
-                      aria-hidden="true"
-                    >
-                      <Layers className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <div className="text-3xl font-bold text-slate-900 tracking-tight num-tabular leading-none">
-                      {summary.total}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 text-xs">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Across 4 Bureaus</span>
-                  <Link
-                    to="/cases"
-                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
-                  >
-                    <span>View all cases</span>
-                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* 2. Under Investigation */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                      Under Investigation
-                    </span>
-                    <div
-                      className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0"
-                      aria-hidden="true"
-                    >
-                      <RotateCw className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <div className="text-3xl font-bold text-slate-900 tracking-tight num-tabular leading-none">
-                      {summary.under_process}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 text-xs">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Active inquiry workflow</span>
-                  <Link
-                    to="/cases?status=under_process"
-                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
-                  >
-                    <span>View active</span>
-                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* 3. Coordination Queue */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                      Coordination Queue
-                    </span>
-                    <div
-                      className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0"
-                      aria-hidden="true"
-                    >
-                      <GitCompare className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <div className="text-3xl font-bold text-slate-900 tracking-tight num-tabular leading-none">
-                      {summary.open_overlaps}
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                      Review
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 text-xs">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Cross-bureau overlaps</span>
-                  <Link
-                    to="/overlaps"
-                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
-                  >
-                    <span>Review queue</span>
-                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* 4. Overdue SLA Target */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                      Overdue SLA Target
-                    </span>
-                    <div
-                      className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0"
-                      aria-hidden="true"
-                    >
-                      <AlertOctagon className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <div className="text-3xl font-bold text-rose-700 tracking-tight num-tabular leading-none">
-                      {summary.overdue}
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
-                      Breach
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2.5 mt-3 border-t border-slate-100 text-xs">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Target resolution exceeded</span>
-                  <Link
-                    to="/cases?overdue=true"
-                    className="font-bold text-rose-700 hover:text-rose-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
-                  >
-                    <span>View overdue</span>
-                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Secondary Status Strip: Slim 4-Column Segmented Bar */}
-            <div className="bg-white border border-slate-200 rounded-xl divide-x divide-slate-200 grid grid-cols-2 md:grid-cols-4 py-2.5 px-4 mt-3 shadow-xs">
-              {/* Pending Review */}
-              <Link
-                to="/cases?status=pending"
-                className="flex items-center gap-3 px-3 py-1 hover:bg-slate-50 transition group"
-              >
-                <div
-                  className="w-7 h-7 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0"
-                  aria-hidden="true"
+          {/* 2. COMMAND STAT STRIP (Single-row flat design, NO gradients) */}
+          <section
+            aria-labelledby="command-stat-strip-heading"
+            className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs my-4 overflow-x-auto"
+          >
+            <h2 id="command-stat-strip-heading" className="sr-only">Operational Metrics Command Strip</h2>
+            <div className="flex items-center justify-between gap-4 min-w-[860px]">
+              <div className="flex items-center divide-x divide-slate-200 flex-1">
+                {/* Item 1: Total Complaints */}
+                <Link
+                  to="/cases"
+                  className="flex items-center gap-2 pr-4 hover:opacity-80 transition cursor-pointer"
                 >
-                  <Clock className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-blue-700 leading-none">
-                    {summary.pending}
+                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                    Total Complaints
                   </span>
-                  <span className="text-xs text-slate-500 font-medium ml-1.5 whitespace-nowrap">
+                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                    {summary.total}
+                  </span>
+                </Link>
+
+                {/* Item 2: Under Investigation */}
+                <Link
+                  to="/cases?status=under_process"
+                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
+                >
+                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                    Under Investigation
+                  </span>
+                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                    {summary.under_process}
+                  </span>
+                </Link>
+
+                {/* Item 3: Coordination Queue */}
+                <Link
+                  to="/overlaps"
+                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
+                >
+                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                    Coordination Queue
+                  </span>
+                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                    {summary.open_overlaps}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                    Review
+                  </span>
+                </Link>
+
+                {/* Item 4: Overdue SLA */}
+                <Link
+                  to="/cases?overdue=true"
+                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
+                >
+                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                    Overdue SLA
+                  </span>
+                  <span className="text-lg font-bold text-rose-700 num-tabular">
+                    {summary.overdue}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-300">
+                    Breach
+                  </span>
+                </Link>
+
+                {/* Item 5: Pending Review */}
+                <Link
+                  to="/cases?status=pending"
+                  className="flex items-center gap-2 px-4 hover:opacity-80 transition cursor-pointer"
+                >
+                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
                     Pending Review
                   </span>
-                </div>
-              </Link>
+                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                    {summary.pending}
+                  </span>
+                </Link>
 
-              {/* Reassigned Bureau */}
-              <Link
-                to="/cases?status=transferred"
-                className="flex items-center gap-3 px-3 py-1 hover:bg-slate-50 transition group"
-              >
-                <div
-                  className="w-7 h-7 rounded-md bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0"
-                  aria-hidden="true"
+                {/* Item 6: Disposed / Closed */}
+                <Link
+                  to="/cases?status=disposed"
+                  className="flex items-center gap-2 pl-4 hover:opacity-80 transition cursor-pointer"
                 >
-                  <ArrowRightLeft className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-blue-700 leading-none">
-                    {summary.transferred}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium ml-1.5 whitespace-nowrap">
-                    Reassigned Bureau
-                  </span>
-                </div>
-              </Link>
-
-              {/* Escalated Priority */}
-              <Link
-                to="/cases?status=escalated"
-                className="flex items-center gap-3 px-3 py-1 hover:bg-slate-50 transition group"
-              >
-                <div
-                  className="w-7 h-7 rounded-md bg-purple-50 text-purple-700 border border-purple-200 flex items-center justify-center shrink-0"
-                  aria-hidden="true"
-                >
-                  <Flame className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-blue-700 leading-none">
-                    {summary.escalated}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium ml-1.5 whitespace-nowrap">
-                    Escalated Priority
-                  </span>
-                </div>
-              </Link>
-
-              {/* Disposed / Closed */}
-              <Link
-                to="/cases?status=disposed"
-                className="flex items-center gap-3 px-3 py-1 hover:bg-slate-50 transition group"
-              >
-                <div
-                  className="w-7 h-7 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0"
-                  aria-hidden="true"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-lg font-bold text-slate-900 num-tabular group-hover:text-blue-700 leading-none">
-                    {summary.disposed}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium ml-1.5 whitespace-nowrap">
+                  <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
                     Disposed / Closed
                   </span>
-                </div>
-              </Link>
+                  <span className="text-lg font-bold text-slate-900 num-tabular">
+                    {summary.disposed}
+                  </span>
+                </Link>
+              </div>
+
+              {/* Far Right Action Link */}
+              <div className="pl-4 shrink-0 border-l border-slate-200">
+                <Link
+                  to="/reports"
+                  className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 whitespace-nowrap"
+                >
+                  <span>View full report</span>
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </Link>
+              </div>
             </div>
           </section>
 
