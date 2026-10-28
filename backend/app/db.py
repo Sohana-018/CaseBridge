@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Generator
 from dotenv import load_dotenv
 from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel.pool import StaticPool
 
 # Load environment variables from backend/.env if present
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -12,15 +13,22 @@ if env_file.exists():
 else:
     load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./casebridge.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    if os.getenv("TESTING") == "1":
+        DATABASE_URL = "sqlite:///:memory:"
+    else:
+        DATABASE_URL = f"sqlite:///{(BASE_DIR / 'casebridge.db').as_posix()}"
 
 # SQLite requires check_same_thread=False for FastAPI concurrency
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine_kwargs = {"echo": False, "connect_args": connect_args}
+if DATABASE_URL == "sqlite:///:memory:":
+    engine_kwargs["poolclass"] = StaticPool
 
 engine = create_engine(
     DATABASE_URL,
-    echo=False,
-    connect_args=connect_args,
+    **engine_kwargs,
 )
 
 
@@ -51,6 +59,6 @@ def create_db_and_tables(target_engine=None) -> None:
 
 
 def get_session() -> Generator[Session, None, None]:
-    """Dependency that yields an active database session."""
+    """Dependency provider yielding a scoped database session."""
     with Session(engine) as session:
         yield session

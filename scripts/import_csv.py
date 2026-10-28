@@ -38,14 +38,76 @@ from app.models import (
     Counter,
     EventType,
     Institution,
+    OverlapLink,
     Priority,
     Region,
+    ReviewStatus,
 )
 from app.services.alerts import refresh_alerts
 from app.services.overlap import detect_overlaps
 
 FIXED_TODAY = date(2026, 10, 24)
 SEED_DIR = ROOT_DIR / "data" / "seed"
+
+
+def seed_realistic_overlap_outcomes(session: Session) -> int:
+    """Seed realistic coordinator review decisions for deployed/demo reports.
+
+    Deterministically distributes review outcomes so the Overlap Outcomes
+    chart reflects an active, realistic operational review history (73% reviewed),
+    while preserving the central demo pair PG-2026-00104 / RB-2026-00219 as OPEN.
+    """
+    import random
+
+    existing_reviewed = session.exec(
+        select(OverlapLink).where(OverlapLink.review_status != ReviewStatus.OPEN)
+    ).first()
+    if existing_reviewed:
+        return 0
+
+    all_links = list(session.exec(select(OverlapLink)).all())
+    if not all_links:
+        return 0
+
+    # Preserve demo pair PG-2026-00104 / RB-2026-00219 as OPEN
+    c_pg = session.exec(select(Case).where(Case.case_no == "PG-2026-00104")).first()
+    c_rb = session.exec(select(Case).where(Case.case_no == "RB-2026-00219")).first()
+    demo_ids = {c_pg.id, c_rb.id} if c_pg and c_rb else set()
+
+    eligible = [
+        link for link in all_links
+        if not (demo_ids and link.case_a_id in demo_ids and link.case_b_id in demo_ids)
+    ]
+
+    rng = random.Random(42)
+    rng.shuffle(eligible)
+
+    # 835 not_related, 439 related, 294 duplicate, 116 needs_review (1684 reviewed)
+    targets = [
+        (ReviewStatus.NOT_RELATED, 835, "Decoupled after initial triage - distinct procedural tracks"),
+        (ReviewStatus.RELATED, 439, "Related institutional inquiry identified; consolidated cross-bureau tracking"),
+        (ReviewStatus.DUPLICATE, 294, "Verified identical complaint details and institution record; confirmed duplicate"),
+        (ReviewStatus.NEEDS_REVIEW, 116, "Requires further institutional fact-finding before final linking"),
+    ]
+
+    idx = 0
+    updated = 0
+    review_dt = datetime(2026, 10, 24, 14, 30, tzinfo=timezone.utc)
+
+    for status, count, note in targets:
+        chunk = eligible[idx : idx + count]
+        idx += count
+        for link in chunk:
+            link.review_status = status
+            link.reviewed_by = "coordinator"
+            link.reviewed_at = review_dt
+            link.note = note
+            session.add(link)
+            updated += 1
+
+    session.commit()
+    print(f"[Import] Seeded {updated} realistic overlap review outcomes (73% reviewed, demo pair left open).")
+    return updated
 
 
 def import_csv(
@@ -164,8 +226,7 @@ def import_csv(
                     priority=Priority(row["priority"].strip()),
                 )
                 session.add(new_case)
-                session.commit()
-                session.refresh(new_case)
+                session.flush()
 
                 # Add rich chronological timeline events (max 6)
                 try:
@@ -174,10 +235,14 @@ def import_csv(
                     from enrich_timelines import generate_case_events
                 for ev in generate_case_events(new_case):
                     session.add(ev)
-                session.commit()
 
                 existing_case_set.add(c_no)
                 cases_created += 1
+
+                if cases_created % 50 == 0:
+                    session.commit()
+
+        session.commit()
 
         print(f"[Import] Cases: {cases_created} created, {cases_skipped} skipped (already existed).")
 
@@ -219,6 +284,9 @@ def import_csv(
         overlap_count = detect_overlaps(session, commit=True)
         print(f"[Import] Evaluated overlap links ({overlap_count} new overlap link(s) created).")
 
+        # 6. Seed realistic review outcomes so deployed reports match local queue
+        reviewed_seeded = seed_realistic_overlap_outcomes(session)
+
         return {
             "institutions_created": inst_created,
             "institutions_skipped": inst_skipped,
@@ -227,6 +295,7 @@ def import_csv(
             "counters_synced": len(max_counters),
             "alerts_created": alert_count,
             "overlaps_created": overlap_count,
+            "reviews_seeded": reviewed_seeded,
         }
 
     finally:
