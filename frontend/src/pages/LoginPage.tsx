@@ -137,6 +137,24 @@ export const LoginPage: React.FC = () => {
     isPollingRef.current = false;
   }, [updateScrollButtons]);
 
+  // Manual retry probe when server waking up exceeds expected threshold
+  const handleManualRetryProbe = useCallback(async () => {
+    const healthy = await checkServerHealth(4000);
+    if (healthy) {
+      serverReadyRef.current = true;
+      setServerWakingUp(false);
+      setServerReadyNotice(true);
+      setTimeout(() => setServerReadyNotice(false), 5000);
+      try {
+        const accounts = await getDemoAccounts();
+        setDemoAccounts(Array.isArray(accounts) ? accounts : []);
+        setTimeout(updateScrollButtons, 100);
+      } catch {
+        // ignore
+      }
+    }
+  }, [updateScrollButtons]);
+
   // Elapsed seconds timer during server wake-up
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -434,6 +452,10 @@ export const LoginPage: React.FC = () => {
           <div className="w-full max-w-md mx-auto">
             {/* Clean Header */}
             <div className="mb-3">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                <span>Synthetic Demo Environment · Prototype Evaluation</span>
+              </div>
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                 Officer Authentication
               </h2>
@@ -489,6 +511,19 @@ export const LoginPage: React.FC = () => {
                     <span>Cold start in progress</span>
                   </span>
                 </div>
+
+                {wakeUpSeconds >= 25 && (
+                  <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-600">Taking longer than usual?</span>
+                    <button
+                      type="button"
+                      onClick={handleManualRetryProbe}
+                      className="px-2.5 py-1 text-xs font-semibold text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition cursor-pointer shadow-2xs"
+                    >
+                      Retry connection probe
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

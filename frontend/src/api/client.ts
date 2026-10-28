@@ -168,6 +168,12 @@ export interface BureauRecommendation {
   work_summary_b: BureauWorkSummary;
 }
 
+export interface OverlapInstitutionMini {
+  id?: number | null;
+  permanent_id?: string | null;
+  name?: string | null;
+}
+
 export interface OverlapItem {
   id: number;
   band: ConfidenceBand;
@@ -175,6 +181,7 @@ export interface OverlapItem {
   reasons: string[];
   case_a: OverlapCaseMini;
   case_b: OverlapCaseMini;
+  institution?: OverlapInstitutionMini | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
   note?: string | null;
@@ -200,7 +207,7 @@ export interface OverlapReviewPayload {
 
 export interface OverlapQueryParams {
   review_status?: ReviewStatus | '';
-  band?: ConfidenceBand | '';
+  band?: ConfidenceBand | 'actionable' | 'all' | '';
   page?: number;
   page_size?: number;
 }
@@ -733,12 +740,15 @@ export interface PeriodicResolutionStats {
   total_cases: number;
   resolved_cases: number;
   open_cases: number;
+  has_resolved_cases?: boolean;
   avg_days: number;
   median_days: number;
   min_days: number;
   max_days: number;
   within_sla_count: number;
   sla_compliance_rate: number;
+  sla_compliance_display?: string;
+  cohort_basis?: string;
 }
 
 export interface PeriodicReportData {

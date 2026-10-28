@@ -593,6 +593,14 @@ def get_overlap_read(session: Session, link: OverlapLink) -> Dict[str, Any]:
     likelihood = calculate_overlap_likelihood(reasons_list, band_val)
     recommendation = generate_bureau_recommendation(case_a, events_a, case_b, events_b, reasons_list)
 
+    inst_id = (case_a.institution_id if case_a else None) or (case_b.institution_id if case_b else None)
+    inst = session.get(Institution, inst_id) if inst_id else None
+    inst_info = {
+        "id": inst.id,
+        "permanent_id": inst.permanent_id,
+        "name": inst.name,
+    } if inst else None
+
     def mini(case: Optional[Case]) -> Dict[str, str]:
         if not case:
             return {"case_no": "", "bureau": "", "status": ""}
@@ -609,6 +617,7 @@ def get_overlap_read(session: Session, link: OverlapLink) -> Dict[str, Any]:
         "reasons": reasons_list,
         "case_a": mini(case_a),
         "case_b": mini(case_b),
+        "institution": inst_info,
         "reviewed_by": link.reviewed_by,
         "reviewed_at": link.reviewed_at,
         "note": link.note,

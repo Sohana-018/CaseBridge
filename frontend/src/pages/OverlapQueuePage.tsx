@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   getOverlaps,
   scanOverlaps,
@@ -125,11 +125,13 @@ function getPairMetrics(
   }
 
   const pid =
+    item.institution?.permanent_id ||
     caseA?.institution?.permanent_id ||
     caseB?.institution?.permanent_id ||
     null;
 
   const instName =
+    item.institution?.name ||
     caseA?.institution?.name ||
     caseB?.institution?.name ||
     null;
@@ -151,8 +153,13 @@ export const OverlapQueuePage: React.FC = () => {
   const [total, setTotal] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(15);
+  const [searchParams] = useSearchParams();
+  const urlScope = searchParams.get('scope') || searchParams.get('band');
+  const initialBand: ConfidenceBand | 'actionable' | 'all' | '' = 
+    urlScope === 'all' ? 'all' : (urlScope === 'high' || urlScope === 'medium' || urlScope === 'low' ? urlScope : 'actionable');
+
   const [selectedStatus, setSelectedStatus] = useState<ReviewStatus | ''>('open');
-  const [selectedBand, setSelectedBand] = useState<ConfidenceBand | ''>('');
+  const [selectedBand, setSelectedBand] = useState<ConfidenceBand | 'actionable' | 'all' | ''>(initialBand);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Active pair selection for split-screen detail workspace
@@ -200,7 +207,7 @@ export const OverlapQueuePage: React.FC = () => {
     try {
       const res: OverlapListResponse = await getOverlaps({
         review_status: selectedStatus || undefined,
-        band: selectedBand || undefined,
+        band: (selectedBand === 'all' ? '' : selectedBand) || undefined,
         page,
         page_size: pageSize,
       });
@@ -470,8 +477,8 @@ export const OverlapQueuePage: React.FC = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Overlap Review Queue
             </h1>
-            <span className="text-xs text-slate-500 font-semibold num-tabular">
-              ({total} flagged pairs)
+            <span className="text-xs text-slate-600 font-semibold num-tabular bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+              {total} {selectedBand === 'actionable' && selectedStatus === 'open' ? 'actionable open pairs' : 'pairs'}
             </span>
           </div>
 
@@ -591,15 +598,16 @@ export const OverlapQueuePage: React.FC = () => {
                   id="filter-confidence-band"
                   value={selectedBand}
                   onChange={(e) => {
-                    setSelectedBand(e.target.value as ConfidenceBand | '');
+                    setSelectedBand(e.target.value as ConfidenceBand | 'actionable' | 'all' | '');
                     setPage(1);
                   }}
                   className="h-8 bg-slate-50 border border-slate-300 text-slate-900 rounded-lg px-2.5 text-xs font-medium cursor-pointer focus:bg-white"
                 >
-                  <option value="">All Bands (High → Low)</option>
+                  <option value="actionable">Actionable (High + Medium) [Default]</option>
                   <option value="high">High Confidence Only</option>
                   <option value="medium">Medium Confidence Only</option>
                   <option value="low">Low Confidence Only</option>
+                  <option value="all">All Bands (High + Medium + Low)</option>
                 </select>
               </div>
             </div>
@@ -618,7 +626,7 @@ export const OverlapQueuePage: React.FC = () => {
               </div>
 
               <span className="text-xs text-slate-500 num-tabular font-medium whitespace-nowrap">
-                Showing {filteredOverlaps.length} of {total} flagged pairs
+                Showing {filteredOverlaps.length} of {total} {selectedBand === 'actionable' && selectedStatus === 'open' ? 'actionable open pairs (High + Medium)' : selectedBand === 'actionable' ? 'actionable pairs (High + Medium)' : selectedBand === 'all' || !selectedBand ? 'flagged pairs (All Bands)' : `${selectedBand} confidence pairs`}
               </span>
             </div>
           </section>
@@ -760,7 +768,7 @@ export const OverlapQueuePage: React.FC = () => {
                             <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                             <span className="truncate">
                               {metrics.instName || (
-                                <span className="text-slate-400 italic">Canonical Institution</span>
+                                <span className="text-slate-400 italic">Institution unavailable</span>
                               )}
                             </span>
                           </div>
@@ -904,38 +912,38 @@ export const OverlapQueuePage: React.FC = () => {
                   {/* 3A.2 AI OVERLAP LIKELIHOOD & WORK-BASED BUREAU RECOMMENDATION (Compact & Sleek) */}
                   <div className="px-5 py-2.5 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50/80 border-b border-slate-200 space-y-2">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-                      {/* Overlap Likelihood Assessment */}
+                      {/* Heuristic Overlap Assessment */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
-                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                        <div className="w-6 h-6 rounded-md bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
+                          <Sliders className="w-3.5 h-3.5 text-white" />
                         </div>
                         <span className="text-xs font-bold text-slate-900">
-                          Overlap Match Likelihood:
+                          Heuristic overlap score:
                         </span>
                         <span className="text-xs font-extrabold text-blue-700 font-mono bg-blue-100/90 px-2 py-0.5 rounded border border-blue-200">
-                          {activeItem.likelihood_percentage ?? (activeItem.band === 'high' ? 88 : activeItem.band === 'medium' ? 62 : 38)}%
+                          {activeItem.likelihood_percentage ?? (activeItem.band === 'high' ? 88 : activeItem.band === 'medium' ? 62 : 38)}/100
                         </span>
                         <span className="text-[11px] font-semibold text-slate-500 hidden xl:inline">
                           {(activeItem.likelihood_percentage ?? 0) >= 75 || activeItem.band === 'high'
-                            ? '• Highly Probable Duplicate'
+                            ? '• High rule-based overlap signals'
                             : (activeItem.likelihood_percentage ?? 0) >= 50 || activeItem.band === 'medium'
-                            ? '• Probable Correlated Incident'
-                            : '• Low Correlation Matter'}
+                            ? '• Moderate correlation signals'
+                            : '• Low correlation signals'}
                         </span>
                       </div>
 
-                      {/* Recommended Lead Bureau Chip & Work Scores Pill */}
+                      {/* Advisory Lead Suggestion & Work Scores Pill */}
                       {activeItem.recommendation && (
                         <div className="flex items-center gap-2 flex-wrap shrink-0">
-                          <div className="flex items-center gap-1.5 bg-white border border-indigo-200 px-2.5 py-1 rounded-lg shadow-2xs">
+                          <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-2xs">
                             <span className="text-[11px] font-semibold text-slate-600">
-                              Lead Pick:
+                              Lead Suggestion:
                             </span>
                             <span className="font-bold text-xs px-2 py-0.5 rounded bg-indigo-600 text-white font-mono shadow-2xs">
                               {activeItem.recommendation.recommended_bureau}
                             </span>
-                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">
-                              {activeItem.recommendation.confidence_percentage}% Conf.
+                            <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-mono">
+                              {activeItem.recommendation.confidence_percentage}/100 score
                             </span>
                           </div>
 
@@ -952,11 +960,11 @@ export const OverlapQueuePage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Rationale Statement & Pre-fill Note Button */}
+                    {/* Rule-based Explanation Statement & Advisory Note Button */}
                     {activeItem.recommendation && (
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
                         <p className="text-slate-700 text-[11px] leading-relaxed flex-1">
-                          <strong className="text-slate-900 font-semibold">AI Rationale: </strong>
+                          <strong className="text-slate-900 font-semibold">Rule-based explanation: </strong>
                           {activeItem.recommendation.recommendation_reason}
                         </p>
 
@@ -964,17 +972,17 @@ export const OverlapQueuePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              const note = `Consolidate under ${activeItem.recommendation?.recommended_bureau} (${activeItem.recommendation?.confidence_percentage}% confidence): ${activeItem.recommendation?.recommendation_reason}`;
+                              const note = `Consolidate under ${activeItem.recommendation?.recommended_bureau} (Rule-based recommendation score ${activeItem.recommendation?.confidence_percentage}/100): ${activeItem.recommendation?.recommendation_reason}`;
                               handleNoteChange(activeItem.id, note);
                               showToast(
-                                `Prefilled review note with ${activeItem.recommendation?.recommended_bureau} assignment rationale.`,
+                                `Prefilled review note with advisory ${activeItem.recommendation?.recommended_bureau} assignment rationale.`,
                                 'success'
                               );
                             }}
                             className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg shrink-0 transition inline-flex items-center gap-1 cursor-pointer"
                           >
-                            <Sparkles className="w-3 h-3 text-blue-600" />
-                            <span>Apply to Review Note</span>
+                            <Sliders className="w-3 h-3 text-blue-600" />
+                            <span>Use suggestion in review note</span>
                           </button>
                         )}
                       </div>
@@ -1175,11 +1183,14 @@ export const OverlapQueuePage: React.FC = () => {
             {manualLoading ? (
               <div className="p-8 text-center text-xs text-slate-500">Checking records...</div>
             ) : manualItems.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-600 bg-slate-50">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto mb-2" aria-hidden="true" />
-                <div className="font-bold text-slate-900">All Cases Resolved</div>
-                <div className="text-slate-500 mt-1">
-                  Every registered case maps cleanly to a canonical permanent institution ID.
+              <div className="p-8 text-center text-xs text-slate-600 bg-slate-50 rounded-xl space-y-2">
+                <CheckCircle2 className="w-7 h-7 text-emerald-600 mx-auto mb-1" aria-hidden="true" />
+                <div className="font-bold text-sm text-slate-900">0 Items Pending Verification</div>
+                <p className="text-slate-600 max-w-md mx-auto leading-relaxed">
+                  Every case in the current seed dataset maps cleanly to a valid canonical Permanent Institution ID (PID).
+                </p>
+                <div className="inline-block text-[11px] text-slate-500 bg-white border border-slate-200 rounded-lg px-3 py-1.5 mt-2">
+                  <span className="font-semibold text-slate-700">Demo Environment Note:</span> In production intake, complaints with malformed or missing institution codes are queued here for coordinator entity resolution. Synthetic demo data is pre-sanitized.
                 </div>
               </div>
             ) : (

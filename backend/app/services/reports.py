@@ -454,12 +454,15 @@ def get_periodic_report(
             "total_cases": total_cases,
             "resolved_cases": len(disposed_cases),
             "open_cases": open_cases_count,
+            "has_resolved_cases": len(res_days_list) > 0,
             "avg_days": avg_days,
             "median_days": median_days,
             "min_days": min_days,
             "max_days": max_days,
             "within_sla_count": within_sla_count,
             "sla_compliance_rate": sla_rate,
+            "sla_compliance_display": f"{sla_rate}%" if len(res_days_list) > 0 else "N/A",
+            "cohort_basis": "intake_cohort (cases received in period)",
         },
     }
 
@@ -501,18 +504,19 @@ def export_periodic_report_csv(
 
     # 2. Key Resolution Metrics
     res = report["resolution_stats"]
+    has_res = res.get("has_resolved_cases", res["resolved_cases"] > 0)
     writer.writerow(["RESOLUTION & SLA PERFORMANCE METRICS"])
-    writer.writerow(["Metric", "Value"])
-    writer.writerow(["Total Cases in Cohort", res["total_cases"]])
-    writer.writerow(["Resolved Cases", res["resolved_cases"]])
-    writer.writerow(["Open Cases", res["open_cases"]])
-    writer.writerow(["Disposal Rate (%)", f"{report['summary']['disposal_rate']}%"])
-    writer.writerow(["Average Resolution Time (days)", res["avg_days"]])
-    writer.writerow(["Median Resolution Time (days)", res["median_days"]])
-    writer.writerow(["Minimum Resolution Time (days)", res["min_days"]])
-    writer.writerow(["Maximum Resolution Time (days)", res["max_days"]])
-    writer.writerow(["Resolved Within SLA Count", res["within_sla_count"]])
-    writer.writerow(["SLA Compliance Rate (%)", f"{res['sla_compliance_rate']}%"])
+    writer.writerow(["Metric", "Value", "Note"])
+    writer.writerow(["Total Cases in Cohort", res["total_cases"], "Intake received in period"])
+    writer.writerow(["Resolved Cases", res["resolved_cases"], "Disposed cases in cohort"])
+    writer.writerow(["Open Cases", res["open_cases"], "Cases still under active process"])
+    writer.writerow(["Disposal Rate (%)", f"{report['summary']['disposal_rate']}%", ""])
+    writer.writerow(["Average Resolution Time (days)", res["avg_days"] if has_res else "N/A", "" if has_res else "No disposed cases in cohort"])
+    writer.writerow(["Median Resolution Time (days)", res["median_days"] if has_res else "N/A", "" if has_res else "No disposed cases in cohort"])
+    writer.writerow(["Minimum Resolution Time (days)", res["min_days"] if has_res else "N/A", "" if has_res else "No disposed cases in cohort"])
+    writer.writerow(["Maximum Resolution Time (days)", res["max_days"] if has_res else "N/A", "" if has_res else "No disposed cases in cohort"])
+    writer.writerow(["Resolved Within SLA Count", res["within_sla_count"], ""])
+    writer.writerow(["SLA Compliance Rate (%)", f"{res['sla_compliance_rate']}%" if has_res else "N/A", "" if has_res else "No disposed cases in cohort"])
     writer.writerow([])
 
     # 3. Status Breakdown

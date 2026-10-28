@@ -400,10 +400,18 @@ export function PeriodicReportView({
                 <Clock className="w-4 h-4 text-amber-600" aria-hidden="true" />
               </div>
               <div className="text-[32px] font-bold text-slate-900 tracking-tight mt-1 num-tabular">
-                {data.resolution_stats.avg_days} <span className="text-sm font-normal text-slate-500">days</span>
+                {data.resolution_stats.has_resolved_cases ? (
+                  <>
+                    {data.resolution_stats.avg_days} <span className="text-sm font-normal text-slate-500">days</span>
+                  </>
+                ) : (
+                  <span className="text-2xl text-slate-400">N/A</span>
+                )}
               </div>
               <div className="text-xs text-slate-500 mt-1 font-medium">
-                Median: {data.resolution_stats.median_days}d · Range: {data.resolution_stats.min_days}-{data.resolution_stats.max_days}d
+                {data.resolution_stats.has_resolved_cases
+                  ? `Median: ${data.resolution_stats.median_days}d · Range: ${data.resolution_stats.min_days}-${data.resolution_stats.max_days}d`
+                  : '0 disposed cases in cohort (0 eligible)'}
               </div>
             </div>
 
@@ -413,10 +421,16 @@ export function PeriodicReportView({
                 <ShieldCheck className="w-4 h-4 text-indigo-600" aria-hidden="true" />
               </div>
               <div className="text-[32px] font-bold text-slate-900 tracking-tight mt-1 num-tabular">
-                {data.resolution_stats.sla_compliance_rate}%
+                {data.resolution_stats.has_resolved_cases ? (
+                  `${data.resolution_stats.sla_compliance_rate}%`
+                ) : (
+                  <span className="text-2xl text-slate-400">N/A</span>
+                )}
               </div>
               <div className="text-xs text-slate-500 mt-1 font-medium">
-                {data.resolution_stats.within_sla_count} of {data.resolution_stats.resolved_cases} resolved within SLA
+                {data.resolution_stats.has_resolved_cases
+                  ? `${data.resolution_stats.within_sla_count} of ${data.resolution_stats.resolved_cases} resolved within SLA`
+                  : 'N/A · No eligible disposed cases'}
               </div>
             </div>
           </div>
@@ -438,29 +452,41 @@ export function PeriodicReportView({
               </span>
             </div>
 
-            {/* Visual SLA Compliance Bar */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between text-xs font-medium text-slate-600">
-                <span>SLA Adherence Rate</span>
-                <span className="font-bold text-slate-900 num-tabular">
-                  {data.resolution_stats.sla_compliance_rate}%
-                </span>
+            {/* Visual SLA Compliance Bar or Active Intake Cohort Callout */}
+            {!data.resolution_stats.has_resolved_cases ? (
+              <div className="p-3.5 rounded-lg bg-amber-50/70 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <div className="font-semibold text-amber-950">Active Intake Cohort · No Disposals Yet</div>
+                  <div className="text-amber-800 mt-0.5 leading-relaxed">
+                    All {data.total_cases} complaint cases received in {data.period_label} are currently under active investigation or multi-bureau review ({data.summary.open_cases} open, 0 disposed). Resolution times and SLA adherence are calculated strictly for disposed cases within the intake cohort and will populate as cases reach resolution.
+                  </div>
+                </div>
               </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    data.resolution_stats.sla_compliance_rate >= 80
-                      ? 'bg-emerald-500'
-                      : data.resolution_stats.sla_compliance_rate >= 50
-                      ? 'bg-amber-500'
-                      : 'bg-rose-500'
-                  }`}
-                  style={{
-                    width: `${Math.min(100, Math.max(0, data.resolution_stats.sla_compliance_rate))}%`,
-                  }}
-                />
+            ) : (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-xs font-medium text-slate-600">
+                  <span>SLA Adherence Rate</span>
+                  <span className="font-bold text-slate-900 num-tabular">
+                    {data.resolution_stats.sla_compliance_rate}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      data.resolution_stats.sla_compliance_rate >= 80
+                        ? 'bg-emerald-500'
+                        : data.resolution_stats.sla_compliance_rate >= 50
+                        ? 'bg-amber-500'
+                        : 'bg-rose-500'
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.max(0, data.resolution_stats.sla_compliance_rate))}%`,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Detailed Metric Badges Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
@@ -469,7 +495,13 @@ export function PeriodicReportView({
                   Average Time
                 </div>
                 <div className="text-xl font-bold text-slate-900 mt-1 num-tabular">
-                  {data.resolution_stats.avg_days} <span className="text-xs font-normal text-slate-500">days</span>
+                  {data.resolution_stats.has_resolved_cases ? (
+                    <>
+                      {data.resolution_stats.avg_days} <span className="text-xs font-normal text-slate-500">days</span>
+                    </>
+                  ) : (
+                    <span className="text-base text-slate-400 font-medium">N/A</span>
+                  )}
                 </div>
               </div>
 
@@ -478,7 +510,13 @@ export function PeriodicReportView({
                   Median Time
                 </div>
                 <div className="text-xl font-bold text-slate-900 mt-1 num-tabular">
-                  {data.resolution_stats.median_days} <span className="text-xs font-normal text-slate-500">days</span>
+                  {data.resolution_stats.has_resolved_cases ? (
+                    <>
+                      {data.resolution_stats.median_days} <span className="text-xs font-normal text-slate-500">days</span>
+                    </>
+                  ) : (
+                    <span className="text-base text-slate-400 font-medium">N/A</span>
+                  )}
                 </div>
               </div>
 
@@ -487,7 +525,13 @@ export function PeriodicReportView({
                   Fastest Closure
                 </div>
                 <div className="text-xl font-bold text-slate-900 mt-1 num-tabular">
-                  {data.resolution_stats.min_days} <span className="text-xs font-normal text-slate-500">days</span>
+                  {data.resolution_stats.has_resolved_cases ? (
+                    <>
+                      {data.resolution_stats.min_days} <span className="text-xs font-normal text-slate-500">days</span>
+                    </>
+                  ) : (
+                    <span className="text-base text-slate-400 font-medium">N/A</span>
+                  )}
                 </div>
               </div>
 
@@ -496,7 +540,13 @@ export function PeriodicReportView({
                   Longest Closure
                 </div>
                 <div className="text-xl font-bold text-slate-900 mt-1 num-tabular">
-                  {data.resolution_stats.max_days} <span className="text-xs font-normal text-slate-500">days</span>
+                  {data.resolution_stats.has_resolved_cases ? (
+                    <>
+                      {data.resolution_stats.max_days} <span className="text-xs font-normal text-slate-500">days</span>
+                    </>
+                  ) : (
+                    <span className="text-base text-slate-400 font-medium">N/A</span>
+                  )}
                 </div>
               </div>
             </div>

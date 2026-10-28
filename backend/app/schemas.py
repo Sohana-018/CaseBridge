@@ -174,6 +174,14 @@ class OverlapCaseMini(BaseModel):
     status: str
 
 
+class OverlapInstitutionMini(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[int] = None
+    permanent_id: Optional[str] = None
+    name: Optional[str] = None
+
+
 class BureauWorkSummary(BaseModel):
     bureau: str
     case_no: str
@@ -204,6 +212,7 @@ class OverlapRead(BaseModel):
     reasons: List[str] = []
     case_a: OverlapCaseMini
     case_b: OverlapCaseMini
+    institution: Optional[OverlapInstitutionMini] = None
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     note: Optional[str] = None

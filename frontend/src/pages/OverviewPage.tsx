@@ -197,7 +197,7 @@ export const OverviewPage: React.FC = () => {
           getDashboardSummary(),
           getDashboardWorkload(),
           getRecentAlerts(50),
-          getOverlaps({ review_status: 'open', page_size: 100 }).catch(() => ({ items: [], total: 0 })),
+          getOverlaps({ review_status: 'open', band: 'actionable', page_size: 100 }).catch(() => ({ items: [], total: 0 })),
           getCases({ overdue: true, page_size: 10 }).catch(() => ({ items: [], total: 0 })),
         ]);
 
@@ -659,16 +659,25 @@ export const OverviewPage: React.FC = () => {
 
                 {/* Coordination Queue */}
                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                  <span className="text-xs text-slate-600 font-medium block">
-                    Coordination queue
-                  </span>
-                  <div className="flex items-baseline justify-between mt-1">
-                    <span className="text-2xl font-bold text-slate-900 num-tabular">
-                      {summary.open_overlaps}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-600 font-medium block">
+                      Coordination queue
                     </span>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200" title="Actionable queue scope: Open pairs in High and Medium confidence bands">
+                      High + Medium · Open
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between mt-1">
+                    <div>
+                      <span className="text-2xl font-bold text-slate-900 num-tabular">
+                        {summary.open_overlaps}
+                      </span>
+                      <span className="text-[11px] text-slate-500 ml-1.5 font-normal">actionable</span>
+                    </div>
                     <Link
-                      to="/overlaps"
+                      to="/overlaps?scope=actionable"
                       className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5"
+                      title="Open actionable queue (High + Medium open pairs)"
                     >
                       <span>Review</span>
                       <ArrowRight className="w-3 h-3" aria-hidden="true" />

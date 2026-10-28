@@ -48,8 +48,8 @@ def list_overlaps(
     review_status: Optional[ReviewStatus] = Query(
         default=None, description="Filter by review status (open, related, duplicate, not_related, needs_review)"
     ),
-    band: Optional[ConfidenceBand] = Query(
-        default=None, description="Filter by confidence band (high, medium, low)"
+    band: Optional[str] = Query(
+        default=None, description="Filter by confidence band (actionable, high, medium, low, all)"
     ),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
@@ -64,8 +64,14 @@ def list_overlaps(
     query = select(OverlapLink)
     if review_status is not None:
         query = query.where(OverlapLink.review_status == review_status)
-    if band is not None:
-        query = query.where(OverlapLink.confidence_band == band)
+    if band is not None and band.strip():
+        band_clean = band.strip().lower()
+        if band_clean in ("actionable", "high,medium", "medium,high"):
+            query = query.where(
+                OverlapLink.confidence_band.in_([ConfidenceBand.HIGH, ConfidenceBand.MEDIUM])
+            )
+        elif band_clean in ("high", "medium", "low"):
+            query = query.where(OverlapLink.confidence_band == ConfidenceBand(band_clean))
 
     links: List[OverlapLink] = list(session.exec(query).all())
     links.sort(
