@@ -42,72 +42,77 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 
-DEFAULT_SYSTEM_USERS: List[Dict[str, Optional[str]]] = [
-    {
-        "username": "admin",
-        "name": "System Administrator",
-        "role": UserRole.ADMINISTRATOR.value,
-        "bureau": None,
-        "email": "admin@aicte.gov.in",
-        "password": "admin123",
-    },
-    {
-        "username": "coordinator",
-        "name": "Grievance Coordinator",
-        "role": UserRole.COORDINATOR.value,
-        "bureau": None,
-        "email": "coordinator@aicte.gov.in",
-        "password": "coord123",
-    },
-    {
-        "username": "officer_rb",
-        "name": "Regulation Bureau Officer",
-        "role": UserRole.BUREAU_OFFICER.value,
-        "bureau": Bureau.RB.value,
-        "email": "officer.rb@aicte.gov.in",
-        "password": "officer123",
-    },
-    {
-        "username": "officer_pgrc",
-        "name": "PGRC Bureau Officer",
-        "role": UserRole.BUREAU_OFFICER.value,
-        "bureau": Bureau.PGRC.value,
-        "email": "officer.pgrc@aicte.gov.in",
-        "password": "officer123",
-    },
-    {
-        "username": "officer_ro",
-        "name": "Regional Office Officer",
-        "role": UserRole.BUREAU_OFFICER.value,
-        "bureau": Bureau.RO.value,
-        "email": "officer.ro@aicte.gov.in",
-        "password": "officer123",
-    },
-    {
-        "username": "officer_oc",
-        "name": "Other Cells Officer",
-        "role": UserRole.BUREAU_OFFICER.value,
-        "bureau": Bureau.OC.value,
-        "email": "officer.oc@aicte.gov.in",
-        "password": "officer123",
-    },
-    {
-        "username": "deputy_coord",
-        "name": "Deputy Grievance Coordinator",
-        "role": UserRole.COORDINATOR.value,
-        "bureau": None,
-        "email": "deputy.coord@aicte.gov.in",
-        "password": "coord123",
-    },
-    {
-        "username": "management",
-        "name": "Senior Management Executive",
-        "role": UserRole.SENIOR_MANAGEMENT.value,
-        "bureau": None,
-        "email": "management@aicte.gov.in",
-        "password": "mgmt123",
-    },
-]
+def get_default_system_users() -> List[Dict[str, Optional[str]]]:
+    """Return default system user definitions reading credentials from environment."""
+    return [
+        {
+            "username": "admin",
+            "name": "System Administrator",
+            "role": UserRole.ADMINISTRATOR.value,
+            "bureau": None,
+            "email": "admin@aicte.gov.in",
+            "password": os.getenv("DEMO_ADMIN_PASSWORD", "admin123"),
+        },
+        {
+            "username": "coordinator",
+            "name": "Grievance Coordinator",
+            "role": UserRole.COORDINATOR.value,
+            "bureau": None,
+            "email": "coordinator@aicte.gov.in",
+            "password": os.getenv("DEMO_COORDINATOR_PASSWORD", "coord123"),
+        },
+        {
+            "username": "officer_rb",
+            "name": "Regulation Bureau Officer",
+            "role": UserRole.BUREAU_OFFICER.value,
+            "bureau": Bureau.RB.value,
+            "email": "officer.rb@aicte.gov.in",
+            "password": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
+        },
+        {
+            "username": "officer_pgrc",
+            "name": "PGRC Bureau Officer",
+            "role": UserRole.BUREAU_OFFICER.value,
+            "bureau": Bureau.PGRC.value,
+            "email": "officer.pgrc@aicte.gov.in",
+            "password": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
+        },
+        {
+            "username": "officer_ro",
+            "name": "Regional Office Officer",
+            "role": UserRole.BUREAU_OFFICER.value,
+            "bureau": Bureau.RO.value,
+            "email": "officer.ro@aicte.gov.in",
+            "password": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
+        },
+        {
+            "username": "officer_oc",
+            "name": "Other Cells Officer",
+            "role": UserRole.BUREAU_OFFICER.value,
+            "bureau": Bureau.OC.value,
+            "email": "officer.oc@aicte.gov.in",
+            "password": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
+        },
+        {
+            "username": "deputy_coord",
+            "name": "Deputy Grievance Coordinator",
+            "role": UserRole.COORDINATOR.value,
+            "bureau": None,
+            "email": "deputy.coord@aicte.gov.in",
+            "password": os.getenv("DEMO_COORDINATOR_PASSWORD", "coord123"),
+        },
+        {
+            "username": "management",
+            "name": "Senior Management Executive",
+            "role": UserRole.SENIOR_MANAGEMENT.value,
+            "bureau": None,
+            "email": "management@aicte.gov.in",
+            "password": os.getenv("DEMO_MANAGEMENT_PASSWORD", "mgmt123"),
+        },
+    ]
+
+
+DEFAULT_SYSTEM_USERS: List[Dict[str, Optional[str]]] = get_default_system_users()
 
 DEFAULT_CONFIG_ENTRIES = [
     ("sla_warn_days", "3"),
@@ -122,7 +127,7 @@ DEFAULT_CONFIG_ENTRIES = [
 def seed_default_users_and_config(session: Session) -> None:
     """Ensure default system accounts and configuration keys are initialized."""
     # Seed or sync default users
-    for user_data in DEFAULT_SYSTEM_USERS:
+    for user_data in get_default_system_users():
         uname = user_data["username"]
         existing = session.exec(select(User).where(User.username == uname)).first()
         if not existing:

@@ -239,7 +239,7 @@ def get_demo_accounts():
             "role": "administrator",
             "bureau": None,
             "badge": "Admin",
-            "password_hint": "admin123",
+            "password_hint": os.getenv("DEMO_ADMIN_PASSWORD", "admin123"),
         },
         {
             "username": "coordinator",
@@ -247,7 +247,7 @@ def get_demo_accounts():
             "role": "coordinator",
             "bureau": None,
             "badge": "Coordinator",
-            "password_hint": "coord123",
+            "password_hint": os.getenv("DEMO_COORDINATOR_PASSWORD", "coord123"),
         },
         {
             "username": "officer_rb",
@@ -255,7 +255,7 @@ def get_demo_accounts():
             "role": "bureau_officer",
             "bureau": "RB",
             "badge": "RB Officer",
-            "password_hint": "officer123",
+            "password_hint": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
         },
         {
             "username": "officer_pgrc",
@@ -263,7 +263,7 @@ def get_demo_accounts():
             "role": "bureau_officer",
             "bureau": "PGRC",
             "badge": "PGRC Officer",
-            "password_hint": "officer123",
+            "password_hint": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
         },
         {
             "username": "officer_ro",
@@ -271,7 +271,7 @@ def get_demo_accounts():
             "role": "bureau_officer",
             "bureau": "RO",
             "badge": "RO Officer",
-            "password_hint": "officer123",
+            "password_hint": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
         },
         {
             "username": "officer_oc",
@@ -279,7 +279,7 @@ def get_demo_accounts():
             "role": "bureau_officer",
             "bureau": "OC",
             "badge": "OC Officer",
-            "password_hint": "officer123",
+            "password_hint": os.getenv("DEMO_OFFICER_PASSWORD", "officer123"),
         },
         {
             "username": "deputy_coord",
@@ -287,7 +287,7 @@ def get_demo_accounts():
             "role": "coordinator",
             "bureau": None,
             "badge": "Deputy Coordinator",
-            "password_hint": "coord123",
+            "password_hint": os.getenv("DEMO_COORDINATOR_PASSWORD", "coord123"),
         },
         {
             "username": "management",
@@ -295,7 +295,7 @@ def get_demo_accounts():
             "role": "senior_management",
             "bureau": None,
             "badge": "Management (Read-only)",
-            "password_hint": "mgmt123",
+            "password_hint": os.getenv("DEMO_MANAGEMENT_PASSWORD", "mgmt123"),
         },
     ]
 

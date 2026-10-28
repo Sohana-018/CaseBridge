@@ -27,9 +27,9 @@ Render's free tier spins down instances after 15 minutes of inactivity. When a n
 1. **Container Initialization**: Render spins up the container and executes `startCommand`.
 2. **Automated Seeding (`import_csv.py`)**:
    - Runs `python ../scripts/import_csv.py` before the web server begins accepting traffic.
-   - Idempotently creates tables and inserts initial operational records (25 institutions, 200 cases, chronological events) from `data/seed/` if the database is unseeded or restarted in a fresh ephemeral container.
+   - Idempotently creates tables and inserts initial operational records (25 institutions, 555 cases, chronological events) from `data/seed/` if the database is unseeded or restarted in a fresh ephemeral container.
    - Resets sequence counters above the highest imported case numbers and executes initial alert rule evaluations.
-   - If tables and records already exist, the script completes in milliseconds without duplicating records (`0 created, 200 skipped`).
+   - If tables and records already exist, the script completes in milliseconds without duplicating records (`0 created, 555 skipped`).
 3. **Server Launch**: Once seeding completes, `uvicorn` binds to `0.0.0.0:$PORT` and starts listening for API traffic.
 4. **Latency Profile**:
    - **Cold-Start Request**: Expect an initial latency of ~30–50 seconds on Render free tier during cold container spin-up and Python initialization.
@@ -44,6 +44,10 @@ Render's free tier spins down instances after 15 minutes of inactivity. When a n
 | `CORS_ORIGINS` | Yes | *None* | Comma-separated list of allowed frontend origins (e.g. `https://casebridge.vercel.app,https://yourdomain.com`). |
 | `ALLOW_DEMO_LOGIN` | No | `false` | Disables mock-login and credential auto-fill in production. Set to `true` only in staging/demo environments. |
 | `AUTO_SEED` | No | `false` | When set to `true` and the cases table is empty, automatically loads `data/seed` on startup using idempotent import logic, alert refresh, and an overlap scan. Note: `ALLOW_DEMO_LOGIN=true` is needed for the one-click demo accounts. |
+| `DEMO_ADMIN_PASSWORD` | No | `admin123` | Password override for the demo administrator account. |
+| `DEMO_COORDINATOR_PASSWORD` | No | `coord123` | Password override for the demo coordinator account. |
+| `DEMO_OFFICER_PASSWORD` | No | `officer123` | Password override for the demo bureau officer accounts. |
+| `DEMO_MANAGEMENT_PASSWORD` | No | `mgmt123` | Password override for the demo senior management account. |
 
 ---
 

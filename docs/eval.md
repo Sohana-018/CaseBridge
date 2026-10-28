@@ -107,16 +107,13 @@ The consistent precision (~88%–92%) across different random generations demons
 
 ---
 
-## 6. Seed-at-Scan & Demo Sanity Check (200-Case Demo Seed)
+## 6. Seed Dataset & Consistency Verification (555-Case Demo Seed)
 
-Running the scan on the 200-case demo seed (`data/seed/cases.csv`, 25 institutions):
+The primary seeded demonstration dataset (`data/seed/cases.csv`, 25 institutions) contains **555 cases** and **2820 case events**, verified via `python scripts/metrics.py`:
 1. **Central Demo Pair**: `PG-2026-00104 / RB-2026-00219` is flagged in band **HIGH** with explainable reasons:
    `['same_permanent_id', 'same_category', 'text_similarity 0.23', 'date_proximity 14 days']`.
-2. **Total Detected Overlap Pairs**: **535** candidate pairs evaluated.
-3. **High Band Count**: **30** (capturing planted true pairs).
-4. **Medium Band Count**: **45** (substantially reduced from 210 in the untuned baseline engine).
-5. **Low Band Count**: **460** (same institution + different Bureau informatory pairs).
-6. **Idempotence**: A second scan creates **0 duplicate links** and preserves all existing review statuses.
+2. **Deterministic Seed Distribution**: 555 cases across RB (154), PGRC (145), RO (133), and OC (123) with balanced statuses (166 under_process, 166 disposed, 111 pending, 56 transferred, 56 escalated).
+3. **Idempotence**: Running rescans across the dataset produces **0 duplicate links** and preserves all existing review statuses.
 
 
 ---
@@ -126,13 +123,17 @@ Running the scan on the 200-case demo seed (`data/seed/cases.csv`, 25 institutio
 From the repository root:
 
 ```bash
-# 1. Run evaluation on primary evaluation corpus
+# 1. Print verification metrics and consistency report
+python scripts/metrics.py
+
+# 2. Run evaluation on primary evaluation corpus
 python scripts/evaluate_overlap.py
 
-# 2. Run fresh-seed stability check
+# 3. Run fresh-seed stability check
 python scripts/generate_issue_dataset.py --output-dir data/eval_fresh --db-path backend/casebridge_eval_fresh.db --labelled-path data/eval_fresh/labelled_pairs.csv --seed 20261025
 python scripts/evaluate_overlap.py --db backend/casebridge_eval_fresh.db --labelled data/eval_fresh/labelled_pairs.csv --fresh-check
 
-# 3. Seed demo database with scan execution
+# 4. Seed demo database with scan execution
 python scripts/import_csv.py
 ```
+

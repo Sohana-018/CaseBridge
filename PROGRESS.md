@@ -95,11 +95,11 @@
 - **Database & Security**:
   - `User` table migrated with `username`, `hashed_password` (bcrypt), `email`, `is_active`, and `created_at`.
   - Default system accounts initialized:
-    - `admin` (`admin123`) — System Administrator
-    - `coordinator` (`coord123`) — Central Grievance Coordinator
-    - `officer_rb` (`officer123`) — Regulation Bureau Officer
-    - `officer_pgrc` (`officer123`) — PGRC Bureau Officer
-    - `management` (`mgmt123`) — Senior Management
+    - `admin` (configured via `DEMO_ADMIN_PASSWORD`) — System Administrator
+    - `coordinator` (configured via `DEMO_COORDINATOR_PASSWORD`) — Central Grievance Coordinator
+    - `officer_rb` (configured via `DEMO_OFFICER_PASSWORD`) — Regulation Bureau Officer
+    - `officer_pgrc` (configured via `DEMO_OFFICER_PASSWORD`) — PGRC Bureau Officer
+    - `management` (configured via `DEMO_MANAGEMENT_PASSWORD`) — Senior Management
 - **Backend Endpoints (`/api/v1/auth` & `/api/v1/admin`)**:
   - `POST /api/v1/auth/login` (real bcrypt credential verification returning signed JWT token).
   - `GET /api/v1/auth/demo-accounts` (quick-access persona profiles for fast demo/evaluation).

@@ -38,7 +38,10 @@ def child() -> int:
         co, off_pg, off_rb, mg = tok("coordinator"), tok("bureau_officer", "PGRC"), tok("bureau_officer", "RB"), tok("senior_management")
 
         # auth
-        r = c.post("/api/v1/auth/login", json={"username": "coordinator", "password": "coord123"})
+        r = c.post(
+            "/api/v1/auth/login",
+            json={"username": "coordinator", "password": os.getenv("DEMO_COORDINATOR_PASSWORD", "coord123")},
+        )
         check("real login works (coordinator)", r.status_code == 200, r.status_code)
         r = c.post("/api/v1/auth/mock-login", json={"role": "administrator"})
         check("mock-login cannot mint administrator", r.status_code in (403, 422), r.status_code)
@@ -135,7 +138,13 @@ def child() -> int:
         rows = [l for l in c.get("/api/v1/reports/status/csv", headers=co).text.strip().splitlines()[1:] if l]
         csv_sum = sum(int(l.split(",")[1]) for l in rows)
         check("status CSV counts sum to report total", csv_sum == c.get("/api/v1/reports/status", headers=co).json()["total"], csv_sum)
-        ad = {"Authorization": "Bearer " + c.post("/api/v1/auth/login", json={"username": "admin", "password": "admin123"}).json()["token"]}
+        ad = {
+            "Authorization": "Bearer "
+            + c.post(
+                "/api/v1/auth/login",
+                json={"username": "admin", "password": os.getenv("DEMO_ADMIN_PASSWORD", "admin123")},
+            ).json()["token"]
+        }
         check("admin health-summary: admin 200, coordinator 403",
               c.get("/api/v1/admin/health-summary", headers=ad).status_code == 200 and c.get("/api/v1/admin/health-summary", headers=co).status_code == 403)
 

@@ -10,6 +10,34 @@ When complaints arrive through separate administrative divisions—such as the R
 
 ## Architecture & Core Workflow
 
+```mermaid
+flowchart TD
+    subgraph Client ["Frontend (React + Vite SPA)"]
+        UI["UI Layer<br/>(Tailwind CSS, Lucide, Recharts)"]
+        ClientAuth["API Client<br/>(JWT Bearer Token Authentication)"]
+    end
+
+    subgraph Server ["Backend (FastAPI)"]
+        Router["API Routers<br/>(/cases, /overlaps, /reports, /admin, /auth)"]
+        Perm["RBAC & Bureau Boundary Guard"]
+        OverlapEngine["Explainable Overlap Engine<br/>(TF-IDF Cosine + Metadata Scorer)"]
+        AlertEngine["SLA & Timeline Derivation Service"]
+    end
+
+    subgraph Storage ["Data Layer (SQLite)"]
+        DB[("casebridge.db<br/>SQLModel Database")]
+    end
+
+    UI --> ClientAuth
+    ClientAuth -->|REST / JSON + Bearer JWT| Router
+    Router --> Perm
+    Perm --> OverlapEngine
+    Perm --> AlertEngine
+    Perm --> DB
+    OverlapEngine --> DB
+    AlertEngine --> DB
+```
+
 ```
 Incoming Complaints (RB / PGRC / RO / OC)
                │
@@ -61,11 +89,12 @@ Evaluated against an independent, ground-truth dataset with hidden shared issue 
 | **Development Split (23 insts)** | **0.860** | **0.533** | **0.658** | 49 | 8 | 43 | 404 | 504 |
 | **Test Split (22 insts)** | **0.893** | **0.761** | **0.822** | 67 | 8 | 21 | 386 | 482 |
 | **All Scored Pairs (45 insts)** | **0.879** | **0.644** | **0.744** | 116 | 16 | 64 | 790 | 986 |
-| *Previous Baseline (Unfiltered)* | *0.276* | *0.928* | *0.425* | 167 | 439 | 13 | 367 | 986 |
+| *Naive Baseline (flag all)* | *0.183* | *1.000* | *0.309* | 180 | 806 | 0 | 0 | 986 |
 
-- **False Alarm Reduction**: Coordinator false positives dropped from 439 to 16 (**96.4% reduction**).
+- **False Alarm Reduction**: Coordinator false positives dropped from 806 (naive baseline) down to 16 (**98.0% reduction**).
 - **Idempotent Scans**: Running rescans across the dataset produces **0 duplicate links**.
 - Detailed methodology, parameter bounds, and disclosures are available in [`docs/eval.md`](docs/eval.md).
+- Real counts are verified continuously via `python scripts/metrics.py`.
 
 ---
 
@@ -88,10 +117,10 @@ cd backend
 python -m venv .venv
 
 # Activate virtual environment
-# Windows:
-.\.venv\Scripts\Activate.ps1
 # macOS / Linux:
 source .venv/bin/activate
+# Windows:
+.venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -135,15 +164,17 @@ The interface will be available at `http://localhost:5173`.
 
 When `ALLOW_DEMO_LOGIN=true`, quick-login accounts are accessible directly on the `/login` screen:
 
-| Username | Password | Role | Jurisdiction | Primary Capabilities |
+| Username | Role | Jurisdiction | Primary Capabilities | Password Config |
 |:---|:---|:---|:---|:---|
-| `coordinator` | `coord123` | `coordinator` | All Bureaus | Global case view, overlap queue decisions, case transfers & escalations |
-| `officer_rb` | `officer123` | `bureau_officer` | `RB` | Full RB case details; masked summaries for other bureaus; status updates |
-| `officer_pgrc` | `officer123` | `bureau_officer` | `PGRC` | Full PGRC case details; masked summaries for other bureaus; status updates |
-| `officer_ro` | `officer123` | `bureau_officer` | `RO` | Full RO case details; masked summaries for other bureaus; status updates |
-| `officer_oc` | `officer123` | `bureau_officer` | `OC` | Full OC case details; masked summaries for other bureaus; status updates |
-| `management` | `mgmt123` | `senior_management` | All Bureaus | Executive read-only visibility for KPI summaries, analytics, and reports |
-| `admin` | `admin123` | `administrator` | System-wide | User management, SLA parameter configuration, data quality checks, audit logs |
+| `coordinator` | `coordinator` | All Bureaus | Global case view, overlap queue decisions, case transfers & escalations | `DEMO_COORDINATOR_PASSWORD` |
+| `officer_rb` | `bureau_officer` | `RB` | Full RB case details; masked summaries for other bureaus; status updates | `DEMO_OFFICER_PASSWORD` |
+| `officer_pgrc` | `bureau_officer` | `PGRC` | Full PGRC case details; masked summaries for other bureaus; status updates | `DEMO_OFFICER_PASSWORD` |
+| `officer_ro` | `bureau_officer` | `RO` | Full RO case details; masked summaries for other bureaus; status updates | `DEMO_OFFICER_PASSWORD` |
+| `officer_oc` | `bureau_officer` | `OC` | Full OC case details; masked summaries for other bureaus; status updates | `DEMO_OFFICER_PASSWORD` |
+| `management` | `senior_management` | All Bureaus | Executive read-only visibility for KPI summaries, analytics, and reports | `DEMO_MANAGEMENT_PASSWORD` |
+| `admin` | `administrator` | System-wide | User management, SLA parameter configuration, data quality checks, audit logs | `DEMO_ADMIN_PASSWORD` |
+
+*Demo account passwords can be customized via `.env` (refer to `.env.example`).*
 
 ---
 
@@ -152,16 +183,19 @@ When `ALLOW_DEMO_LOGIN=true`, quick-login accounts are accessible directly on th
 The repository includes a comprehensive test suite covering API contracts, role permissions, state transitions, and regression baselines:
 
 ```bash
-# 1. Run backend unit & integration tests (117 tests)
+# 1. Run backend unit & integration tests (126 tests)
 pytest backend/tests -q
 
 # 2. Run deterministic regression check (33 assertions across multiple runs)
 python scripts/regression_check.py --runs 3
 
-# 3. Evaluate overlap detection accuracy against evaluation ground truth
+# 3. Print real-time consistency metrics (tests, seed dataset, and evaluation metrics)
+python scripts/metrics.py
+
+# 4. Evaluate overlap detection accuracy against evaluation ground truth
 python scripts/evaluate_overlap.py
 
-# 4. Frontend typecheck and linting
+# 5. Frontend typecheck and linting
 cd frontend
 npm run build
 npm run lint

@@ -318,9 +318,8 @@ export const LoginPage: React.FC = () => {
   // Immediate single-click demo role login
   const handleDemoChipClick = async (acc: DemoAccount) => {
     if (dragInfo.current.hasDragged || loading || serverWakingUp) return;
-    // Fill briefly for visual feedback
     setUsername(acc.username);
-    setPassword(acc.password_hint);
+    setPassword('');
     setSelectedRole(acc.username);
     await performLogin(acc.username, acc.password_hint, acc.username);
   };
