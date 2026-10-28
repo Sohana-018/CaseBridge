@@ -124,6 +124,8 @@ class Case(SQLModel, table=True):
     next_action: Optional[str] = None
     expected_disposal_date: Optional[date] = None
     priority: Priority = Field(default=Priority.MEDIUM)
+    complainant_name: Optional[str] = Field(default=None, description="Name of the complainant")
+    complainant_email: Optional[str] = Field(default=None, index=True, description="Email address for notifications")
     created_at: datetime = Field(default_factory=utc_now)
 
     @property

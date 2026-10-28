@@ -66,6 +66,8 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
   const [description, setDescription] = useState('');
   const [assignedOfficer, setAssignedOfficer] = useState('');
   const [expectedDisposalDate, setExpectedDisposalDate] = useState('');
+  const [complainantName, setComplainantName] = useState('');
+  const [complainantEmail, setComplainantEmail] = useState('');
 
   // Institution Search State
   const [instSearchQuery, setInstSearchQuery] = useState('');
@@ -95,6 +97,8 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
       setDescription('');
       setAssignedOfficer('');
       setExpectedDisposalDate('');
+      setComplainantName('');
+      setComplainantEmail('');
       setInstSearchQuery('');
       setInstResults([]);
       setIsSearchingInst(true);
@@ -207,6 +211,8 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
         assigned_officer: assignedOfficer.trim() || null,
         expected_disposal_date: expectedDisposalDate || null,
         priority: 'medium',
+        complainant_name: complainantName.trim() || null,
+        complainant_email: complainantEmail.trim() || null,
       });
 
       // 2. POST /overlaps/scan (safe: skip gracefully if role is non-scan role)
@@ -683,6 +689,39 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
                     onChange={(e) => setExpectedDisposalDate(e.target.value)}
                     disabled={submitting}
                     className="w-full h-10 text-xs bg-[var(--bg-surface)] border border-[var(--border-input)] rounded-lg px-3 text-[var(--text)] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Complainant Contact for Email Notifications */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <label htmlFor="new-case-complainant-name" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                    Complainant Name <span className="text-[var(--text-tertiary)]">(Optional)</span>
+                  </label>
+                  <input
+                    id="new-case-complainant-name"
+                    type="text"
+                    value={complainantName}
+                    onChange={(e) => setComplainantName(e.target.value)}
+                    disabled={submitting}
+                    placeholder="e.g. S. Kumar"
+                    className="w-full h-10 text-xs bg-[var(--bg-surface)] border border-[var(--border-input)] rounded-lg px-3 text-[var(--text)] placeholder:text-[var(--text-tertiary)]"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="new-case-complainant-email" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                    Complainant Email <span className="text-[var(--text-tertiary)]">(Optional)</span>
+                  </label>
+                  <input
+                    id="new-case-complainant-email"
+                    type="email"
+                    value={complainantEmail}
+                    onChange={(e) => setComplainantEmail(e.target.value)}
+                    disabled={submitting}
+                    placeholder="e.g. student@example.edu.in"
+                    className="w-full h-10 text-xs bg-[var(--bg-surface)] border border-[var(--border-input)] rounded-lg px-3 text-[var(--text)] placeholder:text-[var(--text-tertiary)]"
                   />
                 </div>
               </div>

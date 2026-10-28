@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from typing import Optional, Union
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlmodel import Session, or_, select
 
 from app.db import get_session
@@ -16,6 +16,7 @@ from app.schemas import (
     CaseSummaryRead,
     InstitutionMini,
 )
+from app.services.email import send_complaint_submission_notification
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
 
@@ -189,6 +190,7 @@ def require_case_patch_permission(current_user: UserPayload = Depends(get_curren
 )
 def create_case(
     body: CaseCreate,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     current_user: UserPayload = Depends(get_current_user),
 ):
@@ -265,6 +267,8 @@ def create_case(
         next_action=body.next_action,
         expected_disposal_date=body.expected_disposal_date,
         priority=body.priority,
+        complainant_name=body.complainant_name,
+        complainant_email=body.complainant_email,
         created_at=now,
     )
     session.add(counter)
@@ -284,6 +288,23 @@ def create_case(
     )
     session.add(event)
     session.commit()
+
+    # Trigger asynchronous email notification to the complainant if email is provided
+    recipient = (case.complainant_email or "").strip()
+    if recipient:
+        category_str = case.category.value if hasattr(case.category, "value") else str(case.category)
+        background_tasks.add_task(
+            send_complaint_submission_notification,
+            case_no=case.case_no,
+            recipient_email=recipient,
+            complainant_name=case.complainant_name or "Complainant",
+            institution_name=inst.name,
+            permanent_id=inst.permanent_id,
+            bureau=bureau_str,
+            category=category_str,
+            received_date=str(case.received_date),
+            description=case.description,
+        )
 
     inst_region = inst.region.value if hasattr(inst.region, "value") else str(inst.region)
     return CaseRead(
@@ -305,6 +326,8 @@ def create_case(
         expected_disposal_date=case.expected_disposal_date,
         overdue=case.overdue,
         priority=case.priority.value if hasattr(case.priority, "value") else str(case.priority),
+        complainant_name=case.complainant_name,
+        complainant_email=case.complainant_email,
     )
 
 
@@ -357,6 +380,8 @@ def get_case(
             expected_disposal_date=case.expected_disposal_date,
             overdue=case.overdue,
             priority=case.priority.value if hasattr(case.priority, "value") else str(case.priority),
+            complainant_name=case.complainant_name,
+            complainant_email=case.complainant_email,
         )
 
     return CaseSummaryRead(
@@ -437,6 +462,13 @@ def patch_case(
         case.received_date = body.received_date
         changed = True
 
+    if body.complainant_name is not None:
+        case.complainant_name = body.complainant_name
+        changed = True
+    if body.complainant_email is not None:
+        case.complainant_email = body.complainant_email
+        changed = True
+
     if changed:
         session.add(case)
         session.commit()
@@ -462,4 +494,6 @@ def patch_case(
         expected_disposal_date=case.expected_disposal_date,
         overdue=case.overdue,
         priority=case.priority.value if hasattr(case.priority, "value") else str(case.priority),
+        complainant_name=case.complainant_name,
+        complainant_email=case.complainant_email,
     )
