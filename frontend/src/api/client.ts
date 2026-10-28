@@ -102,6 +102,8 @@ export interface CaseItem {
   expected_disposal_date?: string | null;
   overdue?: boolean;
   priority?: string;
+  complainant_name?: string | null;
+  complainant_email?: string | null;
 }
 
 export interface CaseQueryParams {
@@ -629,6 +631,8 @@ export interface CaseCreatePayload {
   next_action?: string | null;
   expected_disposal_date?: string | null;
   priority?: string;
+  complainant_name?: string | null;
+  complainant_email?: string | null;
 }
 
 export async function createCase(payload: CaseCreatePayload): Promise<CaseItem> {

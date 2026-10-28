@@ -35,7 +35,7 @@ Render's free tier spins down instances after 15 minutes of inactivity. When a n
    - **Cold-Start Request**: Expect an initial latency of ~30–50 seconds on Render free tier during cold container spin-up and Python initialization.
    - **Warm Requests**: Handled in under 50ms with zero subsequent startup overhead while the instance remains active.
 
-### Environment Variables
+### 2.2 Core Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -48,6 +48,27 @@ Render's free tier spins down instances after 15 minutes of inactivity. When a n
 | `DEMO_COORDINATOR_PASSWORD` | No | `coord123` | Password override for the demo coordinator account. |
 | `DEMO_OFFICER_PASSWORD` | No | `officer123` | Password override for the demo bureau officer accounts. |
 | `DEMO_MANAGEMENT_PASSWORD` | No | `mgmt123` | Password override for the demo senior management account. |
+
+### 2.3 Email Notification Environment Variables (SMTP)
+
+CaseBridge uses standard SMTP with asynchronous, non-blocking background workers (`BackgroundTasks`) to send:
+1. **Complaint registration confirmations** (containing the citizen's official tracking ID and tracking link).
+2. **Status progression updates** (containing previous status, new status badge, administrative remarks, and tracking link).
+
+Delivery failures fail soft (logged to stderr, does not disrupt complaint submission or case actions). Outbound emails are disabled if `SMTP_HOST` is omitted or empty.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `SMTP_HOST` | Yes (to enable) | *None* (disabled) | SMTP relay host (e.g. `smtp.sendgrid.net`, `smtp.mailgun.org`, `smtp.resend.com`, `smtp.gmail.com`). Leave empty to disable emails. |
+| `SMTP_PORT` | No | `587` | SMTP port (`587` for STARTTLS, `465` for SSL, `25`/`2525`). |
+| `SMTP_USERNAME` | Conditional | *None* | Authentication username or API key (e.g. `apikey` for SendGrid). |
+| `SMTP_PASSWORD` | Conditional | *None* | Authentication password or API key secret. |
+| `SMTP_FROM_EMAIL` | Yes (to enable) | *None* | Sender email address (e.g. `grievances@casebridge.gov.in` or verified domain sender). |
+| `SMTP_FROM_NAME` | No | `CaseBridge Portal` | Friendly display name shown to complainants. |
+| `SMTP_TLS` | No | `true` | Enable STARTTLS command encryption (`true`/`false`). |
+| `SMTP_SSL` | No | `false` | Enable direct SSL socket encryption (`true`/`false`, typically port 465). |
+| `SMTP_TIMEOUT` | No | `10` | Socket timeout in seconds. |
+| `FRONTEND_URL` | Yes (to enable) | `http://localhost:5173` | Public URL of the frontend application (e.g. `https://casebridge.vercel.app`) used to build deep links (`{FRONTEND_URL}/cases/{case_no}`) in email messages. |
 
 ---
 

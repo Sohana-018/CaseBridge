@@ -60,6 +60,8 @@ class CaseRead(BaseModel):
     expected_disposal_date: Optional[date] = None
     overdue: bool
     priority: str
+    complainant_name: Optional[str] = None
+    complainant_email: Optional[str] = None
 
 
 class CaseListResponse(BaseModel):
@@ -100,6 +102,8 @@ class CaseCreate(BaseModel):
     next_action: Optional[str] = None
     expected_disposal_date: Optional[date] = None
     priority: Priority = Priority.MEDIUM
+    complainant_name: Optional[str] = None
+    complainant_email: Optional[str] = None
 
 
 class CasePatch(BaseModel):
@@ -114,6 +118,8 @@ class CasePatch(BaseModel):
     assigned_officer: Optional[str] = None
     priority: Optional[Priority] = None
     received_date: Optional[date] = None
+    complainant_name: Optional[str] = None
+    complainant_email: Optional[str] = None
 
 
 class EventCreate(BaseModel):
