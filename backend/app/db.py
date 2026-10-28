@@ -54,6 +54,15 @@ def create_db_and_tables(target_engine=None) -> None:
                 if "created_at" not in existing_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME"))
                 conn.commit()
+
+            case_rows = conn.execute(text("PRAGMA table_info(cases)")).fetchall()
+            existing_case_cols = {r[1] for r in case_rows}
+            if existing_case_cols:
+                if "complainant_name" not in existing_case_cols:
+                    conn.execute(text("ALTER TABLE cases ADD COLUMN complainant_name VARCHAR"))
+                if "complainant_email" not in existing_case_cols:
+                    conn.execute(text("ALTER TABLE cases ADD COLUMN complainant_email VARCHAR"))
+                conn.commit()
     except Exception:
         pass
 

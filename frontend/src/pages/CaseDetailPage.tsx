@@ -427,6 +427,26 @@ export const CaseDetailPage: React.FC = () => {
                   </div>
                 </dl>
 
+                {/* Complainant Info (if available) */}
+                {!isRestricted && (caseItem.complainant_name || caseItem.complainant_email) && (
+                  <div className="mt-3 pt-3 border-t border-[var(--border)] text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="text-[var(--text-tertiary)]">Complainant:</span>
+                    <span className="font-semibold text-[var(--text)]">
+                      {caseItem.complainant_name || 'Complainant'}
+                      {caseItem.complainant_email && (
+                        <span className="ml-1.5 font-normal text-[var(--text-secondary)]">
+                          ({caseItem.complainant_email})
+                        </span>
+                      )}
+                    </span>
+                    {caseItem.complainant_email && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        Email address saved
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Planned Next Action (Hidden or Relabeled if Disposed) */}
                 {!isDisposed && caseItem.next_action && (
                   <div className="mt-4 pt-4 border-t border-[var(--border)] text-xs">

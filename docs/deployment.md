@@ -1,6 +1,6 @@
 # CaseBridge Deployment Guide (Phase 18)
 
-This guide documents the production deployment architecture and configuration for CaseBridge.
+This guide documents the production deployment architecture and configuration for CaseBridge Demo.
 
 ---
 
@@ -35,7 +35,7 @@ Render's free tier spins down instances after 15 minutes of inactivity. When a n
    - **Cold-Start Request**: Expect an initial latency of ~30–50 seconds on Render free tier during cold container spin-up and Python initialization.
    - **Warm Requests**: Handled in under 50ms with zero subsequent startup overhead while the instance remains active.
 
-### Environment Variables
+### 2.2 Core Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -48,6 +48,51 @@ Render's free tier spins down instances after 15 minutes of inactivity. When a n
 | `DEMO_COORDINATOR_PASSWORD` | No | `coord123` | Password override for the demo coordinator account. |
 | `DEMO_OFFICER_PASSWORD` | No | `officer123` | Password override for the demo bureau officer accounts. |
 | `DEMO_MANAGEMENT_PASSWORD` | No | `mgmt123` | Password override for the demo senior management account. |
+
+### 2.3 Email Notification Configuration (CaseBridge Demo)
+
+CaseBridge Demo dispatches automated demonstration emails via asynchronous background workers (`BackgroundTasks`) for:
+1. **Complaint registration notices** (containing the citizen's official tracking ID and filing details).
+2. **Status progression updates** (containing previous status, new status badge, and recorded action remarks).
+
+> [!IMPORTANT]
+> **Render Free Outbound SMTP Limitation**:
+> Render's free tier blocks outbound connections on standard SMTP ports (25, 465, 587).
+> To support sending without requiring hosting upgrades, CaseBridge includes a configurable HTTPS email provider adapter (`resend`, default), which sends requests over standard HTTPS port 443. SMTP remains available as an explicitly selected option (`EMAIL_BACKEND=smtp`) on compatible hosting plans.
+
+**Reliability & Privacy Guarantees**:
+- **Non-blocking & fail-soft**: Delivery failures log a safe error message and never block or abort complaint creation or case actions.
+- **Graceful skip on missing configuration**: If `RESEND_API_KEY` or `EMAIL_FROM_EMAIL` is not configured, email delivery is safely skipped with a clear, non-secret log notice.
+- **Credential safety**: API keys, passwords, and sensitive grievance text are never emitted to logs.
+- **Verified sender requirement**: The sender address (`EMAIL_FROM_EMAIL`) must be an address you own and have verified with your email provider.
+
+#### Environment Variables
+
+| Variable | Provider | Required | Default | Description |
+|---|---|---|---|---|
+| `EMAIL_BACKEND` | All | No | `resend` | Email delivery provider: `resend` (HTTPS API, recommended on Render Free) or `smtp`. |
+| `EMAIL_FROM_EMAIL` | All | Yes (to send) | *None* (disabled) | Provider-verified sender address you control (e.g. `notifications@yourverifieddomain.com` or `onboarding@resend.dev` for test sends). |
+| `EMAIL_FROM_NAME` | All | No | `CaseBridge Demo` | Display sender name shown in recipients' inboxes. |
+| `RESEND_API_KEY` | Resend | Yes (if resend) | *None* | Resend API key (`re_...`). |
+| `SMTP_HOST` | SMTP | Yes (if smtp) | *None* | SMTP server hostname. Used only when `EMAIL_BACKEND=smtp`. |
+| `SMTP_PORT` | SMTP | No | `587` | SMTP port (`587` for STARTTLS, `465` for SSL). |
+| `SMTP_USERNAME` | SMTP | Conditional | *None* | SMTP authentication username. |
+| `SMTP_PASSWORD` | SMTP | Conditional | *None* | SMTP authentication password or secret. |
+| `SMTP_TLS` | SMTP | No | `true` | Enable STARTTLS command encryption (`true`/`false`). |
+| `SMTP_SSL` | SMTP | No | `false` | Enable direct SSL socket encryption (`true`/`false`). |
+| `SMTP_TIMEOUT` | SMTP | No | `10` | Socket timeout in seconds. |
+
+#### Manual Setup Steps (When Ready to Enable Delivery)
+
+1. **Provider Setup**:
+   - If using Resend: create a free account at [resend.com](https://resend.com), verify your sending domain or use their sandbox testing address, and generate an API key.
+   - If using SMTP: obtain credentials from your SMTP relay provider.
+2. **Configure on Render**:
+   - In your Render Dashboard, navigate to the `casebridge-backend` service -> **Environment**.
+   - Set `EMAIL_BACKEND` to `resend` (or `smtp`).
+   - Set `EMAIL_FROM_EMAIL` to your verified sender address.
+   - Set `RESEND_API_KEY` (or SMTP variables) with your credential.
+3. If variables are left unset, CaseBridge runs normally and logs a non-secret skip notice whenever an email action is triggered.
 
 ---
 
