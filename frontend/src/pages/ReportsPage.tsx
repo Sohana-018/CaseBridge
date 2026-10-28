@@ -246,6 +246,42 @@ const CustomPieTooltip: React.FC<CustomPieTooltipProps> = ({
   );
 };
 
+// Helper to break category names into compact lines so they fit inside pie wedges without overflowing
+function getSliceLabelLines(label: string, percent: number): string[] {
+  if (!label) return [];
+
+  // If label has spaces, split across words (e.g. "Under Process" -> ["Under", "Process"])
+  if (label.includes(' ')) {
+    const parts = label.split(' ');
+    if (parts.length === 2) {
+      return parts;
+    }
+    return [parts[0], parts.slice(1).join(' ')];
+  }
+
+  // Single word: if short (<= 5 chars) or very large slice (>= 25%), keep on 1 line
+  if (label.length <= 5 || percent >= 0.25) {
+    return [label];
+  }
+
+  // Known syllable breaks for common domain terms to fit within wedge
+  const lower = label.toLowerCase();
+  if (lower.startsWith('transfer')) return ['Trans-', 'ferred'];
+  if (lower.startsWith('escalat')) return ['Esca-', 'lated'];
+  if (lower.startsWith('duplicat')) return ['Dupli-', 'cate'];
+  if (lower.startsWith('dispos')) return ['Dis-', 'posed'];
+  if (lower.endsWith('ern')) return [label.slice(0, -3) + '-', 'ern'];
+  if (lower === 'pending') return ['Pend-', 'ing'];
+  if (lower === 'central') return ['Cen-', 'tral'];
+
+  if (label.length >= 7) {
+    const mid = Math.ceil(label.length / 2);
+    return [`${label.slice(0, mid)}-`, label.slice(mid)];
+  }
+
+  return [label];
+}
+
 export const ReportsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -256,7 +292,7 @@ export const ReportsPage: React.FC = () => {
   const currentTabDef = TABS.find((t) => t.kind === tabParam) || TABS[0];
   const activeKind = currentTabDef.kind;
 
-  // Custom slice label renderer: denotes the category name on slices with 5% or more
+  // Custom slice label renderer: denotes category name fitted perfectly inside each wedge
   const renderCustomizedLabel = useCallback(
     (props: any) => {
       const { cx, cy, midAngle, innerRadius, outerRadius, percent, payload, name } = props;
@@ -266,15 +302,26 @@ export const ReportsPage: React.FC = () => {
       const displayName = item.name || formatDisplayLabel(item.label || name || '', activeKind);
       if (!displayName) return null;
 
+      const lines = getSliceLabelLines(displayName, percent);
+
+      // Adaptive font size based on slice percent and word length to guarantee it fits
+      let fontSize = 11;
+      const maxLineLen = Math.max(...lines.map((l) => l.length));
+      if (percent < 0.10 || maxLineLen >= 8) {
+        fontSize = 8.5;
+      } else if (percent < 0.18 || maxLineLen >= 6) {
+        fontSize = 9.5;
+      } else {
+        fontSize = 11;
+      }
+
       const RADIAN = Math.PI / 180;
-      // Position label at 58% radius between inner and outer edge
-      const radius = innerRadius + (outerRadius - innerRadius) * 0.58;
+      // Position label at 64% radius where wedge arc is widest
+      const radius = innerRadius + (outerRadius - innerRadius) * 0.64;
       const x = cx + radius * Math.cos(-midAngle * RADIAN);
       const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-      // If label has two words and is longer than 8 chars, split across 2 lines for clean spacing
-      const words = displayName.split(' ');
-      if (words.length === 2 && displayName.length > 8) {
+      if (lines.length === 2) {
         return (
           <text
             x={x}
@@ -282,10 +329,11 @@ export const ReportsPage: React.FC = () => {
             fill="#FFFFFF"
             textAnchor="middle"
             dominantBaseline="central"
-            className="text-[11px] font-bold select-none pointer-events-none drop-shadow-xs"
+            style={{ fontSize: `${fontSize}px` }}
+            className="font-bold select-none pointer-events-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
           >
-            <tspan x={x} dy="-0.55em">{words[0]}</tspan>
-            <tspan x={x} dy="1.15em">{words[1]}</tspan>
+            <tspan x={x} dy="-0.58em">{lines[0]}</tspan>
+            <tspan x={x} dy="1.16em">{lines[1]}</tspan>
           </text>
         );
       }
@@ -297,9 +345,10 @@ export const ReportsPage: React.FC = () => {
           fill="#FFFFFF"
           textAnchor="middle"
           dominantBaseline="central"
-          className="text-[11px] font-bold select-none pointer-events-none drop-shadow-xs"
+          style={{ fontSize: `${fontSize}px` }}
+          className="font-bold select-none pointer-events-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
         >
-          {displayName}
+          {lines[0]}
         </text>
       );
     },
@@ -763,7 +812,7 @@ export const ReportsPage: React.FC = () => {
                             cx="50%"
                             cy="50%"
                             innerRadius={isSingleOutcome ? 55 : activeKind === 'disposal' ? 50 : 0}
-                            outerRadius={112}
+                            outerRadius={120}
                             labelLine={false}
                             label={renderCustomizedLabel}
                             onMouseEnter={(_, index) => {

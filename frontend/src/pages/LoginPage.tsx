@@ -15,11 +15,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   loginWithCredentials,
   getDemoAccounts,
   getCurrentUser,
+  checkServerHealth,
   type DemoAccount,
 } from '../api/client';
 
@@ -80,6 +82,13 @@ export const LoginPage: React.FC = () => {
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
+  // Server waking-up (Render cold-start) states
+  const [serverWakingUp, setServerWakingUp] = useState<boolean>(false);
+  const [serverReadyNotice, setServerReadyNotice] = useState<boolean>(false);
+  const [wakeUpSeconds, setWakeUpSeconds] = useState<number>(0);
+  const serverReadyRef = useRef<boolean>(false);
+  const isPollingRef = useRef<boolean>(false);
+
   // Horizontal strip scrolling and drag state
   const stripRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -93,7 +102,59 @@ export const LoginPage: React.FC = () => {
     setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
   }, []);
 
+  // Backoff polling loop for backend health endpoint
+  const startHealthPolling = useCallback(async () => {
+    if (isPollingRef.current) return;
+    isPollingRef.current = true;
+    setServerWakingUp(true);
+    setError(null);
+
+    let delay = 1500;
+    const maxDelay = 6000;
+
+    while (isPollingRef.current) {
+      const healthy = await checkServerHealth(3500);
+      if (healthy) {
+        serverReadyRef.current = true;
+        setServerWakingUp(false);
+        setServerReadyNotice(true);
+        setTimeout(() => setServerReadyNotice(false), 5000);
+
+        // Fetch demo accounts immediately now that backend is awake
+        try {
+          const accounts = await getDemoAccounts();
+          setDemoAccounts(Array.isArray(accounts) ? accounts : []);
+          setTimeout(updateScrollButtons, 100);
+        } catch {
+          // ignore
+        }
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay = Math.min(maxDelay, delay * 1.5);
+    }
+    isPollingRef.current = false;
+  }, [updateScrollButtons]);
+
+  // Elapsed seconds timer during server wake-up
   useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    if (serverWakingUp) {
+      timer = setInterval(() => {
+        setWakeUpSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setWakeUpSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [serverWakingUp]);
+
+  // Page mount lifecycle: probe server health and handle cold starts
+  useEffect(() => {
+    let isCancelled = false;
     setError(null);
 
     // If already authenticated, redirect
@@ -104,18 +165,53 @@ export const LoginPage: React.FC = () => {
       } else {
         navigate('/');
       }
+      return;
     }
 
-    // Fetch authorized demo accounts
-    getDemoAccounts()
-      .then((accounts) => {
-        setDemoAccounts(Array.isArray(accounts) ? accounts : []);
-        setTimeout(updateScrollButtons, 100);
+    // Safety watchdog: if server hasn't answered after 2500ms, indicate server waking up
+    const wakingWatchdog = setTimeout(() => {
+      if (!isCancelled && !serverReadyRef.current) {
+        setServerWakingUp(true);
+      }
+    }, 2500);
+
+    // Initial load: probe server health
+    checkServerHealth(2400)
+      .then((isHealthy) => {
+        if (isCancelled) return;
+        clearTimeout(wakingWatchdog);
+        if (isHealthy) {
+          serverReadyRef.current = true;
+          setServerWakingUp(false);
+          getDemoAccounts()
+            .then((accounts) => {
+              if (!isCancelled) {
+                setDemoAccounts(Array.isArray(accounts) ? accounts : []);
+                setTimeout(updateScrollButtons, 100);
+              }
+            })
+            .catch(() => {
+              if (!isCancelled) setDemoAccounts([]);
+            });
+        } else {
+          serverReadyRef.current = false;
+          startHealthPolling();
+        }
       })
       .catch(() => {
-        setDemoAccounts([]);
+        if (!isCancelled) {
+          clearTimeout(wakingWatchdog);
+          serverReadyRef.current = false;
+          startHealthPolling();
+        }
       });
-  }, [navigate, updateScrollButtons]);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(wakingWatchdog);
+      isPollingRef.current = false;
+    };
+  }, [navigate, updateScrollButtons, startHealthPolling]);
 
   useEffect(() => {
     const el = stripRef.current;
@@ -159,14 +255,22 @@ export const LoginPage: React.FC = () => {
     dragInfo.current.isDown = false;
   };
 
-  // Unified authentication pipeline
+  // Unified authentication pipeline with slow-response watchdog
   const performLogin = async (user: string, pass: string, roleKey?: string) => {
     setLoading(true);
     if (roleKey) setLoggingInRole(roleKey);
     setError(null);
 
+    // If server takes longer than 3.5s to respond, indicate server waking up
+    const slowLoginTimer = setTimeout(() => {
+      setServerWakingUp(true);
+    }, 3500);
+
     try {
       const res = await loginWithCredentials(user.trim(), pass);
+      clearTimeout(slowLoginTimer);
+      serverReadyRef.current = true;
+      setServerWakingUp(false);
       const fromPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
       if (fromPath && (fromPath !== '/admin' || res.user.role === 'administrator')) {
         navigate(fromPath, { replace: true });
@@ -176,8 +280,24 @@ export const LoginPage: React.FC = () => {
         navigate('/', { replace: true });
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Authentication failed. Please verify your credentials.';
-      setError(msg);
+      clearTimeout(slowLoginTimer);
+      const errMsg = err instanceof Error ? err.message : '';
+      const isNetworkErr =
+        err instanceof TypeError ||
+        errMsg.toLowerCase().includes('fetch') ||
+        errMsg.toLowerCase().includes('network') ||
+        errMsg.toLowerCase().includes('failed to fetch') ||
+        errMsg.includes('502') ||
+        errMsg.includes('503') ||
+        errMsg.includes('504');
+
+      if (isNetworkErr) {
+        setServerWakingUp(true);
+        startHealthPolling();
+      } else {
+        const msg = errMsg || 'Authentication failed. Please verify your credentials.';
+        setError(msg);
+      }
     } finally {
       setLoading(false);
       setLoggingInRole(null);
@@ -187,6 +307,7 @@ export const LoginPage: React.FC = () => {
   // Manual form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (serverWakingUp) return;
     if (!username.trim() || !password) {
       setError('Please provide both username and password.');
       return;
@@ -196,7 +317,7 @@ export const LoginPage: React.FC = () => {
 
   // Immediate single-click demo role login
   const handleDemoChipClick = async (acc: DemoAccount) => {
-    if (dragInfo.current.hasDragged || loading) return;
+    if (dragInfo.current.hasDragged || loading || serverWakingUp) return;
     // Fill briefly for visual feedback
     setUsername(acc.username);
     setPassword(acc.password_hint);
@@ -302,7 +423,7 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Footer (Pinned neatly without empty void) */}
+          {/* Bottom Footer */}
           <div className="pt-4 mt-4 border-t border-white/15 flex items-center justify-between text-xs text-blue-200/70">
             <span className="font-semibold text-white">CaseBridge</span>
             <span className="text-[11px] text-blue-200/70">Synthetic Demo Environment</span>
@@ -313,7 +434,7 @@ export const LoginPage: React.FC = () => {
         <div className="col-span-12 lg:col-span-7 p-6 sm:p-7 lg:p-8 flex flex-col justify-center bg-white">
           <div className="w-full max-w-md mx-auto">
             {/* Clean Header */}
-            <div className="mb-2">
+            <div className="mb-3">
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                 Officer Authentication
               </h2>
@@ -321,6 +442,68 @@ export const LoginPage: React.FC = () => {
                 Sign in with authorized credentials or select a quick demo role
               </p>
             </div>
+
+            {/* Server Waking Up Friendly Card / State */}
+            {serverWakingUp && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="p-3.5 mb-3.5 rounded-xl bg-blue-50/90 border border-blue-200 text-slate-800 shadow-2xs space-y-2.5 animate-in fade-in duration-300"
+              >
+                <div className="flex items-start gap-2.5">
+                  <div
+                    className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5"
+                    aria-hidden="true"
+                  >
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-700" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-bold text-slate-900 leading-snug">
+                        The server is waking up, this can take up to a minute
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-600 bg-white px-2 py-0.5 rounded-full border border-blue-200 shrink-0 font-medium">
+                        {wakeUpSeconds}s elapsed
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                      CaseBridge is hosted on a cloud container that cold-starts when idle. The login form will activate automatically as soon as the service responds.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Smooth Progress Animation Bar */}
+                <div className="w-full bg-blue-100 border border-blue-200 rounded-full h-1.5 overflow-hidden relative">
+                  <div
+                    className="bg-blue-600 h-1.5 rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${Math.min(95, Math.max(12, (wakeUpSeconds / 50) * 100))}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+                  <span className="flex items-center gap-1 font-medium text-slate-600">
+                    <Clock className="w-3 h-3 text-blue-600" aria-hidden="true" />
+                    <span>Polling backend health endpoint...</span>
+                  </span>
+                  <span className="font-semibold text-blue-700 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                    <span>Cold start in progress</span>
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Server Ready Notification */}
+            {serverReadyNotice && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="p-2.5 mb-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800 shadow-2xs animate-in fade-in duration-300"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+                <span className="font-semibold">Backend server is online! You can now sign in.</span>
+              </div>
+            )}
 
             {/* Quick Demo Roles Strip (Only rendered in demo environment) */}
             {demoAccounts && demoAccounts.length > 0 && (
@@ -345,9 +528,10 @@ export const LoginPage: React.FC = () => {
                   {canScrollLeft && (
                     <button
                       type="button"
+                      disabled={loading || serverWakingUp}
                       onClick={() => scrollStrip('left')}
                       aria-label="Scroll demo roles left"
-                      className="absolute -left-2 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer"
+                      className="absolute -left-2 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                     </button>
@@ -377,7 +561,7 @@ export const LoginPage: React.FC = () => {
                           key={acc.username}
                           type="button"
                           data-demo-chip="true"
-                          disabled={loading}
+                          disabled={loading || serverWakingUp}
                           onClick={() => handleDemoChipClick(acc)}
                           onKeyDown={(e) => handleChipKeyDown(e, idx)}
                           aria-label={`Sign in as ${cfg.name}`}
@@ -385,7 +569,7 @@ export const LoginPage: React.FC = () => {
                             isSelected
                               ? 'bg-blue-50/80 border-blue-600 shadow-2xs'
                               : 'bg-white border-slate-200 hover:bg-blue-50/40 hover:border-blue-400'
-                          } ${loading && !isLoggingInThis ? 'opacity-50' : ''}`}
+                          } ${(loading || serverWakingUp) && !isLoggingInThis ? 'opacity-50' : ''}`}
                         >
                           {/* Role Name & Username */}
                           <div className="flex flex-col min-w-0">
@@ -419,9 +603,10 @@ export const LoginPage: React.FC = () => {
                   {canScrollRight && (
                     <button
                       type="button"
+                      disabled={loading || serverWakingUp}
                       onClick={() => scrollStrip('right')}
                       aria-label="Scroll demo roles right"
-                      className="absolute -right-2 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer"
+                      className="absolute -right-2 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronRight className="w-4 h-4" aria-hidden="true" />
                     </button>
@@ -465,6 +650,7 @@ export const LoginPage: React.FC = () => {
                     id="login-username"
                     type="text"
                     required
+                    disabled={loading || serverWakingUp}
                     value={username}
                     onChange={(e) => {
                       setUsername(e.target.value);
@@ -472,7 +658,11 @@ export const LoginPage: React.FC = () => {
                       setSelectedRole(null);
                     }}
                     placeholder="e.g. admin or coordinator"
-                    className="block w-full h-9 pl-9 pr-3 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition"
+                    className={`block w-full h-9 pl-9 pr-3 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition ${
+                      serverWakingUp || loading
+                        ? 'opacity-60 bg-slate-100 cursor-not-allowed'
+                        : 'bg-slate-50 focus:bg-white'
+                    }`}
                   />
                 </div>
               </div>
@@ -492,18 +682,24 @@ export const LoginPage: React.FC = () => {
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     required
+                    disabled={loading || serverWakingUp}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
                       if (error) setError(null);
                     }}
                     placeholder="••••••••"
-                    className="block w-full h-9 pl-9 pr-9 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition"
+                    className={`block w-full h-9 pl-9 pr-9 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition ${
+                      serverWakingUp || loading
+                        ? 'opacity-60 bg-slate-100 cursor-not-allowed'
+                        : 'bg-slate-50 focus:bg-white'
+                    }`}
                   />
                   <button
                     type="button"
+                    disabled={loading || serverWakingUp}
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? (
@@ -517,12 +713,13 @@ export const LoginPage: React.FC = () => {
 
               {/* Remember Me & Forgot Password Row */}
               <div className="flex items-center justify-between text-xs pt-0.5">
-                <label className="flex items-center gap-1.5 text-slate-600 cursor-pointer select-none">
+                <label className={`flex items-center gap-1.5 text-slate-600 select-none ${serverWakingUp ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
+                    disabled={loading || serverWakingUp}
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
                   />
                   <span className="text-[11px]">Remember this session</span>
                 </label>
@@ -534,10 +731,15 @@ export const LoginPage: React.FC = () => {
               {/* Sign In Primary Action */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || serverWakingUp}
                 className="w-full h-9 flex justify-center items-center gap-1.5 px-4 rounded-lg text-xs font-bold text-white bg-[#1E3A8A] hover:bg-[#172554] shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading && !loggingInRole ? (
+                {serverWakingUp ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                    <span>Server Waking Up...</span>
+                  </span>
+                ) : loading && !loggingInRole ? (
                   <span>Authenticating...</span>
                 ) : (
                   <>

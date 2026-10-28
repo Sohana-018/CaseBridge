@@ -364,6 +364,42 @@ export async function loginWithCredentials(username: string, password: string): 
   return res;
 }
 
+/**
+ * Lightweight health check helper to verify backend connectivity.
+ * Probes /api/v1/health with fallback to /health and IPv4 localhost.
+ */
+export async function checkServerHealth(timeoutMs = 3500): Promise<boolean> {
+  const urls = [
+    `${API_BASE_URL}/api/v1/health`,
+    `${API_BASE_URL}/health`,
+  ];
+  if (API_BASE_URL.includes('localhost:8000')) {
+    urls.push(
+      `${API_BASE_URL.replace('localhost:8000', '127.0.0.1:8000')}/api/v1/health`,
+      `${API_BASE_URL.replace('localhost:8000', '127.0.0.1:8000')}/health`
+    );
+  }
+
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      clearTimeout(id);
+      if (res.ok) {
+        return true;
+      }
+    } catch {
+      // Try next fallback URL
+    }
+  }
+  return false;
+}
+
 export function logout(): void {
   inMemoryToken = null;
   currentUserProfile = null;
