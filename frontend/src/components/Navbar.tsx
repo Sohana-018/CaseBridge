@@ -33,27 +33,13 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 bg-white shadow-xs">
-      {/* AICTE / Govt Portal Tricolor Ribbon */}
-      <div
-        className="h-[3px] w-full bg-gradient-to-r from-[#FF9933] via-white to-[#138808]"
-        aria-hidden="true"
-      />
-
-      {/* Institutional Utility Sub-Bar */}
-      <div className={`bg-slate-50 border-b border-slate-200/80 text-[11px] text-slate-600 py-1.5 ${isLogin ? 'block' : 'hidden md:block'}`}>
-        <div className="cb-page-container !py-0 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-medium">
-            <span className="font-bold text-slate-800">CaseBridge</span>
-            <span className="text-slate-300">|</span>
-            <span>Centralized Complaint Monitoring & Cross-Bureau Overlap Engine</span>
-          </div>
-          <div className="flex items-center gap-3.5 text-slate-500 text-[11px]">
-            <span>Official Regulatory Coordination Portal</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" aria-hidden="true" />
-              Active
-            </span>
-          </div>
+      {/* Slim status indicator only (no repeated branding or gradient line) */}
+      <div className={`bg-slate-50 border-b border-slate-200 text-xs text-slate-600 py-1 ${isLogin ? 'block' : 'hidden md:block'}`}>
+        <div className="cb-page-container !py-0 flex items-center justify-end">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium text-[11px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" aria-hidden="true" />
+            System status: Active
+          </span>
         </div>
       </div>
 
