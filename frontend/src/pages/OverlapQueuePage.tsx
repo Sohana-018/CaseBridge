@@ -462,7 +462,7 @@ export const OverlapQueuePage: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div className="cb-page-container !py-2 flex flex-col h-[calc(100vh-140px)] min-h-[640px] space-y-3">
+    <div className="cb-page-container !py-3 flex flex-col min-h-screen space-y-3 pb-16">
       {/* Top Header & Tab Switcher Bar */}
       <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 shrink-0">
         <div className="flex items-center gap-3">
@@ -667,11 +667,11 @@ export const OverlapQueuePage: React.FC = () => {
 
           {/* 2 & 3. MASTER-DETAIL SPLIT-SCREEN WORKSPACE */}
           {!loading && !error && filteredOverlaps.length > 0 && activeItem && (
-            <div className="flex-1 flex flex-col lg:flex-row gap-3 min-h-0 overflow-hidden">
+            <div className="flex-1 flex flex-col lg:flex-row gap-4 items-start">
               {/* 2. LEFT PANE - QUEUE LIST (Scrollable Master) */}
               <aside
                 aria-label="Overlap Queue List"
-                className="w-full lg:w-[360px] xl:w-[380px] shrink-0 flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs"
+                className="w-full lg:w-[350px] xl:w-[370px] shrink-0 flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs lg:sticky lg:top-3 lg:max-h-[calc(100vh-100px)]"
               >
                 {/* List Header */}
                 <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs shrink-0">
@@ -799,7 +799,7 @@ export const OverlapQueuePage: React.FC = () => {
               {/* 3. RIGHT PANE - ACTIVE COMPARISON WORKSPACE (Detail View) */}
               <main
                 aria-label="Active Case Comparison Workspace"
-                className="flex-1 flex flex-col justify-between bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs min-w-0"
+                className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl shadow-xs min-w-0"
               >
                 {/* 3A. HEADER */}
                 <div className="border-b border-slate-200 shrink-0">
@@ -900,11 +900,107 @@ export const OverlapQueuePage: React.FC = () => {
                       </span>
                     )}
                   </div>
+
+                  {/* 3A.2 AI OVERLAP LIKELIHOOD & WORK-BASED BUREAU RECOMMENDATION (Compact & Sleek) */}
+                  <div className="px-5 py-2.5 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50/80 border-b border-slate-200 space-y-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                      {/* Overlap Likelihood Assessment */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
+                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-900">
+                          Overlap Match Likelihood:
+                        </span>
+                        <span className="text-xs font-extrabold text-blue-700 font-mono bg-blue-100/90 px-2 py-0.5 rounded border border-blue-200">
+                          {activeItem.likelihood_percentage ?? (activeItem.band === 'high' ? 88 : activeItem.band === 'medium' ? 62 : 38)}%
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500 hidden xl:inline">
+                          {(activeItem.likelihood_percentage ?? 0) >= 75 || activeItem.band === 'high'
+                            ? '• Highly Probable Duplicate'
+                            : (activeItem.likelihood_percentage ?? 0) >= 50 || activeItem.band === 'medium'
+                            ? '• Probable Correlated Incident'
+                            : '• Low Correlation Matter'}
+                        </span>
+                      </div>
+
+                      {/* Recommended Lead Bureau Chip & Work Scores Pill */}
+                      {activeItem.recommendation && (
+                        <div className="flex items-center gap-2 flex-wrap shrink-0">
+                          <div className="flex items-center gap-1.5 bg-white border border-indigo-200 px-2.5 py-1 rounded-lg shadow-2xs">
+                            <span className="text-[11px] font-semibold text-slate-600">
+                              Lead Pick:
+                            </span>
+                            <span className="font-bold text-xs px-2 py-0.5 rounded bg-indigo-600 text-white font-mono shadow-2xs">
+                              {activeItem.recommendation.recommended_bureau}
+                            </span>
+                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">
+                              {activeItem.recommendation.confidence_percentage}% Conf.
+                            </span>
+                          </div>
+
+                          <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono bg-slate-100/80 border border-slate-200 px-2 py-1 rounded-lg text-slate-600">
+                            <span>
+                              <strong className="text-slate-900">{activeItem.recommendation.work_summary_a.bureau}:</strong> {activeItem.recommendation.work_summary_a.work_score}pts
+                            </span>
+                            <span className="text-slate-300">|</span>
+                            <span>
+                              <strong className="text-slate-900">{activeItem.recommendation.work_summary_b.bureau}:</strong> {activeItem.recommendation.work_summary_b.work_score}pts
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rationale Statement & Pre-fill Note Button */}
+                    {activeItem.recommendation && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
+                        <p className="text-slate-700 text-[11px] leading-relaxed flex-1">
+                          <strong className="text-slate-900 font-semibold">AI Rationale: </strong>
+                          {activeItem.recommendation.recommendation_reason}
+                        </p>
+
+                        {isCoordinator && activeItem.review_status === 'open' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const note = `Consolidate under ${activeItem.recommendation?.recommended_bureau} (${activeItem.recommendation?.confidence_percentage}% confidence): ${activeItem.recommendation?.recommendation_reason}`;
+                              handleNoteChange(activeItem.id, note);
+                              showToast(
+                                `Prefilled review note with ${activeItem.recommendation?.recommended_bureau} assignment rationale.`,
+                                'success'
+                              );
+                            }}
+                            className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg shrink-0 transition inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Sparkles className="w-3 h-3 text-blue-600" />
+                            <span>Apply to Review Note</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* 3B. SIDE-BY-SIDE CASE COMPARISON */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+                {/* 3B. SIDE-BY-SIDE CASE COMPARISON (Roomy, Prominent & Expanded) */}
+                <div className="p-4 sm:p-6 space-y-4">
+                  {/* Section Title */}
+                  <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                        Case Dossier Comparison
+                      </h3>
+                      <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                        • Side-by-side grievance evidence & intake details
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                      {activeItem.case_a.bureau} vs {activeItem.case_b.bureau}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
                     {/* Case A Column */}
                     <CaseComparisonColumn
                       caseMini={activeItem.case_a}
@@ -933,7 +1029,7 @@ export const OverlapQueuePage: React.FC = () => {
                   {/* Center Delta Strip */}
                   {activePairMetrics && activePairMetrics.daysApart !== null && (
                     <div className="flex items-center justify-center pt-1">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs text-slate-600 font-medium">
+                      <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs text-slate-600 font-medium shadow-2xs">
                         <ArrowRightLeft className="w-3.5 h-3.5 text-blue-600" />
                         <span>
                           {activeItem.case_a.bureau} vs {activeItem.case_b.bureau} Intake Delta:{' '}
@@ -1176,8 +1272,8 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
 
   const isCaseA = label.toLowerCase().includes('a');
   const cardTheme = isCaseA
-    ? 'border-blue-200/90 bg-blue-50/20'
-    : 'border-indigo-200/90 bg-indigo-50/20';
+    ? 'border-blue-300 bg-blue-50/20 shadow-blue-50/50'
+    : 'border-indigo-300 bg-indigo-50/20 shadow-indigo-50/50';
   const labelBadge = isCaseA
     ? 'bg-blue-600 text-white'
     : 'bg-indigo-600 text-white';
@@ -1187,20 +1283,20 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
 
   return (
     <div
-      className={`rounded-xl border ${cardTheme} p-4 flex flex-col justify-between h-full shadow-2xs bg-white`}
+      className={`rounded-2xl border-2 ${cardTheme} p-5 sm:p-6 flex flex-col justify-between shadow-xs bg-white min-h-[500px]`}
     >
       <div className="flex-1 flex flex-col">
         {/* Header: Label, Case No, Bureau, Status */}
-        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-slate-200 flex-wrap">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-200 flex-wrap">
+          <div className="flex items-center gap-2.5">
             <span
-              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded shadow-2xs ${labelBadge}`}
+              className={`text-xs font-black uppercase px-2.5 py-1 rounded shadow-2xs ${labelBadge} tracking-wider`}
             >
               {label}
             </span>
             <Link
               to={`/cases/${caseMini.case_no}`}
-              className={`font-mono font-bold text-xs hover:underline ${caseNoLink}`}
+              className={`font-mono font-bold text-sm sm:text-base hover:underline ${caseNoLink}`}
             >
               {caseMini.case_no}
             </Link>
@@ -1215,17 +1311,17 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
 
         {/* Loading state */}
         {isLoading && (
-          <div className="space-y-2 py-3 animate-pulse">
-            <div className="h-3 bg-slate-200 rounded w-3/4"></div>
-            <div className="h-3 bg-slate-200 rounded w-1/2"></div>
-            <div className="h-16 bg-slate-200 rounded w-full mt-2"></div>
+          <div className="space-y-3 py-6 animate-pulse">
+            <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+            <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+            <div className="h-28 bg-slate-200 rounded-xl w-full mt-3"></div>
           </div>
         )}
 
         {/* Error state */}
         {!isLoading && errorMsg && (
-          <div className="p-3 my-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
-            <p className="text-xs mb-1.5">{errorMsg}</p>
+          <div className="p-4 my-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+            <p className="text-xs mb-2 font-medium">{errorMsg}</p>
             <button
               type="button"
               onClick={onRetry}
@@ -1238,18 +1334,18 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
 
         {/* Case Attributes & Grievance Summary */}
         {!isLoading && !errorMsg && detail && (
-          <div className="space-y-3 text-xs flex-1 flex flex-col justify-between">
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+          <div className="space-y-4 text-xs flex-1 flex flex-col justify-between">
+            <dl className="grid grid-cols-2 gap-x-5 gap-y-3 text-xs">
               <div>
-                <dt className="text-slate-500 font-medium">Category</dt>
+                <dt className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Category</dt>
                 <dd
-                  className={`font-semibold capitalize mt-0.5 ${
-                    categoryMatches ? 'text-emerald-700 font-bold' : 'text-slate-900'
+                  className={`font-bold capitalize mt-0.5 text-xs sm:text-sm ${
+                    categoryMatches ? 'text-emerald-700' : 'text-slate-900'
                   }`}
                 >
                   {formatCategory(detail.category)}
                   {categoryMatches && (
-                    <span className="ml-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                    <span className="ml-1.5 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
                       Match
                     </span>
                   )}
@@ -1257,23 +1353,23 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
               </div>
 
               <div>
-                <dt className="text-slate-500 font-medium">Received Date</dt>
-                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 num-tabular">
+                <dt className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Received Date</dt>
+                <dd className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 mt-0.5 num-tabular">
                   <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
                   <span>{detail.received_date || '—'}</span>
                 </dd>
               </div>
 
               <div>
-                <dt className="text-slate-500 font-medium">Assigned Officer</dt>
-                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 truncate">
+                <dt className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Assigned Officer</dt>
+                <dd className="font-semibold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 mt-0.5 truncate">
                   <User className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
                   {isRestricted ? (
                     <RestrictedBadge />
                   ) : (
                     <span>
                       {detail.assigned_officer || (
-                        <span className="text-slate-400 italic">Unassigned</span>
+                        <span className="text-slate-400 italic font-normal">Unassigned</span>
                       )}
                     </span>
                   )}
@@ -1281,8 +1377,8 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
               </div>
 
               <div>
-                <dt className="text-slate-500 font-medium">Target SLA</dt>
-                <dd className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5 num-tabular">
+                <dt className="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Target SLA</dt>
+                <dd className="font-semibold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 mt-0.5 num-tabular">
                   {isRestricted ? (
                     <RestrictedBadge />
                   ) : (
@@ -1295,13 +1391,16 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
               </div>
             </dl>
 
-            {/* Grievance Summary with AUTO-HIGHLIGHT SHARED REF CODES */}
-            <div>
-              <span className="text-slate-700 font-semibold flex items-center gap-1 mb-1">
-                <FileText className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
-                <span>Grievance Summary:</span>
-              </span>
-              <div className="p-3 rounded-lg bg-slate-50/70 border border-slate-200 text-slate-800 text-xs leading-relaxed max-h-32 overflow-y-auto shadow-2xs">
+            {/* Grievance Summary with AUTO-HIGHLIGHT SHARED REF CODES (Roomy & Expanded) */}
+            <div className="flex-1 flex flex-col">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-slate-900 font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-slate-600" aria-hidden="true" />
+                  <span>Grievance Summary:</span>
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium">Original submission text</span>
+              </div>
+              <div className="p-4 sm:p-4.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs sm:text-[13px] leading-relaxed min-h-[190px] max-h-80 overflow-y-auto shadow-inner flex-1">
                 {isRestricted ? (
                   <RestrictedBadge />
                 ) : (
@@ -1313,10 +1412,13 @@ const CaseComparisonColumn: React.FC<CaseColumnProps> = ({
         )}
       </div>
 
-      <div className="pt-2.5 mt-2.5 border-t border-slate-200 flex justify-end">
+      <div className="pt-3 mt-3.5 border-t border-slate-200 flex items-center justify-between">
+        <div className="text-[11px] text-slate-500 font-medium">
+          Dossier: <strong className="text-slate-700">{caseMini.bureau}</strong> intake record
+        </div>
         <Link
           to={`/cases/${caseMini.case_no}`}
-          className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1"
+          className="text-xs font-bold text-blue-700 hover:text-blue-900 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition cursor-pointer"
         >
           <span>Open case record</span>
           <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />

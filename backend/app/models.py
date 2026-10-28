@@ -71,6 +71,7 @@ class AlertType(str, Enum):
     ESCALATION = "escalation"
     SLA_WARNING = "sla_warning"
     SLA_BREACH = "sla_breach"
+    TRANSFER = "transfer"
 
 
 class Priority(str, Enum):

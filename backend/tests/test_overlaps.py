@@ -501,3 +501,33 @@ def test_overlap_review_permission_check_before_body_validation(client_and_sessi
         assert data["error"]["code"] == "FORBIDDEN"
 
 
+def test_overlap_work_recommendation_and_likelihood(client_and_session):
+    """Test overlap queue returns likelihood percentage and bureau work recommendation."""
+    client, _ = client_and_session
+    scan_res = client.post("/api/v1/overlaps/scan", headers=AUTH)
+    assert scan_res.status_code == 200
+
+    res = client.get("/api/v1/overlaps", headers=AUTH)
+    assert res.status_code == 200
+    items = res.json()["items"]
+    assert len(items) > 0
+
+    first = items[0]
+    assert "likelihood_percentage" in first
+    assert isinstance(first["likelihood_percentage"], int)
+    assert 0 <= first["likelihood_percentage"] <= 100
+
+    rec = first.get("recommendation")
+    assert rec is not None
+    assert "recommended_bureau" in rec
+    assert rec["recommended_bureau"] in ["RB", "PGRC", "RO", "OC"]
+    assert "confidence_percentage" in rec
+    assert 50 <= rec["confidence_percentage"] <= 100
+    assert "recommendation_reason" in rec
+    assert len(rec["recommendation_reason"]) > 10
+    assert "work_summary_a" in rec
+    assert "work_summary_b" in rec
+    assert "work_score" in rec["work_summary_a"]
+    assert "work_score" in rec["work_summary_b"]
+
+

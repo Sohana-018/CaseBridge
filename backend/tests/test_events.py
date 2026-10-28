@@ -286,3 +286,23 @@ def test_cross_bureau_officer_events_redaction(client: TestClient):
     assert any(ev.get("remarks") == "Confidential bureau remarks and notes" for ev in coord_events)
     assert any(ev.get("attachment_ref") == "secret_doc_99.pdf" for ev in coord_events)
 
+
+def test_transfer_creates_alerts_for_both_bureaus(client: TestClient):
+    """Test transferring a case from RB to OC creates alerts for both bureaus."""
+    coord_headers = {"Authorization": f"Bearer {get_coordinator_token()}"}
+    res = client.post(
+        "/api/v1/cases/RB-2026-00001/events",
+        json={"event_type": "transfer", "to_bureau": "OC", "remarks": "Reassigned jurisdiction to OC"},
+        headers=coord_headers,
+    )
+    assert res.status_code == 201
+
+    alerts_res = client.get("/api/v1/alerts", headers=coord_headers)
+    assert alerts_res.status_code == 200
+    alerts = alerts_res.json()["items"]
+    transfer_alerts = [a for a in alerts if a["type"] == "transfer"]
+    assert len(transfer_alerts) >= 2
+    msgs = [a["message"] for a in transfer_alerts]
+    assert any("Transfer Out" in m and "RB to OC" in m for m in msgs)
+    assert any("Transfer In" in m and "from RB" in m for m in msgs)
+

@@ -51,6 +51,52 @@ def create_escalation_alert(
     return alert
 
 
+def create_transfer_alerts(
+    session: Session,
+    case: Case,
+    from_bureau: object,
+    to_bureau: object,
+    remarks: Optional[str] = None,
+) -> list[Alert]:
+    """Generate transfer alerts for both originating and receiving bureaus upon case reassignment."""
+    from_val = from_bureau.value if hasattr(from_bureau, "value") else str(from_bureau)
+    to_val = to_bureau.value if hasattr(to_bureau, "value") else str(to_bureau)
+
+    alerts = []
+    # 1. Alert for originating bureau (RB officer visibility)
+    msg_from = f"[Transfer Out] Case {case.case_no} transferred from {from_val} to {to_val}. Reassignment logged."
+    alert_from = Alert(
+        type=AlertType.TRANSFER,
+        case_id=case.id,
+        link_id=None,
+        message=msg_from,
+        priority=Priority.MEDIUM,
+        status="open",
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(alert_from)
+    alerts.append(alert_from)
+
+    # 2. Alert for receiving bureau (OC officer visibility)
+    msg_to = f"[Transfer In] Case {case.case_no} received via transfer from {from_val}. Action and officer assignment required in {to_val}."
+    alert_to = Alert(
+        type=AlertType.TRANSFER,
+        case_id=case.id,
+        link_id=None,
+        message=msg_to,
+        priority=Priority.HIGH,
+        status="open",
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(alert_to)
+    alerts.append(alert_to)
+
+    session.commit()
+    for a in alerts:
+        session.refresh(a)
+    return alerts
+
+
 def create_overlap_alert(
     session: Session,
     link_id: int,

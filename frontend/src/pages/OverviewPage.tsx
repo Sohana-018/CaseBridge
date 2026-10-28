@@ -24,6 +24,7 @@ import {
   Calendar,
   Sliders,
   Info,
+  ArrowRightLeft,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -44,8 +45,8 @@ export const OverviewPage: React.FC = () => {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [overlaps, setOverlaps] = useState<OverlapItem[]>([]);
 
-  // Filter state for alerts: All | SLA Breach | Reminders
-  const [alertFilter, setAlertFilter] = useState<'all' | 'sla_breach' | 'reminders'>('all');
+  // Filter state for alerts: All | SLA Breach | Reminders | Transfers
+  const [alertFilter, setAlertFilter] = useState<'all' | 'sla_breach' | 'reminders' | 'transfers'>('all');
 
   // Architecture strip toggle
   const [pipelineOpen, setPipelineOpen] = useState<boolean>(false);
@@ -149,6 +150,10 @@ export const OverviewPage: React.FC = () => {
       if (alertFilter === 'reminders') {
         const t = (alert.type || '').toLowerCase();
         return t.includes('reminder') || t.includes('due') || t.includes('target');
+      }
+      if (alertFilter === 'transfers') {
+        const t = (alert.type || '').toLowerCase();
+        return t.includes('transfer');
       }
       return true;
     });
@@ -649,6 +654,17 @@ export const OverviewPage: React.FC = () => {
                     >
                       Reminders
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setAlertFilter('transfers')}
+                      className={`px-2 py-1 rounded-md transition cursor-pointer ${
+                        alertFilter === 'transfers'
+                          ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Transfers
+                    </button>
                   </div>
                 </div>
 
@@ -665,9 +681,12 @@ export const OverviewPage: React.FC = () => {
                 ) : (
                   <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                     {filteredAlerts.slice(0, 7).map((alert) => {
+                      const isTransfer = alert.type?.toLowerCase() === 'transfer';
                       const isHigh = alert.priority?.toLowerCase() === 'high';
                       const isMed = alert.priority?.toLowerCase() === 'medium';
-                      const borderLeft = isHigh
+                      const borderLeft = isTransfer
+                        ? 'border-l-indigo-600 bg-indigo-50/20'
+                        : isHigh
                         ? 'border-l-rose-600'
                         : isMed
                         ? 'border-l-amber-500'
@@ -687,8 +706,11 @@ export const OverviewPage: React.FC = () => {
                                 </span>
                               )}
                               <PriorityChip priority={alert.priority} />
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white text-slate-700 border border-slate-200 uppercase tracking-wide truncate">
-                                {alert.type.replace('_', ' ')}
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide truncate flex items-center gap-1 ${
+                                isTransfer ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-700 border-slate-200'
+                              }`}>
+                                {isTransfer && <ArrowRightLeft className="w-2.5 h-2.5 text-indigo-600" />}
+                                <span>{alert.type.replace('_', ' ')}</span>
                               </span>
                             </div>
                             <span className="text-[11px] text-slate-500 whitespace-nowrap font-medium shrink-0">

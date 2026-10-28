@@ -174,6 +174,27 @@ class OverlapCaseMini(BaseModel):
     status: str
 
 
+class BureauWorkSummary(BaseModel):
+    bureau: str
+    case_no: str
+    status: str
+    events_count: int
+    has_officer: bool
+    assigned_officer: Optional[str] = None
+    days_active: int
+    work_score: int
+    stage_label: str
+    summary: str
+
+
+class BureauRecommendation(BaseModel):
+    recommended_bureau: str
+    confidence_percentage: int
+    recommendation_reason: str
+    work_summary_a: BureauWorkSummary
+    work_summary_b: BureauWorkSummary
+
+
 class OverlapRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -186,6 +207,8 @@ class OverlapRead(BaseModel):
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     note: Optional[str] = None
+    likelihood_percentage: Optional[int] = None
+    recommendation: Optional[BureauRecommendation] = None
 
 
 class OverlapListResponse(BaseModel):

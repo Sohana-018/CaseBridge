@@ -134,6 +134,11 @@ def record_case_event(
         from app.services.alerts import create_escalation_alert
         create_escalation_alert(session, case_id=case.id, remarks=event_create.remarks)
 
+    # When a transfer event is recorded, notify both originating and receiving bureaus
+    if event_create.event_type == EventType.TRANSFER and to_bureau:
+        from app.services.alerts import create_transfer_alerts
+        create_transfer_alerts(session, case=case, from_bureau=from_bureau, to_bureau=to_bureau, remarks=event_create.remarks)
+
     return event
 
 

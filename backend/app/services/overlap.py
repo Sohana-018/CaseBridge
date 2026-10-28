@@ -393,10 +393,205 @@ def review_overlap(
     return link
 
 
+def calculate_overlap_likelihood(reasons: List[str], band: str) -> int:
+    """Calculate an explainable percentage score (0-100%) for how likely two complaints represent the same issue."""
+    band_lower = band.lower() if isinstance(band, str) else _enum_value(band).lower()
+    if band_lower == "high":
+        base_score = 78
+    elif band_lower == "medium":
+        base_score = 56
+    else:
+        base_score = 32
+
+    text_sim = 0.0
+    has_shared_ref = False
+    has_same_cat = False
+    days_apart: Optional[int] = None
+
+    for r in reasons:
+        if r.startswith("text_similarity"):
+            try:
+                text_sim = float(r.split()[1])
+            except (IndexError, ValueError):
+                pass
+        elif r == "shared_reference":
+            has_shared_ref = True
+        elif r == "same_category":
+            has_same_cat = True
+        elif r.startswith("date_proximity"):
+            try:
+                days_apart = int(r.split()[1])
+            except (IndexError, ValueError):
+                pass
+
+    score = base_score
+    if text_sim > 0:
+        score += int(min(0.40, text_sim) * 35)
+    if has_shared_ref:
+        score += 12
+    if has_same_cat:
+        score += 6
+    if days_apart is not None and days_apart <= 30:
+        score += 5
+
+    if band_lower == "high":
+        return max(75, min(98, score))
+    elif band_lower == "medium":
+        return max(50, min(74, score))
+    return max(20, min(49, score))
+
+
+def calculate_work_score(case: Optional[Case], events: List[CaseEvent]) -> Dict[str, Any]:
+    """Evaluate progress and work conducted by a bureau on a case."""
+    if not case:
+        return {
+            "bureau": "Unknown",
+            "case_no": "",
+            "status": "",
+            "events_count": 0,
+            "has_officer": False,
+            "assigned_officer": None,
+            "days_active": 0,
+            "work_score": 0,
+            "stage_label": "Unassigned / Inactive",
+            "summary": "No case record available",
+        }
+
+    # 1. Status progression weighting
+    status_val = case.status.value if hasattr(case.status, "value") else str(case.status)
+    if case.status == CaseStatus.DISPOSED:
+        status_pts = 45
+        stage_label = "Concluded & Disposed"
+    elif case.status == CaseStatus.UNDER_PROCESS:
+        status_pts = 35
+        stage_label = "Active Procedural Investigation"
+    elif case.status == CaseStatus.ESCALATED:
+        status_pts = 25
+        stage_label = "Priority Escalation"
+    elif case.status == CaseStatus.TRANSFERRED:
+        status_pts = 15
+        stage_label = "Transferred / Reassigned"
+    else:
+        status_pts = 5
+        stage_label = "Preliminary Intake / Pending Triage"
+
+    # 2. Timeline milestone count
+    events_count = len(events)
+    events_pts = min(30, events_count * 6)
+
+    # 3. Officer assignment
+    has_officer = bool(case.assigned_officer and case.assigned_officer.strip())
+    officer_pts = 10 if has_officer else 0
+
+    # 4. Investigation duration (days between received and last action)
+    days_active = 0
+    if case.received_date and case.last_action_date:
+        days_active = max(0, (case.last_action_date - case.received_date).days)
+    days_pts = min(10, days_active // 3)
+
+    # 5. Inquiry depth from event remarks
+    depth_pts = 0
+    keywords = ("inquiry", "inspection", "hearing", "notice", "evidence", "report", "verified", "site")
+    for ev in events:
+        if ev.remarks and any(k in ev.remarks.lower() for k in keywords):
+            depth_pts = 10
+            break
+
+    total_score = min(100, status_pts + events_pts + officer_pts + days_pts + depth_pts)
+    bureau_name = case.bureau.value if hasattr(case.bureau, "value") else str(case.bureau)
+
+    officer_info = f"assigned to {case.assigned_officer}" if has_officer else "unassigned officer"
+    summary = f"{events_count} action(s) logged · {stage_label} · {officer_info} · {days_active} active day(s)"
+
+    return {
+        "bureau": bureau_name,
+        "case_no": case.case_no,
+        "status": status_val,
+        "events_count": events_count,
+        "has_officer": has_officer,
+        "assigned_officer": case.assigned_officer,
+        "days_active": days_active,
+        "work_score": total_score,
+        "stage_label": stage_label,
+        "summary": summary,
+    }
+
+
+def generate_bureau_recommendation(
+    case_a: Optional[Case],
+    events_a: List[CaseEvent],
+    case_b: Optional[Case],
+    events_b: List[CaseEvent],
+    reasons: List[str],
+) -> Dict[str, Any]:
+    """Recommend which bureau should lead the complaint based on historical work investment."""
+    work_a = calculate_work_score(case_a, events_a)
+    work_b = calculate_work_score(case_b, events_b)
+
+    bureau_a = work_a["bureau"]
+    bureau_b = work_b["bureau"]
+
+    score_a = work_a["work_score"]
+    score_b = work_b["work_score"]
+
+    if score_a > score_b:
+        recommended = bureau_a
+        delta = score_a - score_b
+        confidence = min(96, max(60, 50 + int((delta / (score_a + score_b + 12)) * 85)))
+        reason = (
+            f"{bureau_a} has conducted significantly more procedural work "
+            f"({work_a['events_count']} logged action(s), stage '{work_a['stage_label']}') "
+            f"compared to {bureau_b} ({work_b['events_count']} action(s), stage '{work_b['stage_label']}'). "
+            f"Consolidating lead responsibility under {bureau_a} preserves investigative progress and prevents duplication of effort."
+        )
+    elif score_b > score_a:
+        recommended = bureau_b
+        delta = score_b - score_a
+        confidence = min(96, max(60, 50 + int((delta / (score_a + score_b + 12)) * 85)))
+        reason = (
+            f"{bureau_b} has advanced further in resolving this issue "
+            f"({work_b['events_count']} logged action(s), stage '{work_b['stage_label']}') "
+            f"than {bureau_a} ({work_a['events_count']} action(s), stage '{work_a['stage_label']}'). "
+            f"Assigning lead responsibility to {bureau_b} capitalizes on existing investigative progress."
+        )
+    else:
+        # Tie-breaker based on subject jurisdiction
+        cat_a = (case_a.category.value if case_a and hasattr(case_a.category, "value") else "").lower()
+        if "infrastructure" in cat_a or "approval" in cat_a:
+            recommended = "RB" if "RB" in (bureau_a, bureau_b) else bureau_a
+        elif "fee" in cat_a or "admission" in cat_a or "faculty" in cat_a:
+            recommended = "PGRC" if "PGRC" in (bureau_a, bureau_b) else bureau_a
+        else:
+            recommended = bureau_a
+
+        confidence = 58
+        reason = (
+            f"Both {bureau_a} and {bureau_b} have recorded equivalent preliminary progress "
+            f"({work_a['events_count']} vs {work_b['events_count']} actions). "
+            f"Recommend designating {recommended} as lead bureau based on operational jurisdiction for this issue category."
+        )
+
+    return {
+        "recommended_bureau": recommended,
+        "confidence_percentage": confidence,
+        "recommendation_reason": reason,
+        "work_summary_a": work_a,
+        "work_summary_b": work_b,
+    }
+
+
 def get_overlap_read(session: Session, link: OverlapLink) -> Dict[str, Any]:
-    """Serialise an overlap link into the PRD Section 10 overlap object."""
+    """Serialise an overlap link into the PRD Section 10 overlap object with AI match and work recommendation."""
     case_a = session.get(Case, link.case_a_id)
     case_b = session.get(Case, link.case_b_id)
+
+    events_a = list(session.exec(select(CaseEvent).where(CaseEvent.case_id == link.case_a_id).order_by(CaseEvent.ts.asc())).all()) if link.case_a_id else []
+    events_b = list(session.exec(select(CaseEvent).where(CaseEvent.case_id == link.case_b_id).order_by(CaseEvent.ts.asc())).all()) if link.case_b_id else []
+
+    reasons_list = list(link.reasons or [])
+    band_val = _enum_value(link.confidence_band)
+    likelihood = calculate_overlap_likelihood(reasons_list, band_val)
+    recommendation = generate_bureau_recommendation(case_a, events_a, case_b, events_b, reasons_list)
 
     def mini(case: Optional[Case]) -> Dict[str, str]:
         if not case:
@@ -409,14 +604,16 @@ def get_overlap_read(session: Session, link: OverlapLink) -> Dict[str, Any]:
 
     return {
         "id": link.id,
-        "band": _enum_value(link.confidence_band),
+        "band": band_val,
         "review_status": _enum_value(link.review_status),
-        "reasons": list(link.reasons or []),
+        "reasons": reasons_list,
         "case_a": mini(case_a),
         "case_b": mini(case_b),
         "reviewed_by": link.reviewed_by,
         "reviewed_at": link.reviewed_at,
         "note": link.note,
+        "likelihood_percentage": likelihood,
+        "recommendation": recommendation,
     }
 
 

@@ -147,6 +147,27 @@ export interface OverlapCaseMini {
   status: string;
 }
 
+export interface BureauWorkSummary {
+  bureau: string;
+  case_no: string;
+  status: string;
+  events_count: number;
+  has_officer: boolean;
+  assigned_officer?: string | null;
+  days_active: number;
+  work_score: number;
+  stage_label: string;
+  summary: string;
+}
+
+export interface BureauRecommendation {
+  recommended_bureau: string;
+  confidence_percentage: number;
+  recommendation_reason: string;
+  work_summary_a: BureauWorkSummary;
+  work_summary_b: BureauWorkSummary;
+}
+
 export interface OverlapItem {
   id: number;
   band: ConfidenceBand;
@@ -157,6 +178,8 @@ export interface OverlapItem {
   reviewed_by?: string | null;
   reviewed_at?: string | null;
   note?: string | null;
+  likelihood_percentage?: number | null;
+  recommendation?: BureauRecommendation | null;
 }
 
 export interface OverlapListResponse {
