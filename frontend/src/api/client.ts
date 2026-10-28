@@ -699,8 +699,86 @@ export interface ReportData {
   disposal_rate?: number;
 }
 
+export interface PeriodicSummary {
+  total_cases: number;
+  disposed_cases: number;
+  open_cases: number;
+  disposal_rate: number;
+}
+
+export interface PeriodicStatusItem {
+  status: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PeriodicCategoryItem {
+  category: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PeriodicInstitutionItem {
+  institution_id?: number | null;
+  permanent_id: string;
+  name: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PeriodicResolutionStats {
+  total_cases: number;
+  resolved_cases: number;
+  open_cases: number;
+  avg_days: number;
+  median_days: number;
+  min_days: number;
+  max_days: number;
+  within_sla_count: number;
+  sla_compliance_rate: number;
+}
+
+export interface PeriodicReportData {
+  period: 'daily' | 'monthly' | 'quarterly' | 'custom';
+  period_label: string;
+  start_date: string;
+  end_date: string;
+  total_cases: number;
+  summary: PeriodicSummary;
+  by_status: PeriodicStatusItem[];
+  by_category: PeriodicCategoryItem[];
+  by_institution: PeriodicInstitutionItem[];
+  resolution_stats: PeriodicResolutionStats;
+}
+
+export interface PeriodicReportParams {
+  period: 'daily' | 'monthly' | 'quarterly' | 'custom';
+  date?: string;
+  year?: number;
+  month?: number;
+  quarter?: number;
+  start_date?: string;
+  end_date?: string;
+}
+
 export async function getReport(kind: string): Promise<ReportData> {
   return apiFetch<ReportData>(`/api/v1/reports/${encodeURIComponent(kind)}`);
+}
+
+export async function getPeriodicReport(params: PeriodicReportParams): Promise<PeriodicReportData> {
+  const query = new URLSearchParams();
+  query.set('period', params.period);
+  if (params.date) query.set('date', params.date);
+  if (params.year) query.set('year', String(params.year));
+  if (params.month) query.set('month', String(params.month));
+  if (params.quarter) query.set('quarter', String(params.quarter));
+  if (params.start_date) query.set('start_date', params.start_date);
+  if (params.end_date) query.set('end_date', params.end_date);
+
+  return apiFetch<PeriodicReportData>(`/api/v1/reports/periodic?${query.toString()}`);
 }
 
 export async function downloadReportCsv(kind: string): Promise<void> {
@@ -719,6 +797,45 @@ export async function downloadReportCsv(kind: string): Promise<void> {
   const a = document.createElement('a');
   a.href = downloadUrl;
   a.download = `casebridge_report_${kind}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
+export async function downloadPeriodicReportCsv(params: PeriodicReportParams): Promise<void> {
+  const token = inMemoryToken || (typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_TOKEN) : null);
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const query = new URLSearchParams();
+  query.set('period', params.period);
+  if (params.date) query.set('date', params.date);
+  if (params.year) query.set('year', String(params.year));
+  if (params.month) query.set('month', String(params.month));
+  if (params.quarter) query.set('quarter', String(params.quarter));
+  if (params.start_date) query.set('start_date', params.start_date);
+  if (params.end_date) query.set('end_date', params.end_date);
+
+  const url = `${API_BASE_URL}/api/v1/reports/periodic/csv?${query.toString()}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`Failed to export CSV: HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  const contentDisp = res.headers.get('content-disposition');
+  let filename = `casebridge_periodic_report_${params.period}.csv`;
+  if (contentDisp) {
+    const match = contentDisp.match(/filename="?([^"]+)"?/);
+    if (match && match[1]) {
+      filename = match[1];
+    }
+  }
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();

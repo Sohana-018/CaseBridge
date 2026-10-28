@@ -417,3 +417,199 @@ def test_unknown_report_csv_returns_404(client_and_session):
     assert "error" in data
     assert data["error"]["code"] == "NOT_FOUND"
 
+
+def test_periodic_report_monthly_with_mixed_statuses(client_and_session):
+    """Test monthly periodic report aggregating cases with mixed statuses in October 2026."""
+    client, _ = client_and_session
+
+    res = client.get("/api/v1/reports/periodic?period=monthly&year=2026&month=10")
+    assert res.status_code == 200
+    data = res.json()
+
+    assert data["period"] == "monthly"
+    assert data["period_label"] == "October 2026"
+    assert data["start_date"] == "2026-10-01"
+    assert data["end_date"] == "2026-10-31"
+
+    # In October 2026: case_1 (2026-10-19), case_2 (2026-10-04), case_6 (2026-10-09) => 3 cases
+    assert data["total_cases"] == 3
+    assert data["summary"]["total_cases"] == 3
+    assert data["summary"]["disposed_cases"] == 1
+    assert data["summary"]["open_cases"] == 2
+    assert data["summary"]["disposal_rate"] == 33.3
+
+    # Mixed statuses: pending (1), under_process (1), disposed (1)
+    status_map = {item["status"]: item["count"] for item in data["by_status"]}
+    assert status_map["pending"] == 1
+    assert status_map["under_process"] == 1
+    assert status_map["disposed"] == 1
+    assert status_map["transferred"] == 0
+    assert status_map["escalated"] == 0
+
+    # Categories: infrastructure (1), faculty (1), other (1)
+    cat_map = {item["category"]: item["count"] for item in data["by_category"]}
+    assert cat_map["infrastructure"] == 1
+    assert cat_map["faculty"] == 1
+    assert cat_map["other"] == 1
+
+    # Institution: DEMO-1001 (Institute Alpha) has all 3 cases
+    insts = data["by_institution"]
+    assert len(insts) == 1
+    assert insts[0]["permanent_id"] == "DEMO-1001"
+    assert insts[0]["count"] == 3
+    assert insts[0]["percentage"] == 100.0
+
+    # Resolution statistics
+    res_stats = data["resolution_stats"]
+    assert res_stats["total_cases"] == 3
+    assert res_stats["resolved_cases"] == 1
+    assert res_stats["open_cases"] == 2
+    assert res_stats["avg_days"] >= 0
+    assert res_stats["min_days"] >= 0
+    assert res_stats["max_days"] >= 0
+    assert res_stats["within_sla_count"] == 1
+    assert res_stats["sla_compliance_rate"] == 100.0
+
+
+def test_periodic_report_daily_and_boundary_dates(client_and_session):
+    """Test daily report and custom boundary dates inclusion."""
+    client, _ = client_and_session
+
+    # 1. Daily period matching exactly case_1 (received on 2026-10-19)
+    res_daily = client.get("/api/v1/reports/periodic?period=daily&date=2026-10-19")
+    assert res_daily.status_code == 200
+    daily_data = res_daily.json()
+    assert daily_data["period"] == "daily"
+    assert daily_data["total_cases"] == 1
+    status_map = {item["status"]: item["count"] for item in daily_data["by_status"]}
+    assert status_map["pending"] == 1
+
+    # 2. Boundary dates: custom date range from 2026-10-04 to 2026-10-09
+    # case_2 received on 2026-10-04 (boundary start)
+    # case_6 received on 2026-10-09 (boundary end)
+    res_boundary = client.get(
+        "/api/v1/reports/periodic?period=custom&start_date=2026-10-04&end_date=2026-10-09"
+    )
+    assert res_boundary.status_code == 200
+    b_data = res_boundary.json()
+    assert b_data["total_cases"] == 2
+    assert b_data["start_date"] == "2026-10-04"
+    assert b_data["end_date"] == "2026-10-09"
+    b_status_map = {item["status"]: item["count"] for item in b_data["by_status"]}
+    assert b_status_map["under_process"] == 1
+    assert b_status_map["disposed"] == 1
+
+
+def test_periodic_report_quarterly(client_and_session):
+    """Test quarterly report aggregations across Q3 and Q4 2026."""
+    client, _ = client_and_session
+
+    # Q4 2026 (Oct 1 - Dec 31): case_1, case_2, case_6 => 3 cases
+    res_q4 = client.get("/api/v1/reports/periodic?period=quarterly&year=2026&quarter=4")
+    assert res_q4.status_code == 200
+    q4_data = res_q4.json()
+    assert q4_data["period"] == "quarterly"
+    assert q4_data["period_label"] == "Q4 2026"
+    assert q4_data["start_date"] == "2026-10-01"
+    assert q4_data["end_date"] == "2026-12-31"
+    assert q4_data["total_cases"] == 3
+
+    # Q3 2026 (Jul 1 - Sep 30): case_3 (Sep 9), case_4 (Sep 4), case_5 (Jul 16) => 3 cases
+    res_q3 = client.get("/api/v1/reports/periodic?period=quarterly&year=2026&quarter=3")
+    assert res_q3.status_code == 200
+    q3_data = res_q3.json()
+    assert q3_data["period"] == "quarterly"
+    assert q3_data["period_label"] == "Q3 2026"
+    assert q3_data["start_date"] == "2026-07-01"
+    assert q3_data["end_date"] == "2026-09-30"
+    assert q3_data["total_cases"] == 3
+    q3_status = {item["status"]: item["count"] for item in q3_data["by_status"]}
+    assert q3_status["disposed"] == 1  # case_3
+    assert q3_status["transferred"] == 1  # case_4
+    assert q3_status["escalated"] == 1  # case_5
+
+
+def test_periodic_report_empty_period(client_and_session):
+    """Test periodic report over an empty date range returns safe zeroed metrics without division errors."""
+    client, _ = client_and_session
+
+    # Query a future date with no cases
+    res = client.get("/api/v1/reports/periodic?period=daily&date=2029-01-01")
+    assert res.status_code == 200
+    data = res.json()
+
+    assert data["total_cases"] == 0
+    assert data["summary"]["total_cases"] == 0
+    assert data["summary"]["disposed_cases"] == 0
+    assert data["summary"]["open_cases"] == 0
+    assert data["summary"]["disposal_rate"] == 0.0
+
+    # All status counts 0
+    for s in data["by_status"]:
+        assert s["count"] == 0
+        assert s["percentage"] == 0.0
+
+    # All category counts 0
+    for c in data["by_category"]:
+        assert c["count"] == 0
+        assert c["percentage"] == 0.0
+
+    assert data["by_institution"] == []
+
+    # Resolution stats zeroed safely
+    res_stats = data["resolution_stats"]
+    assert res_stats["total_cases"] == 0
+    assert res_stats["resolved_cases"] == 0
+    assert res_stats["open_cases"] == 0
+    assert res_stats["avg_days"] == 0.0
+    assert res_stats["median_days"] == 0.0
+    assert res_stats["min_days"] == 0
+    assert res_stats["max_days"] == 0
+    assert res_stats["within_sla_count"] == 0
+    assert res_stats["sla_compliance_rate"] == 0.0
+
+
+def test_periodic_report_csv_export(client_and_session):
+    """Test periodic report CSV download endpoint."""
+    client, _ = client_and_session
+
+    res = client.get("/api/v1/reports/periodic/csv?period=monthly&year=2026&month=10")
+    assert res.status_code == 200
+    assert "text/csv" in res.headers["content-type"]
+    assert "casebridge_periodic_report_monthly_2026-10-01_2026-10-31.csv" in res.headers["content-disposition"]
+
+    content = res.text
+    assert "CASEBRIDGE PERIODIC PERFORMANCE REPORT" in content
+    assert "RESOLUTION & SLA PERFORMANCE METRICS" in content
+    assert "CASES BY STATUS" in content
+    assert "CASES BY CATEGORY" in content
+    assert "CASES BY INSTITUTION" in content
+    assert "Average Resolution Time (days)" in content
+    assert "SLA Compliance Rate (%)" in content
+
+
+def test_periodic_report_validation_errors(client_and_session):
+    """Test invalid input validation for periodic report endpoints."""
+    client, _ = client_and_session
+
+    # Invalid period
+    res = client.get("/api/v1/reports/periodic?period=yearly")
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    # Invalid month
+    res = client.get("/api/v1/reports/periodic?period=monthly&month=13")
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    # Invalid quarter
+    res = client.get("/api/v1/reports/periodic?period=quarterly&quarter=5")
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    # Inverted date range
+    res = client.get("/api/v1/reports/periodic?period=custom&start_date=2026-10-20&end_date=2026-10-10")
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "VALIDATION_ERROR"
+
+

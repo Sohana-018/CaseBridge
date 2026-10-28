@@ -1,8 +1,16 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { getReport, downloadReportCsv, type ReportData } from '../api/client';
+import {
+  getReport,
+  downloadReportCsv,
+  getPeriodicReport,
+  downloadPeriodicReportCsv,
+  type ReportData,
+  type PeriodicReportData,
+} from '../api/client';
 import { StatusChip, BureauBadge } from '../components/Badges';
 import { LoadingState, ErrorState, EmptyState } from '../components/StateFeedback';
+import { PeriodicReportView } from '../components/PeriodicReportView';
 import { useToast } from '../components/Toast';
 import { formatStatus, formatOutcome } from '../utils/formatters';
 import {
@@ -15,6 +23,7 @@ import {
   MapPin,
   RefreshCw,
   Download,
+  Calendar,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -37,7 +46,8 @@ export type ReportKind =
   | 'institution'
   | 'ageing'
   | 'disposal'
-  | 'overlap_outcomes';
+  | 'overlap_outcomes'
+  | 'periodic';
 
 interface TabDefinition {
   kind: ReportKind;
@@ -88,6 +98,12 @@ const TABS: TabDefinition[] = [
     label: 'Overlap Outcomes',
     icon: GitCompare,
     description: 'Coordination review outcomes of detected cross-bureau overlap candidate pairs',
+  },
+  {
+    kind: 'periodic',
+    label: 'Periodic Performance',
+    icon: Calendar,
+    description: 'Periodic performance reports aggregating complaints over daily, monthly, or quarterly horizons with resolution time metrics',
   },
 ];
 
@@ -363,6 +379,25 @@ export const ReportsPage: React.FC = () => {
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   );
 
+  // Periodic performance state aligned dynamically to real time
+  const realTimeNow = useMemo(() => new Date(), []);
+  const todayIsoString = useMemo(() => {
+    const y = realTimeNow.getFullYear();
+    const m = String(realTimeNow.getMonth() + 1).padStart(2, '0');
+    const d = String(realTimeNow.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, [realTimeNow]);
+
+  const [periodicType, setPeriodicType] = useState<'daily' | 'monthly' | 'quarterly'>('monthly');
+  const [dailyDate, setDailyDate] = useState<string>(todayIsoString);
+  const [selectedYear, setSelectedYear] = useState<number>(realTimeNow.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(realTimeNow.getMonth() + 1);
+  const [selectedQuarter, setSelectedQuarter] = useState<number>(Math.floor(realTimeNow.getMonth() / 3) + 1);
+  const [periodicData, setPeriodicData] = useState<PeriodicReportData | null>(null);
+  const [periodicLoading, setPeriodicLoading] = useState<boolean>(false);
+  const [periodicError, setPeriodicError] = useState<string | null>(null);
+  const [periodicCsvLoading, setPeriodicCsvLoading] = useState<boolean>(false);
+
   const handleTabChange = (kind: ReportKind) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('tab', kind);
@@ -385,6 +420,7 @@ export const ReportsPage: React.FC = () => {
 
   const fetchReport = useCallback(
     async (isRefresh = false) => {
+      if (activeKind === 'periodic') return;
       setLoading(true);
       setError(null);
       try {
@@ -409,9 +445,64 @@ export const ReportsPage: React.FC = () => {
     [activeKind, currentTabDef.label, showToast]
   );
 
+  const fetchPeriodicReport = useCallback(
+    async (isRefresh = false) => {
+      setPeriodicLoading(true);
+      setPeriodicError(null);
+      try {
+        const data = await getPeriodicReport({
+          period: periodicType,
+          date: periodicType === 'daily' ? dailyDate : undefined,
+          year: periodicType !== 'daily' ? selectedYear : undefined,
+          month: periodicType === 'monthly' ? selectedMonth : undefined,
+          quarter: periodicType === 'quarterly' ? selectedQuarter : undefined,
+        });
+        setPeriodicData(data);
+        setLastUpdated(
+          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        );
+        if (isRefresh) {
+          showToast(`Periodic report (${data.period_label}) refreshed`, 'success');
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to retrieve periodic report.';
+        setPeriodicError(msg);
+        if (isRefresh) {
+          showToast('Failed to refresh periodic report', 'error');
+        }
+      } finally {
+        setPeriodicLoading(false);
+      }
+    },
+    [periodicType, dailyDate, selectedYear, selectedMonth, selectedQuarter, showToast]
+  );
+
+  const handleDownloadPeriodicCsv = useCallback(async () => {
+    setPeriodicCsvLoading(true);
+    try {
+      await downloadPeriodicReportCsv({
+        period: periodicType,
+        date: periodicType === 'daily' ? dailyDate : undefined,
+        year: periodicType !== 'daily' ? selectedYear : undefined,
+        month: periodicType === 'monthly' ? selectedMonth : undefined,
+        quarter: periodicType === 'quarterly' ? selectedQuarter : undefined,
+      });
+      showToast(`Downloaded CSV export for ${periodicData?.period_label || periodicType}`, 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to export periodic CSV';
+      showToast(msg, 'error');
+    } finally {
+      setPeriodicCsvLoading(false);
+    }
+  }, [periodicType, dailyDate, selectedYear, selectedMonth, selectedQuarter, periodicData?.period_label, showToast]);
+
   useEffect(() => {
-    fetchReport(false);
-  }, [fetchReport]);
+    if (activeKind === 'periodic') {
+      fetchPeriodicReport(false);
+    } else {
+      fetchReport(false);
+    }
+  }, [activeKind, fetchReport, fetchPeriodicReport]);
 
   // Order items specifically for Ageing: 0-7, 8-30, 31-90, 90+
   const displayItems = useMemo(() => {
@@ -531,13 +622,21 @@ export const ReportsPage: React.FC = () => {
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => fetchReport(true)}
-            disabled={loading}
+            onClick={() => {
+              if (activeKind === 'periodic') {
+                fetchPeriodicReport(true);
+              } else {
+                fetchReport(true);
+              }
+            }}
+            disabled={activeKind === 'periodic' ? periodicLoading : loading}
             aria-label="Refresh report data"
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-[var(--border-input)] text-[var(--text)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 transition shadow-xs cursor-pointer"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-[var(--text-secondary)] ${loading ? 'animate-spin' : ''}`}
+              className={`w-3.5 h-3.5 text-[var(--text-secondary)] ${
+                (activeKind === 'periodic' ? periodicLoading : loading) ? 'animate-spin' : ''
+              }`}
               aria-hidden="true"
             />
             <span className="hidden sm:inline">Refresh</span>
@@ -546,15 +645,19 @@ export const ReportsPage: React.FC = () => {
           <button
             type="button"
             onClick={async () => {
-              try {
-                await downloadReportCsv(activeKind);
-                showToast(`Downloaded CSV export for ${currentTabDef.label}`, 'success');
-              } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : 'Failed to export CSV';
-                showToast(msg, 'error');
+              if (activeKind === 'periodic') {
+                await handleDownloadPeriodicCsv();
+              } else {
+                try {
+                  await downloadReportCsv(activeKind);
+                  showToast(`Downloaded CSV export for ${currentTabDef.label}`, 'success');
+                } catch (err: unknown) {
+                  const msg = err instanceof Error ? err.message : 'Failed to export CSV';
+                  showToast(msg, 'error');
+                }
               }
             }}
-            disabled={loading}
+            disabled={activeKind === 'periodic' ? (periodicLoading || periodicCsvLoading) : loading}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition shadow-xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" aria-hidden="true" />
@@ -604,10 +707,12 @@ export const ReportsPage: React.FC = () => {
           <span>
             Scope:{' '}
             <strong className="font-bold text-blue-900 num-tabular">
-              {totalCases} {activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}
+              {activeKind === 'periodic'
+                ? `${periodicData?.total_cases ?? 0} complaints (${periodicData?.period_label || periodicType})`
+                : `${totalCases} ${activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}`}
             </strong>
           </span>
-          {leaderAnalysis && activeKind !== 'disposal' && (
+          {leaderAnalysis && activeKind !== 'disposal' && activeKind !== 'periodic' && (
             <>
               <span className="text-blue-300" aria-hidden="true">·</span>
               <span className="font-bold text-blue-700">{leaderAnalysis}</span>
@@ -626,16 +731,37 @@ export const ReportsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Loading & Error States */}
-      {loading && <LoadingState message={`Generating ${currentTabDef.label} report...`} />}
-
-      {!loading && error && (
-        <ErrorState
-          title={`Could not generate ${currentTabDef.label} report`}
-          message={error}
-          onRetry={() => fetchReport(true)}
+      {activeKind === 'periodic' ? (
+        <PeriodicReportView
+          type={periodicType}
+          setType={setPeriodicType}
+          dailyDate={dailyDate}
+          setDailyDate={setDailyDate}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedQuarter={selectedQuarter}
+          setSelectedQuarter={setSelectedQuarter}
+          data={periodicData}
+          loading={periodicLoading}
+          error={periodicError}
+          onRefresh={() => fetchPeriodicReport(true)}
+          onExportCsv={handleDownloadPeriodicCsv}
+          csvLoading={periodicCsvLoading}
         />
-      )}
+      ) : (
+        <>
+          {/* Loading & Error States */}
+          {loading && <LoadingState message={`Generating ${currentTabDef.label} report...`} />}
+
+          {!loading && error && (
+            <ErrorState
+              title={`Could not generate ${currentTabDef.label} report`}
+              message={error}
+              onRetry={() => fetchReport(true)}
+            />
+          )}
 
       {/* Empty State */}
       {!loading && !error && displayItems.length === 0 && (
@@ -1034,6 +1160,8 @@ export const ReportsPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 };
