@@ -27,6 +27,8 @@ import {
   Plus,
   SlidersHorizontal,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   ExternalLink,
   MapPin,
   Clock,
@@ -65,6 +67,24 @@ function calculateDaysOverdue(targetDateStr?: string | null): number | null {
   }
 }
 
+// Extract numeric sequence from reference e.g. OC-2026-00529 -> 529
+function extractSequenceNumber(caseNo?: string | null): number {
+  if (!caseNo) return 0;
+  const match = caseNo.match(/(\d+)$/);
+  if (match) return parseInt(match[1], 10);
+  const digits = caseNo.replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+}
+
+// Defined rank for priority (High > Medium > Low)
+function getPriorityRank(priority?: string | null): number {
+  const p = (priority || '').toLowerCase().trim();
+  if (p === 'high') return 3;
+  if (p === 'medium') return 2;
+  if (p === 'low') return 1;
+  return 0;
+}
+
 export const CasesPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -81,6 +101,11 @@ export const CasesPage: React.FC = () => {
   const overdueFilter = searchParams.get('overdue') === 'true';
   const pageParam = parseInt(searchParams.get('page') || '1', 10);
   const pageSizeParam = parseInt(searchParams.get('page_size') || '20', 10);
+
+  // Read sort state from URL
+  const sortParam = (searchParams.get('sort') || '') as 'case_no' | 'priority' | '';
+  const orderParam = (searchParams.get('order') || '') as 'asc' | 'desc' | '';
+  const [sortAnnouncement, setSortAnnouncement] = useState<string>('');
 
   const [searchInput, setSearchInput] = useState<string>(searchQuery);
   const [cases, setCases] = useState<CaseItem[]>([]);
@@ -113,6 +138,40 @@ export const CasesPage: React.FC = () => {
     [searchParams, setSearchParams]
   );
 
+  const handleToggleSort = (field: 'case_no' | 'priority') => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (sortParam !== field) {
+      nextParams.set('sort', field);
+      const initialOrder = field === 'priority' ? 'desc' : 'asc';
+      nextParams.set('order', initialOrder);
+      setSortAnnouncement(
+        field === 'case_no'
+          ? 'Sorted by Case Number ascending'
+          : 'Sorted by Priority high first'
+      );
+    } else {
+      const currentOrder = orderParam || (field === 'priority' ? 'desc' : 'asc');
+      const toggledOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+      nextParams.set('order', toggledOrder);
+      setSortAnnouncement(
+        field === 'case_no'
+          ? `Sorted by Case Number ${toggledOrder === 'asc' ? 'ascending' : 'descending'}`
+          : `Sorted by Priority ${toggledOrder === 'desc' ? 'high first' : 'low first'}`
+      );
+    }
+    nextParams.set('page', '1');
+    setSearchParams(nextParams);
+  };
+
+  const handleClearSort = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('sort');
+    nextParams.delete('order');
+    nextParams.set('page', '1');
+    setSearchParams(nextParams);
+    setSortAnnouncement('Reset to default sort order');
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateFilter('search', searchInput.trim() || null);
@@ -143,20 +202,97 @@ export const CasesPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res: CaseListResponse = await getCases({
-        search: searchQuery || undefined,
-        bureau: bureauFilter || undefined,
-        region: regionFilter || undefined,
-        category: categoryFilter || undefined,
-        status: statusFilter || undefined,
-        date_from: dateFromFilter || undefined,
-        date_to: dateToFilter || undefined,
-        overdue: overdueFilter ? true : undefined,
-        page: pageParam,
-        page_size: pageSizeParam,
-      });
-      setCases(res.items || []);
-      setTotal(res.total || 0);
+      if (sortParam) {
+        // Backend API list_cases does not support sort parameters.
+        // Fetch the full filtered dataset and sort on the client across all records.
+        const firstPageRes: CaseListResponse = await getCases({
+          search: searchQuery || undefined,
+          bureau: bureauFilter || undefined,
+          region: regionFilter || undefined,
+          category: categoryFilter || undefined,
+          status: statusFilter || undefined,
+          date_from: dateFromFilter || undefined,
+          date_to: dateToFilter || undefined,
+          overdue: overdueFilter ? true : undefined,
+          page: 1,
+          page_size: 100,
+        });
+
+        let allItems = firstPageRes.items || [];
+        const totalCount = firstPageRes.total || 0;
+
+        if (totalCount > 100) {
+          const totalPagesNeeded = Math.ceil(totalCount / 100);
+          const remainingPagePromises = [];
+          for (let p = 2; p <= totalPagesNeeded; p++) {
+            remainingPagePromises.push(
+              getCases({
+                search: searchQuery || undefined,
+                bureau: bureauFilter || undefined,
+                region: regionFilter || undefined,
+                category: categoryFilter || undefined,
+                status: statusFilter || undefined,
+                date_from: dateFromFilter || undefined,
+                date_to: dateToFilter || undefined,
+                overdue: overdueFilter ? true : undefined,
+                page: p,
+                page_size: 100,
+              }).catch(() => ({ items: [], total: totalCount, page: p, page_size: 100 }))
+            );
+          }
+          const restPages = await Promise.all(remainingPagePromises);
+          restPages.forEach((res) => {
+            if (res.items) allItems = allItems.concat(res.items);
+          });
+        }
+
+        // Apply specified sort rules to allItems
+        const effectiveOrder = orderParam || (sortParam === 'priority' ? 'desc' : 'asc');
+        allItems.sort((a, b) => {
+          if (sortParam === 'case_no') {
+            const numA = extractSequenceNumber(a.case_no);
+            const numB = extractSequenceNumber(b.case_no);
+            if (numA !== numB) {
+              return effectiveOrder === 'asc' ? numA - numB : numB - numA;
+            }
+            const refA = a.case_no || '';
+            const refB = b.case_no || '';
+            return effectiveOrder === 'asc' ? refA.localeCompare(refB) : refB.localeCompare(refA);
+          }
+          if (sortParam === 'priority') {
+            const rankA = getPriorityRank(a.priority);
+            const rankB = getPriorityRank(b.priority);
+            if (rankA !== rankB) {
+              return effectiveOrder === 'desc' ? rankB - rankA : rankA - rankB;
+            }
+            // Secondary tiebreaker: case sequence for stable order
+            const numA = extractSequenceNumber(a.case_no);
+            const numB = extractSequenceNumber(b.case_no);
+            return numA - numB;
+          }
+          return 0;
+        });
+
+        setTotal(totalCount);
+        const offset = (pageParam - 1) * pageSizeParam;
+        setCases(allItems.slice(offset, offset + pageSizeParam));
+      } else {
+        const res: CaseListResponse = await getCases({
+          search: searchQuery || undefined,
+          bureau: bureauFilter || undefined,
+          region: regionFilter || undefined,
+          category: categoryFilter || undefined,
+          status: statusFilter || undefined,
+          date_from: dateFromFilter || undefined,
+          date_to: dateToFilter || undefined,
+          overdue: overdueFilter ? true : undefined,
+          page: pageParam,
+          page_size: pageSizeParam,
+        });
+        setCases(res.items || []);
+        setTotal(res.total || 0);
+      }
+
       if (isRefresh) {
         showToast('Cases list refreshed', 'success');
       }
@@ -183,6 +319,8 @@ export const CasesPage: React.FC = () => {
     overdueFilter,
     pageParam,
     pageSizeParam,
+    sortParam,
+    orderParam,
     showToast,
   ]);
 
@@ -646,6 +784,99 @@ export const CasesPage: React.FC = () => {
         />
       )}
 
+      {/* Accessible Live Region for Sort Announcements */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {sortAnnouncement}
+      </div>
+
+      {/* Table Action & Sorting Toolbar */}
+      {!loading && !error && cases.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs px-1">
+          <div className="text-slate-600 font-medium">
+            Showing <strong className="text-slate-900 num-tabular">{startItem}–{endItem}</strong> of{' '}
+            <strong className="text-slate-900 num-tabular">{total}</strong> total cases
+            {sortParam && (
+              <span className="ml-2 text-blue-700 font-semibold">
+                (Sorted by {sortParam === 'case_no' ? 'Case Number' : 'Priority'}{' '}
+                {sortParam === 'priority'
+                  ? orderParam === 'asc'
+                    ? '· Low first'
+                    : '· High first'
+                  : orderParam === 'desc'
+                  ? '· Descending'
+                  : '· Ascending'}
+                )
+              </span>
+            )}
+          </div>
+
+          {/* "Sort by" Button Group */}
+          <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Sort cases">
+            <span className="text-slate-500 font-semibold mr-0.5">Sort by:</span>
+
+            {/* Case No Button */}
+            <button
+              type="button"
+              onClick={() => handleToggleSort('case_no')}
+              aria-label={`Sort by case number, currently ${
+                sortParam === 'case_no' ? (orderParam === 'desc' ? 'descending' : 'ascending') : 'unsorted'
+              }`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition cursor-pointer ${
+                sortParam === 'case_no'
+                  ? 'bg-blue-50 text-blue-700 border-blue-400 font-bold shadow-2xs ring-1 ring-blue-300'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 font-medium'
+              }`}
+            >
+              <span>Case No</span>
+              {sortParam === 'case_no' ? (
+                orderParam === 'desc' ? (
+                  <ArrowDown className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                ) : (
+                  <ArrowUp className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                )
+              ) : (
+                <ArrowUpDown className="w-3 h-3 text-slate-400" aria-hidden="true" />
+              )}
+            </button>
+
+            {/* Priority Button */}
+            <button
+              type="button"
+              onClick={() => handleToggleSort('priority')}
+              aria-label={`Sort by priority, currently ${
+                sortParam === 'priority' ? (orderParam === 'desc' ? 'high first' : 'low first') : 'unsorted'
+              }`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition cursor-pointer ${
+                sortParam === 'priority'
+                  ? 'bg-blue-50 text-blue-700 border-blue-400 font-bold shadow-2xs ring-1 ring-blue-300'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 font-medium'
+              }`}
+            >
+              <span>Priority</span>
+              {sortParam === 'priority' ? (
+                orderParam === 'desc' ? (
+                  <ArrowDown className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                ) : (
+                  <ArrowUp className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                )
+              ) : (
+                <ArrowUpDown className="w-3 h-3 text-slate-400" aria-hidden="true" />
+              )}
+            </button>
+
+            {sortParam && (
+              <button
+                type="button"
+                onClick={handleClearSort}
+                className="text-[11px] text-slate-500 hover:text-slate-800 underline ml-1 cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* High-Density Accessible Table */}
       {!loading && !error && cases.length > 0 && (
         <div className="cb-card overflow-hidden">
@@ -654,22 +885,60 @@ export const CasesPage: React.FC = () => {
               <caption className="sr-only">Regulatory Complaints Case Directory</caption>
               <thead className="sticky top-0 z-10 bg-slate-100 text-slate-800 font-bold border-b border-slate-300 text-xs">
                 <tr>
-                  <th scope="col" className="px-4 py-3">
+                  <th
+                    scope="col"
+                    aria-sort={sortParam === 'case_no' ? (orderParam === 'desc' ? 'descending' : 'ascending') : 'none'}
+                    className="px-4 py-3"
+                  >
                     <button
                       type="button"
-                      aria-label="Sort by case reference"
-                      aria-sort="none"
-                      className="flex items-center gap-1.5 font-bold text-slate-800 hover:text-blue-700 cursor-pointer"
+                      onClick={() => handleToggleSort('case_no')}
+                      aria-label={`Sort by case reference, currently ${
+                        sortParam === 'case_no' ? (orderParam === 'desc' ? 'descending' : 'ascending') : 'none'
+                      }`}
+                      className="flex items-center gap-1.5 font-bold text-slate-800 hover:text-blue-700 cursor-pointer group"
                     >
                       <span>Case Reference</span>
-                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                      {sortParam === 'case_no' ? (
+                        orderParam === 'desc' ? (
+                          <ArrowDown className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                        ) : (
+                          <ArrowUp className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" aria-hidden="true" />
+                      )}
                     </button>
                   </th>
                   <th scope="col" className="px-4 py-3">Institution & Region</th>
                   <th scope="col" className="px-3 py-3 text-center">Bureau</th>
                   <th scope="col" className="px-4 py-3">Category</th>
                   <th scope="col" className="px-4 py-3">Status</th>
-                  <th scope="col" className="px-4 py-3">Priority</th>
+                  <th
+                    scope="col"
+                    aria-sort={sortParam === 'priority' ? (orderParam === 'desc' ? 'descending' : 'ascending') : 'none'}
+                    className="px-4 py-3"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort('priority')}
+                      aria-label={`Sort by priority, currently ${
+                        sortParam === 'priority' ? (orderParam === 'desc' ? 'high first' : 'low first') : 'none'
+                      }`}
+                      className="flex items-center gap-1.5 font-bold text-slate-800 hover:text-blue-700 cursor-pointer group"
+                    >
+                      <span>Priority</span>
+                      {sortParam === 'priority' ? (
+                        orderParam === 'desc' ? (
+                          <ArrowDown className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                        ) : (
+                          <ArrowUp className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" aria-hidden="true" />
+                      )}
+                    </button>
+                  </th>
                   <th scope="col" className="px-4 py-3">Assigned Officer</th>
                   <th scope="col" className="px-4 py-3">Target SLA</th>
                   <th scope="col" className="px-4 py-3 text-right">Action</th>

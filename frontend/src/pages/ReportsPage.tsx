@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast';
 import { formatStatus, formatOutcome } from '../utils/formatters';
 import {
   Building2,
-  PieChart,
+  PieChart as PieChartIcon,
   Clock,
   CheckCircle2,
   GitCompare,
@@ -18,13 +18,15 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  Tooltip,
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
   CartesianGrid,
-  Cell,
   LabelList,
 } from 'recharts';
 
@@ -54,7 +56,7 @@ const TABS: TabDefinition[] = [
   {
     kind: 'status',
     label: 'By Status',
-    icon: PieChart,
+    icon: PieChartIcon,
     description: 'Breakdown of complaints across workflow statuses',
   },
   {
@@ -89,65 +91,81 @@ const TABS: TabDefinition[] = [
   },
 ];
 
-// Bureau colors matching official CaseBridge identity tokens
-const BUREAU_COLORS: Record<string, string> = {
-  rb: '#2563EB',   // Royal Blue
-  pgrc: '#0F766E', // Deep Teal
-  ro: '#C2410C',   // Rich Rust / Amber
-  oc: '#7E22CE',   // Purple
-};
+// Curated vibrant color palettes for categorical dimensions
+const VIBRANT_PALETTE = [
+  '#2563EB', // Royal Blue
+  '#0D9488', // Emerald Teal
+  '#D97706', // Warm Amber
+  '#7C3AED', // Vivid Purple
+  '#E11D48', // Rose Coral
+  '#0284C7', // Sky Blue
+  '#059669', // Mint Emerald
+  '#4F46E5', // Deep Indigo
+];
 
-// Status colors strictly mapped to single-source-of-truth tokens
-const STATUS_COLORS: Record<string, string> = {
-  pending: '#D97706',       // Amber
-  under_process: '#0284C7', // Sky Blue
-  escalated: '#9333EA',     // Purple
-  transferred: '#4F46E5',   // Indigo
-  disposed: '#059669',      // Emerald
-};
+// Single source of truth color tokens per specification with vibrant, high-contrast colors
+function getSliceColor(
+  item: { label: string; bucket?: string },
+  index: number,
+  kind: ReportKind
+): string {
+  const norm = (item.bucket || item.label || '').toLowerCase().trim();
 
-// Ageing severity ramp (emerald -> blue -> amber -> red)
-const AGEING_SEVERITY: Record<string, string> = {
-  '0-7': '#10B981',
-  '0-7 days': '#10B981',
-  '8-30': '#2563EB',
-  '8-30 days': '#2563EB',
-  '31-90': '#F59E0B',
-  '31-90 days': '#F59E0B',
-  '90+': '#EF4444',
-  '90+ days': '#EF4444',
-};
-
-// Overlap outcomes distinct non-status colors
-const OVERLAP_OUTCOME_COLORS: Record<string, string> = {
-  open: '#64748B',          // slate
-  related: '#2563EB',       // royal blue
-  duplicate: '#DC2626',     // crimson
-  not_related: '#475569',   // dark slate
-  needs_review: '#D97706',  // amber
-};
-
-function getItemColor(label: string, kind: ReportKind, isTop = false): string {
-  const norm = label.toLowerCase().trim();
-
-  if (kind === 'bureau') {
-    return BUREAU_COLORS[norm] || '#2563EB';
-  }
+  // Status colors: Pending amber, Under Process sky/teal, Escalated purple, Transferred indigo, Disposed emerald
   if (kind === 'status') {
-    return STATUS_COLORS[norm] || '#64748B';
-  }
-  if (kind === 'ageing') {
-    return AGEING_SEVERITY[norm] || '#64748B';
-  }
-  if (kind === 'overlap_outcomes') {
-    return OVERLAP_OUTCOME_COLORS[norm] || '#64748B';
-  }
-  if (kind === 'disposal') {
-    return norm === 'disposed' ? '#059669' : '#2563EB';
+    if (norm === 'pending') return '#D97706';
+    if (norm === 'under_process') return '#0284C7';
+    if (norm === 'escalated') return '#7C3AED';
+    if (norm === 'transferred') return '#4F46E5';
+    if (norm === 'disposed') return '#059669';
+    return '#64748B';
   }
 
-  // By Region, By Institution: royal blue gradient
-  return isTop ? '#1D4ED8' : '#3B82F6';
+  // Ageing: 0-7 days cool slate, 8-30 brand blue, 31-90 amber, 90+ danger red
+  if (kind === 'ageing') {
+    if (norm.startsWith('0-7')) return '#64748B';
+    if (norm.startsWith('8-30')) return '#2563EB';
+    if (norm.startsWith('31-90')) return '#D97706';
+    if (norm.startsWith('90')) return '#DC2626';
+    return '#64748B';
+  }
+
+  // Disposal (2 slices): Disposed vibrant emerald green, Open bright blue
+  if (kind === 'disposal') {
+    return norm === 'disposed' ? '#059669' : '#3B82F6';
+  }
+
+  // Overlap Outcomes: Open slate, Related blue, Duplicate red, Not Related dark slate, Needs Review amber
+  if (kind === 'overlap_outcomes') {
+    if (norm === 'open') return '#64748B';
+    if (norm === 'related') return '#2563EB';
+    if (norm === 'duplicate') return '#DC2626';
+    if (norm === 'not_related') return '#475569';
+    if (norm === 'needs_review') return '#D97706';
+    return '#64748B';
+  }
+
+  // By Bureau: distinctive bureau brand colors matching BureauBadge
+  if (kind === 'bureau') {
+    if (norm === 'rb') return '#2563EB'; // Royal Blue
+    if (norm === 'pgrc') return '#0D9488'; // Teal
+    if (norm === 'ro') return '#D97706'; // Amber
+    if (norm === 'oc') return '#7C3AED'; // Purple
+    return VIBRANT_PALETTE[index % VIBRANT_PALETTE.length];
+  }
+
+  // By Region: vibrant, distinctive categorical colors
+  if (kind === 'region') {
+    return VIBRANT_PALETTE[index % VIBRANT_PALETTE.length];
+  }
+
+  // By Institution: Top institutions in distinct vibrant colors
+  if (kind === 'institution') {
+    if (norm === 'all_others') return '#94A3B8';
+    return VIBRANT_PALETTE[index % VIBRANT_PALETTE.length];
+  }
+
+  return VIBRANT_PALETTE[index % VIBRANT_PALETTE.length];
 }
 
 function formatDisplayLabel(label: string, kind: ReportKind): string {
@@ -157,6 +175,7 @@ function formatDisplayLabel(label: string, kind: ReportKind): string {
   if (kind === 'ageing') {
     return label.includes('days') ? label : `${label} days`;
   }
+  if (label === 'all_others') return 'All other institutions';
   return label
     .split('_')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -192,6 +211,41 @@ function getDrilldownUrl(
   return null;
 }
 
+// Custom Accessible Tooltip for Pie Charts
+interface CustomPieTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  activeKind: ReportKind;
+  totalCases: number;
+}
+
+const CustomPieTooltip: React.FC<CustomPieTooltipProps> = ({
+  active,
+  payload,
+  activeKind,
+  totalCases,
+}) => {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0].payload;
+  const count = data.count || 0;
+  const pct = totalCases > 0 ? ((count / totalCases) * 100).toFixed(1) : '0';
+  const label = data.displayName || formatDisplayLabel(data.label, activeKind);
+
+  return (
+    <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-md text-xs space-y-1 z-30">
+      <div className="font-bold text-slate-900">{label}</div>
+      <div className="text-slate-600 flex items-center justify-between gap-4">
+        <span>Count:</span>
+        <span className="font-bold text-slate-900 num-tabular">{count}</span>
+      </div>
+      <div className="text-slate-600 flex items-center justify-between gap-4">
+        <span>Share:</span>
+        <span className="font-bold text-blue-700 num-tabular">{pct}%</span>
+      </div>
+    </div>
+  );
+};
+
 export const ReportsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -202,9 +256,60 @@ export const ReportsPage: React.FC = () => {
   const currentTabDef = TABS.find((t) => t.kind === tabParam) || TABS[0];
   const activeKind = currentTabDef.kind;
 
+  // Custom slice label renderer: denotes the category name on slices with 5% or more
+  const renderCustomizedLabel = useCallback(
+    (props: any) => {
+      const { cx, cy, midAngle, innerRadius, outerRadius, percent, payload, name } = props;
+      if (!percent || percent < 0.05) return null;
+
+      const item = payload || {};
+      const displayName = item.name || formatDisplayLabel(item.label || name || '', activeKind);
+      if (!displayName) return null;
+
+      const RADIAN = Math.PI / 180;
+      // Position label at 58% radius between inner and outer edge
+      const radius = innerRadius + (outerRadius - innerRadius) * 0.58;
+      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+      // If label has two words and is longer than 8 chars, split across 2 lines for clean spacing
+      const words = displayName.split(' ');
+      if (words.length === 2 && displayName.length > 8) {
+        return (
+          <text
+            x={x}
+            y={y}
+            fill="#FFFFFF"
+            textAnchor="middle"
+            dominantBaseline="central"
+            className="text-[11px] font-bold select-none pointer-events-none drop-shadow-xs"
+          >
+            <tspan x={x} dy="-0.55em">{words[0]}</tspan>
+            <tspan x={x} dy="1.15em">{words[1]}</tspan>
+          </text>
+        );
+      }
+
+      return (
+        <text
+          x={x}
+          y={y}
+          fill="#FFFFFF"
+          textAnchor="middle"
+          dominantBaseline="central"
+          className="text-[11px] font-bold select-none pointer-events-none drop-shadow-xs"
+        >
+          {displayName}
+        </text>
+      );
+    },
+    [activeKind]
+  );
+
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   );
@@ -213,6 +318,7 @@ export const ReportsPage: React.FC = () => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('tab', kind);
     setSearchParams(nextParams);
+    setHoveredLabel(null);
   };
 
   // Keyboard navigation for tablist
@@ -276,7 +382,13 @@ export const ReportsPage: React.FC = () => {
     return report.items;
   }, [report, activeKind]);
 
-  // For institutions horizontal bar chart: Top 10 + "All others"
+  const sumOfCounts = useMemo(() => {
+    return displayItems.reduce((acc, curr) => acc + (curr.count || 0), 0);
+  }, [displayItems]);
+
+  const totalCases = report?.total ?? sumOfCounts;
+
+  // For institutions horizontal bar chart: Top 10 + "All others" (original)
   const institutionChartData = useMemo(() => {
     if (activeKind !== 'institution' || displayItems.length === 0) return [];
     const sorted = [...displayItems].sort((a, b) => (b.count || 0) - (a.count || 0));
@@ -292,21 +404,24 @@ export const ReportsPage: React.FC = () => {
     if (othersCount > 0) {
       result.push({
         label: 'all_others',
-        name: 'All other institutions',
-        displayName: 'All other institutions',
+        displayName: 'All others',
         count: othersCount,
-        permanent_id: undefined,
       });
     }
-
     return result;
   }, [displayItems, activeKind]);
 
-  const sumOfCounts = useMemo(() => {
-    return displayItems.reduce((acc, curr) => acc + (curr.count || 0), 0);
-  }, [displayItems]);
+  // Process and sort chart slices from largest to smallest clockwise (for non-institution tabs)
+  const { chartSlices, legendItems } = useMemo(() => {
+    if (!displayItems || displayItems.length === 0 || activeKind === 'institution') {
+      return { chartSlices: [], legendItems: [] };
+    }
 
-  const totalCases = report?.total ?? sumOfCounts;
+    // Other tabs: order largest to smallest clockwise
+    const sorted = [...displayItems].sort((a, b) => (b.count || 0) - (a.count || 0));
+    const drawable = sorted.filter((s) => (s.count || 0) > 0);
+    return { chartSlices: drawable, legendItems: sorted };
+  }, [displayItems, activeKind]);
 
   // Dynamic review progress metrics for Overlap Outcomes report
   const overlapReviewStats = useMemo(() => {
@@ -319,7 +434,22 @@ export const ReportsPage: React.FC = () => {
     return { totalPairs, reviewedCount, openCount, reviewedPct };
   }, [activeKind, displayItems, report, sumOfCounts]);
 
-  // Highest count analysis with tie handling
+  // Accessible chart summary for role="img"
+  const chartAriaSummary = useMemo(() => {
+    if (activeKind === 'institution') {
+      return 'Horizontal bar chart displaying top institutions by volume';
+    }
+    if (chartSlices.length === 0) return 'No data recorded for this category';
+    const parts = chartSlices.map((item) => {
+      const pct = totalCases > 0 ? Math.round(((item.count || 0) / totalCases) * 100) : 0;
+      const name = item.name || formatDisplayLabel(item.label, activeKind);
+      return `${name} ${pct}%`;
+    });
+    return `Cases by ${currentTabDef.label.toLowerCase().replace('by ', '')}: ${parts.join(', ')}`;
+  }, [chartSlices, totalCases, activeKind, currentTabDef.label]);
+
+  // Check if only one outcome has data (e.g. 535 open, 0 reviewed in overlap outcomes)
+  const isSingleOutcome = activeKind === 'overlap_outcomes' && chartSlices.length === 1;
   const leaderAnalysis = useMemo(() => {
     if (!displayItems || displayItems.length === 0) return null;
     const sorted = [...displayItems].sort((a, b) => (b.count || 0) - (a.count || 0));
@@ -384,7 +514,7 @@ export const ReportsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Accessible Tab Navigation (Vibrant pill-style active tab) */}
+      {/* Accessible Tab Navigation */}
       <div
         ref={tablistRef}
         role="tablist"
@@ -417,12 +547,17 @@ export const ReportsPage: React.FC = () => {
         })}
       </div>
 
-      {/* Compact Summary Line (Soft blue-tinted banner) */}
+      {/* Compact Summary Line */}
       <div className="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-blue-950 shadow-2xs">
         <div className="flex items-center gap-3 flex-wrap font-medium">
           <span>{currentTabDef.description}</span>
           <span className="text-blue-300" aria-hidden="true">·</span>
-          <span>Scope: <strong className="font-bold text-blue-900 num-tabular">{totalCases} {activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}</strong></span>
+          <span>
+            Scope:{' '}
+            <strong className="font-bold text-blue-900 num-tabular">
+              {totalCases} {activeKind === 'overlap_outcomes' ? 'pairs' : 'cases'}
+            </strong>
+          </span>
           {leaderAnalysis && activeKind !== 'disposal' && (
             <>
               <span className="text-blue-300" aria-hidden="true">·</span>
@@ -469,7 +604,7 @@ export const ReportsPage: React.FC = () => {
           aria-labelledby={`tab-${activeKind}`}
           className="space-y-6"
         >
-          {/* Disposal Tab Special Highlight Cards (Rich colored top borders & colored numbers) */}
+          {/* Disposal Tab Special Highlight Cards */}
           {activeKind === 'disposal' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="cb-card p-5 bg-white border border-slate-200 shadow-xs hover:border-slate-300 transition rounded-xl">
@@ -480,7 +615,7 @@ export const ReportsPage: React.FC = () => {
                   {((report.disposal_rate ?? 0) * 100).toFixed(1)}%
                 </div>
                 <div className="text-xs text-slate-500 mt-1 font-medium">
-                  8 of 200 cases closed
+                  {report.disposed ?? 0} of {report.total ?? 0} cases closed
                 </div>
               </div>
 
@@ -543,226 +678,308 @@ export const ReportsPage: React.FC = () => {
             </div>
           )}
 
-          {/* Grid Layout: Visual Chart (Left) + Detailed Summary Table (Right) */}
+          {/* Two-Column Grid: Pie Chart with Legend (Left) + Detailed Summary Table (Right) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Chart Card */}
-            <div className="lg:col-span-7 cb-card p-5">
-              <div className="pb-3 border-b border-[var(--border)] mb-4">
-                <h2 className="text-sm font-semibold text-[var(--text)]">
-                  {activeKind === 'institution'
-                    ? 'Top institutions by volume'
-                    : `Cases by ${currentTabDef.label.toLowerCase().replace('by ', '')}`}
-                </h2>
-              </div>
+            {/* Pie Chart Card */}
+            <div className="lg:col-span-7 cb-card p-5 min-h-[460px] flex flex-col justify-between bg-white border border-slate-200 rounded-xl shadow-xs">
+              <div>
+                <div className="pb-3 border-b border-slate-200 mb-2 flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-slate-900">
+                    {activeKind === 'institution'
+                      ? 'Top Institutions by Volume'
+                      : `Cases by ${currentTabDef.label.toLowerCase().replace('by ', '')}`}
+                  </h2>
+                  <span className="text-xs text-slate-500 font-medium">
+                    {chartSlices.length} active {chartSlices.length === 1 ? 'slice' : 'slices'}
+                  </span>
+                </div>
 
-              <div
-                role="img"
-                aria-label={`Chart displaying ${currentTabDef.label} distribution`}
-                className="w-full pt-1"
-                style={{ height: activeKind === 'institution' ? '400px' : '320px' }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  {activeKind === 'institution' ? (
-                    /* Horizontal bar chart for institutions with full names on left, no rotation */
-                    <BarChart
-                      layout="vertical"
-                      data={institutionChartData}
-                      margin={{ top: 5, right: 35, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E4E7EC" />
-                      <XAxis type="number" allowDecimals={false} tick={{ fill: '#667085', fontSize: 11 }} />
-                      <YAxis
-                        type="category"
-                        dataKey="displayName"
-                        width={180}
-                        tickLine={false}
-                        axisLine={{ stroke: '#E4E7EC' }}
-                        tick={{ fill: '#475467', fontSize: 11, fontWeight: 500 }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#FFFFFF',
-                          borderRadius: '8px',
-                          color: '#101828',
-                          fontSize: '12px',
-                          border: '1px solid #E4E7EC',
-                        }}
-                      />
-                      <Bar
-                        dataKey="count"
-                        fill="#1E3A8A"
-                        radius={[0, 4, 4, 0]}
-                        barSize={16}
+                {activeKind === 'institution' ? (
+                  /* Original horizontal bar chart for institutions */
+                  <div
+                    role="img"
+                    aria-label={chartAriaSummary}
+                    className="w-full h-[360px] pt-1"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        layout="vertical"
+                        data={institutionChartData}
+                        margin={{ top: 5, right: 35, left: 10, bottom: 5 }}
                       >
-                        <LabelList dataKey="count" position="right" fill="#475467" fontSize={11} />
-                      </Bar>
-                    </BarChart>
-                  ) : (
-                    /* Vertical bar chart for other tabs */
-                    <BarChart
-                      data={displayItems}
-                      margin={{ top: 15, right: 15, left: -15, bottom: 15 }}
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                        <XAxis type="number" allowDecimals={false} tick={{ fill: '#64748B', fontSize: 11 }} />
+                        <YAxis
+                          type="category"
+                          dataKey="displayName"
+                          width={180}
+                          tickLine={false}
+                          axisLine={{ stroke: '#E2E8F0' }}
+                          tick={{ fill: '#334155', fontSize: 11, fontWeight: 500 }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: '8px',
+                            color: '#0F172A',
+                            fontSize: '12px',
+                            border: '1px solid #E2E8F0',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          }}
+                          formatter={(val: unknown) => [`${val} cases`, 'Count']}
+                        />
+                        <Bar
+                          dataKey="count"
+                          fill="#1E3A8A"
+                          radius={[0, 4, 4, 0]}
+                          barSize={16}
+                        >
+                          <LabelList dataKey="count" position="right" fill="#475569" fontSize={11} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <>
+                    {/* 300px Square Pie Chart Centered */}
+                    <div
+                      role="img"
+                      aria-label={chartAriaSummary}
+                      className="w-[300px] h-[300px] mx-auto relative flex items-center justify-center my-2"
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E7EC" />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={{ stroke: '#E4E7EC' }}
-                        tick={{ fill: '#475467', fontSize: 12, fontWeight: 500 }}
-                        tickFormatter={(val: string) => formatDisplayLabel(val, activeKind)}
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fill: '#667085', fontSize: 11 }}
-                        allowDecimals={false}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#FFFFFF',
-                          borderRadius: '8px',
-                          color: '#101828',
-                          fontSize: '12px',
-                          border: '1px solid #E4E7EC',
-                        }}
-                        formatter={(val: unknown) => [`${val} cases`, 'Count']}
-                        labelFormatter={(lbl) => formatDisplayLabel(String(lbl), activeKind)}
-                      />
-                      <Bar dataKey="count" maxBarSize={48} radius={[4, 4, 0, 0]}>
-                        <LabelList dataKey="count" position="top" fill="#475467" fontSize={11} />
-                        {displayItems.map((item, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={getItemColor(item.bucket || item.label, activeKind, index === 0)}
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Tooltip
+                            content={
+                              <CustomPieTooltip activeKind={activeKind} totalCases={totalCases} />
+                            }
                           />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
-            </div>
+                          <Pie
+                            data={chartSlices}
+                            dataKey="count"
+                            nameKey="label"
+                            startAngle={90}
+                            endAngle={-270}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={isSingleOutcome ? 55 : activeKind === 'disposal' ? 50 : 0}
+                            outerRadius={112}
+                            labelLine={false}
+                            label={renderCustomizedLabel}
+                            onMouseEnter={(_, index) => {
+                              const item = chartSlices[index];
+                              if (item) setHoveredLabel(item.label);
+                            }}
+                            onMouseLeave={() => setHoveredLabel(null)}
+                          >
+                            {chartSlices.map((item, index) => {
+                              const isHovered = hoveredLabel === item.label;
+                              const drilldownUrl = getDrilldownUrl(item, activeKind);
 
-            {/* Detailed Data Table */}
-            <div className="lg:col-span-5 cb-card overflow-hidden">
-              <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-[var(--text)]">
-                  Tabular Breakdown
-                </h2>
-                <span className="text-xs text-[var(--text-secondary)] num-tabular">
-                  {displayItems.length} records
-                </span>
+                              return (
+                                <Cell
+                                  key={`slice-${index}`}
+                                  fill={getSliceColor(item, index, activeKind)}
+                                  stroke="#FFFFFF"
+                                  strokeWidth={2}
+                                  className={drilldownUrl ? 'cursor-pointer' : ''}
+                                  opacity={hoveredLabel ? (isHovered ? 1 : 0.45) : 1}
+                                  onClick={() => {
+                                    if (drilldownUrl) navigate(drilldownUrl);
+                                  }}
+                                />
+                              );
+                            })}
+                          </Pie>
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+
+                      {/* Single outcome center note for overlap outcomes */}
+                      {isSingleOutcome && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+                          <span className="text-xs font-bold text-slate-800">0 of {totalCases}</span>
+                          <span className="text-[10px] text-slate-500 font-medium">reviewed</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Note banner when only 1 outcome exists */}
+                    {isSingleOutcome && (
+                      <p className="text-center text-xs text-slate-500 font-medium bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 max-w-xs mx-auto mb-2">
+                        0 of {totalCases} reviewed
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
 
-              <div className="overflow-x-auto max-h-[400px]">
-                <table className="w-full text-left text-xs text-[var(--text)] border-collapse">
-                  <caption className="sr-only">Detailed breakdown for {currentTabDef.label}</caption>
-                  <thead className="sticky top-0 z-10 bg-[var(--bg-subtle)] border-b border-[var(--border)] font-medium text-[var(--text-secondary)]">
-                    <tr>
-                      <th scope="col" className="px-4 py-2.5">Category</th>
-                      <th scope="col" className="px-3 py-2.5 text-right">Count</th>
-                      <th scope="col" className="px-3 py-2.5 text-right">Share %</th>
-                      <th scope="col" className="px-3 py-2.5 text-right min-w-[70px]">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border)]">
-                    {displayItems.map((item, idx) => {
-                      const share = totalCases > 0 ? (item.count / totalCases) * 100 : 0;
+              {/* Pie Chart Legend with Swatches, Names, Counts, and Hover Sync */}
+              {activeKind !== 'institution' && (
+                <div className="mt-3 pt-3 border-t border-slate-200">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                    {legendItems.map((item, idx) => {
+                      const isHovered = hoveredLabel === item.label;
+                      const isZero = (item.count || 0) === 0;
+                      const color = getSliceColor(item, idx, activeKind);
                       const drilldownUrl = getDrilldownUrl(item, activeKind);
 
                       return (
-                        <tr
-                          key={idx}
-                          onClick={() => {
-                            if (drilldownUrl) navigate(drilldownUrl);
-                          }}
-                          className={`transition-colors h-10 ${
-                            drilldownUrl ? 'hover:bg-[var(--bg-subtle)] cursor-pointer' : 'opacity-70'
-                          }`}
+                        <button
+                          key={item.label}
+                          type="button"
+                          disabled={!drilldownUrl}
+                          onClick={() => drilldownUrl && navigate(drilldownUrl)}
+                          onMouseEnter={() => setHoveredLabel(item.label)}
+                          onMouseLeave={() => setHoveredLabel(null)}
+                          className={`flex items-center justify-between gap-1.5 p-1.5 rounded-md text-left transition select-none ${
+                            isZero
+                              ? 'opacity-40 cursor-default'
+                              : drilldownUrl
+                              ? 'cursor-pointer hover:bg-slate-100'
+                              : 'cursor-default'
+                          } ${isHovered ? 'bg-blue-50 ring-1 ring-blue-300' : ''}`}
                         >
-                          <td className="px-4 py-2 font-medium">
-                            {activeKind === 'bureau' ? (
-                              <BureauBadge bureau={item.label} />
-                            ) : activeKind === 'status' ? (
-                              <StatusChip status={item.label} />
-                            ) : activeKind === 'institution' && item.permanent_id ? (
-                              <div className="max-w-[190px]">
-                                <Link
-                                  to={`/institutions/${item.permanent_id}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="font-medium text-[var(--brand)] hover:underline block truncate"
-                                  title={item.name || item.label}
-                                >
-                                  {item.name || item.label}
-                                </Link>
-                                <span className="font-mono text-[10px] text-[var(--text-tertiary)]">
-                                  {item.permanent_id}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="w-2 h-2 rounded-full shrink-0"
-                                  style={{
-                                    backgroundColor: getItemColor(
-                                      item.bucket || item.label,
-                                      activeKind,
-                                      idx === 0
-                                    ),
-                                  }}
-                                  aria-hidden="true"
-                                />
-                                <span className="font-medium text-[var(--text)]">
-                                  {formatDisplayLabel(item.label, activeKind)}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Count (sans with tabular-nums) */}
-                          <td className="px-3 py-2 text-right font-medium text-[var(--text)] num-tabular">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className="w-2.5 h-2.5 rounded-xs shrink-0"
+                              style={{ backgroundColor: isZero ? '#CBD5E1' : color }}
+                              aria-hidden="true"
+                            />
+                            <span className="text-slate-700 truncate font-medium text-[11px]">
+                              {item.name || formatDisplayLabel(item.label, activeKind)}
+                            </span>
+                          </div>
+                          <span className="text-slate-900 font-bold num-tabular text-[11px] shrink-0 ml-1">
                             {item.count}
-                          </td>
-
-                          {/* Share Percentage */}
-                          <td className="px-3 py-2 text-right text-[var(--text-secondary)] num-tabular">
-                            {share.toFixed(1)}%
-                          </td>
-
-                          {/* Action Link (Disabled or hidden when count is 0) */}
-                          <td className="px-3 py-2 text-right whitespace-nowrap">
-                            {drilldownUrl ? (
-                              <Link
-                                to={drilldownUrl}
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--brand)] hover:underline"
-                              >
-                                <span>Filter</span>
-                              </Link>
-                            ) : (
-                              <span className="text-[var(--text-tertiary)] text-[11px]">—</span>
-                            )}
-                          </td>
-                        </tr>
+                          </span>
+                        </button>
                       );
                     })}
-                  </tbody>
+                  </div>
+                </div>
+              )}
+            </div>
 
-                  <tfoot className="bg-[var(--bg-subtle)] border-t border-[var(--border)] font-semibold text-[var(--text)]">
-                    <tr>
-                      <th scope="row" className="px-4 py-2.5">
-                        TOTAL
-                      </th>
-                      <td className="px-3 py-2.5 text-right num-tabular text-[var(--brand)]">
-                        {totalCases}
-                      </td>
-                      <td className="px-3 py-2.5 text-right num-tabular">
-                        100.0%
-                      </td>
-                      <td className="px-3 py-2.5 text-right"></td>
-                    </tr>
-                  </tfoot>
-                </table>
+            {/* Detailed Data Table (Right Column) */}
+            <div className="lg:col-span-5 cb-card overflow-hidden min-h-[460px] flex flex-col justify-between bg-white border border-slate-200 rounded-xl shadow-xs">
+              <div>
+                <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-slate-900">
+                    Tabular Breakdown
+                  </h2>
+                  <span className="text-xs text-slate-500 num-tabular font-medium">
+                    {displayItems.length} records
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto max-h-[360px]">
+                  <table className="w-full text-left text-xs text-slate-900 border-collapse">
+                    <caption className="sr-only">Detailed breakdown for {currentTabDef.label}</caption>
+                    <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 font-semibold text-slate-700">
+                      <tr>
+                        <th scope="col" className="px-4 py-2.5">Category</th>
+                        <th scope="col" className="px-3 py-2.5 text-right">Count</th>
+                        <th scope="col" className="px-3 py-2.5 text-right">Share %</th>
+                        <th scope="col" className="px-3 py-2.5 text-right min-w-[70px]">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {displayItems.map((item, idx) => {
+                        const share = totalCases > 0 ? ((item.count || 0) / totalCases) * 100 : 0;
+                        const drilldownUrl = getDrilldownUrl(item, activeKind);
+                        const isHovered = hoveredLabel === item.label;
+
+                        return (
+                          <tr
+                            key={idx}
+                            onMouseEnter={() => setHoveredLabel(item.label)}
+                            onMouseLeave={() => setHoveredLabel(null)}
+                            onClick={() => {
+                              if (drilldownUrl) navigate(drilldownUrl);
+                            }}
+                            className={`transition-colors h-10 ${
+                              drilldownUrl ? 'hover:bg-slate-50 cursor-pointer' : 'opacity-70'
+                            } ${isHovered ? 'bg-blue-50/70 font-semibold' : ''}`}
+                          >
+                            <td className="px-4 py-2 font-medium">
+                              {activeKind === 'bureau' ? (
+                                <BureauBadge bureau={item.label} />
+                              ) : activeKind === 'status' ? (
+                                <StatusChip status={item.label} />
+                              ) : activeKind === 'institution' && item.permanent_id ? (
+                                <div className="max-w-[190px]">
+                                  <Link
+                                    to={`/institutions/${item.permanent_id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="font-medium text-blue-700 hover:underline block truncate"
+                                    title={item.name || item.label}
+                                  >
+                                    {item.name || item.label}
+                                  </Link>
+                                  <span className="font-mono text-[10px] text-slate-400">
+                                    {item.permanent_id}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-xs shrink-0"
+                                    style={{
+                                      backgroundColor: getSliceColor(
+                                        item,
+                                        idx,
+                                        activeKind
+                                      ),
+                                    }}
+                                    aria-hidden="true"
+                                  />
+                                  <span className="font-medium text-slate-800">
+                                    {formatDisplayLabel(item.label, activeKind)}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Count (sans with tabular-nums) */}
+                            <td className="px-3 py-2 text-right font-semibold text-slate-900 num-tabular">
+                              {item.count}
+                            </td>
+
+                            {/* Share Percentage */}
+                            <td className="px-3 py-2 text-right text-slate-600 num-tabular">
+                              {share.toFixed(1)}%
+                            </td>
+
+                            {/* Action Link (Disabled or hidden when count is 0) */}
+                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                              {drilldownUrl ? (
+                                <Link
+                                  to={drilldownUrl}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                                >
+                                  <span>Filter</span>
+                                </Link>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Table Footer Total */}
+              <div className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex items-center justify-between font-bold text-xs text-slate-900">
+                <span>TOTAL</span>
+                <div className="flex items-center gap-6">
+                  <span className="text-blue-700 num-tabular">{totalCases}</span>
+                  <span className="num-tabular text-slate-600">100.0%</span>
+                  <span className="w-8"></span>
+                </div>
               </div>
             </div>
           </div>

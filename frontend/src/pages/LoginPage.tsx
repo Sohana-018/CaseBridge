@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Layers,
@@ -10,9 +10,11 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  GitCompare,
-  Clock,
   Building2,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import {
   loginWithCredentials,
@@ -20,6 +22,50 @@ import {
   getCurrentUser,
   type DemoAccount,
 } from '../api/client';
+
+// Normalized labels and visual badge styles for the 8 official demo roles
+const DEMO_ROLE_CONFIG: Record<string, { name: string; badge: string; badgeStyle: string }> = {
+  admin: {
+    name: 'System Administrator',
+    badge: 'Admin',
+    badgeStyle: 'bg-rose-100 text-rose-800 border-rose-200',
+  },
+  coordinator: {
+    name: 'Central Grievance Coordinator',
+    badge: 'Coordinator',
+    badgeStyle: 'bg-blue-100 text-blue-800 border-blue-200',
+  },
+  officer_rb: {
+    name: 'Regulation Officer',
+    badge: 'RB Officer',
+    badgeStyle: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  },
+  officer_pgrc: {
+    name: 'PGRC Officer',
+    badge: 'PGRC Officer',
+    badgeStyle: 'bg-teal-100 text-teal-800 border-teal-200',
+  },
+  officer_ro: {
+    name: 'Regional Officer',
+    badge: 'RO Officer',
+    badgeStyle: 'bg-amber-100 text-amber-900 border-amber-200',
+  },
+  officer_oc: {
+    name: 'Other Officer',
+    badge: 'OC Officer',
+    badgeStyle: 'bg-purple-100 text-purple-900 border-purple-200',
+  },
+  deputy_coord: {
+    name: 'Deputy Grievance Coordinator',
+    badge: 'Deputy Coord',
+    badgeStyle: 'bg-sky-100 text-sky-800 border-sky-200',
+  },
+  management: {
+    name: 'Senior Management',
+    badge: 'Read-Only',
+    badgeStyle: 'bg-slate-100 text-slate-700 border-slate-300',
+  },
+};
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,9 +75,23 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loggingInRole, setLoggingInRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+
+  // Horizontal strip scrolling and drag state
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const dragInfo = useRef({ isDown: false, startX: 0, scrollLeft: 0, hasDragged: false });
+
+  const updateScrollButtons = useCallback(() => {
+    if (!stripRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = stripRef.current;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  }, []);
 
   useEffect(() => {
     setError(null);
@@ -48,24 +108,65 @@ export const LoginPage: React.FC = () => {
 
     // Fetch authorized demo accounts
     getDemoAccounts()
-      .then((accounts) => setDemoAccounts(Array.isArray(accounts) ? accounts : []))
+      .then((accounts) => {
+        setDemoAccounts(Array.isArray(accounts) ? accounts : []);
+        setTimeout(updateScrollButtons, 100);
+      })
       .catch(() => {
         setDemoAccounts([]);
       });
-  }, [navigate]);
+  }, [navigate, updateScrollButtons]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password) {
-      setError('Please provide both username and password.');
-      return;
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateScrollButtons, { passive: true });
+    window.addEventListener('resize', updateScrollButtons);
+    return () => {
+      el.removeEventListener('scroll', updateScrollButtons);
+      window.removeEventListener('resize', updateScrollButtons);
+    };
+  }, [updateScrollButtons, demoAccounts]);
+
+  const scrollStrip = (dir: 'left' | 'right') => {
+    if (!stripRef.current) return;
+    const amount = dir === 'left' ? -220 : 220;
+    stripRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+  };
+
+  // Mouse drag-to-scroll handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!stripRef.current) return;
+    dragInfo.current = {
+      isDown: true,
+      startX: e.pageX - stripRef.current.offsetLeft,
+      scrollLeft: stripRef.current.scrollLeft,
+      hasDragged: false,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragInfo.current.isDown || !stripRef.current) return;
+    const x = e.pageX - stripRef.current.offsetLeft;
+    const walk = (x - dragInfo.current.startX) * 1.2;
+    if (Math.abs(walk) > 4) {
+      dragInfo.current.hasDragged = true;
     }
+    stripRef.current.scrollLeft = dragInfo.current.scrollLeft - walk;
+  };
 
+  const handleMouseUpOrLeave = () => {
+    dragInfo.current.isDown = false;
+  };
+
+  // Unified authentication pipeline
+  const performLogin = async (user: string, pass: string, roleKey?: string) => {
     setLoading(true);
+    if (roleKey) setLoggingInRole(roleKey);
     setError(null);
 
     try {
-      const res = await loginWithCredentials(username.trim(), password);
+      const res = await loginWithCredentials(user.trim(), pass);
       const fromPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
       if (fromPath && (fromPath !== '/admin' || res.user.role === 'administrator')) {
         navigate(fromPath, { replace: true });
@@ -79,15 +180,66 @@ export const LoginPage: React.FC = () => {
       setError(msg);
     } finally {
       setLoading(false);
+      setLoggingInRole(null);
     }
   };
 
-  const handleSelectRole = (acc: DemoAccount) => {
+  // Manual form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password) {
+      setError('Please provide both username and password.');
+      return;
+    }
+    await performLogin(username, password);
+  };
+
+  // Immediate single-click demo role login
+  const handleDemoChipClick = async (acc: DemoAccount) => {
+    if (dragInfo.current.hasDragged || loading) return;
+    // Fill briefly for visual feedback
     setUsername(acc.username);
     setPassword(acc.password_hint);
     setSelectedRole(acc.username);
-    if (error) setError(null);
+    await performLogin(acc.username, acc.password_hint, acc.username);
   };
+
+  // Keyboard navigation across chips
+  const handleChipKeyDown = (e: React.KeyboardEvent, index: number) => {
+    const buttons = stripRef.current?.querySelectorAll<HTMLButtonElement>('button[data-demo-chip]');
+    if (!buttons || buttons.length === 0) return;
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      const nextIdx = (index + 1) % buttons.length;
+      buttons[nextIdx]?.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prevIdx = (index - 1 + buttons.length) % buttons.length;
+      buttons[prevIdx]?.focus();
+    }
+  };
+
+  // Edge mask computation for smooth visual fade
+  const maskStyle = React.useMemo(() => {
+    if (!canScrollLeft && !canScrollRight) return undefined;
+    if (canScrollLeft && canScrollRight) {
+      return {
+        maskImage: 'linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent)',
+      };
+    }
+    if (canScrollLeft) {
+      return {
+        maskImage: 'linear-gradient(to right, transparent, black 28px, black 100%)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent, black 28px, black 100%)',
+      };
+    }
+    return {
+      maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 28px), transparent)',
+      WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 28px), transparent)',
+    };
+  }, [canScrollLeft, canScrollRight]);
 
   return (
     <div className="min-h-[calc(100vh-36px)] flex items-center justify-center p-3 sm:p-4 bg-slate-100">
@@ -98,44 +250,28 @@ export const LoginPage: React.FC = () => {
           {/* Top Branding Section */}
           <div className="space-y-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/10 text-white text-xs font-semibold border border-white/15">
-                <Layers className="w-3.5 h-3.5 text-blue-300" aria-hidden="true" />
-                <span>CaseBridge Portal</span>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/10 border border-white/15 text-[11px] font-semibold text-blue-200 mb-3">
+                <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Regulatory Portal</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-tight mt-2.5">
-                Institution Complaint Monitoring
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Multi-Bureau Case Coordination System
               </h1>
-              <p className="text-xs text-blue-100/80 leading-relaxed mt-1">
-                Centralized complaint tracking and overlap intelligence uniting all regulatory bureaus.
+              <p className="text-xs text-blue-100/80 mt-1 leading-relaxed">
+                Centralized grievance intake and resolution engine across AICTE regulatory divisions
               </p>
             </div>
 
-            {/* Single clean wrap row for 4 bureau pills */}
-            <div className="flex flex-wrap gap-1.5 pt-0.5">
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white/10 text-blue-100 border border-white/15">
-                RB • Regulation
-              </span>
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white/10 text-blue-100 border border-white/15">
-                PGRC • Grievance
-              </span>
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white/10 text-blue-100 border border-white/15">
-                RO • Regional
-              </span>
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white/10 text-blue-100 border border-white/15">
-                OC • Other
-              </span>
-            </div>
-
-            {/* Compact feature list with tight vertical spacing */}
-            <div className="space-y-3 pt-2">
+            {/* Feature Highlights */}
+            <div className="pt-2 space-y-3">
               <div className="flex items-start gap-2.5">
                 <div className="w-6 h-6 rounded-md bg-white/15 border border-white/20 flex items-center justify-center shrink-0 mt-0.5 text-white">
-                  <GitCompare className="w-3.5 h-3.5" aria-hidden="true" />
+                  <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-semibold text-white">Cross-Bureau Overlap Engine</h2>
+                  <h2 className="text-xs font-semibold text-white">Role-Based Access</h2>
                   <p className="text-[11px] text-blue-100/75 leading-tight">
-                    Continuous similarity scoring & permanent ID correlation
+                    Strict boundary isolation for RB, PGRC, RO, and OC officers
                   </p>
                 </div>
               </div>
@@ -145,7 +281,7 @@ export const LoginPage: React.FC = () => {
                   <Clock className="w-3.5 h-3.5" aria-hidden="true" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-semibold text-white">Proactive SLA Monitoring</h2>
+                  <h2 className="text-xs font-semibold text-white">SLA Enforcement</h2>
                   <p className="text-[11px] text-blue-100/75 leading-tight">
                     Automated 4-tier ageing classification and escalation alerts
                   </p>
@@ -176,8 +312,8 @@ export const LoginPage: React.FC = () => {
         {/* 4. RIGHT LOGIN & DEMO PANEL */}
         <div className="col-span-12 lg:col-span-7 p-6 sm:p-7 lg:p-8 flex flex-col justify-center bg-white">
           <div className="w-full max-w-md mx-auto">
-            {/* Clean Header (No redundant duplicate CaseBridge logo) */}
-            <div className="mb-3.5">
+            {/* Clean Header */}
+            <div className="mb-2">
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                 Officer Authentication
               </h2>
@@ -186,16 +322,131 @@ export const LoginPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Error Banner */}
-            {error && (
-              <div
-                role="alert"
-                className="p-2.5 mb-3 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-2 text-xs text-rose-700"
+            {/* Quick Demo Roles Strip (Only rendered in demo environment) */}
+            {demoAccounts && demoAccounts.length > 0 && (
+              <section
+                role="group"
+                aria-label="Quick demo roles"
+                className="relative my-3 p-2 bg-slate-50 border border-slate-200 rounded-xl group/strip"
               >
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" aria-hidden="true" />
-                <span className="font-medium leading-snug">{error}</span>
-              </div>
+                <div className="flex items-center justify-between gap-1 mb-1.5 px-1">
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700">
+                    <Sparkles className="w-3 h-3 text-blue-600" aria-hidden="true" />
+                    <span>Quick Demo Roles (Immediate Sign-In)</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                    Click to authenticate
+                  </span>
+                </div>
+
+                {/* Relative Wrapper with scroll buttons & fading mask */}
+                <div className="relative flex items-center">
+                  {/* Left Scroll Arrow */}
+                  {canScrollLeft && (
+                    <button
+                      type="button"
+                      onClick={() => scrollStrip('left')}
+                      aria-label="Scroll demo roles left"
+                      className="absolute -left-2 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  )}
+
+                  {/* Scrollable Container */}
+                  <div
+                    ref={stripRef}
+                    style={maskStyle}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUpOrLeave}
+                    onMouseLeave={handleMouseUpOrLeave}
+                    className="w-full flex items-center gap-2 overflow-x-auto py-1 scroll-smooth snap-x snap-mandatory select-none cursor-grab active:cursor-grabbing [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  >
+                    {demoAccounts.map((acc, idx) => {
+                      const cfg = DEMO_ROLE_CONFIG[acc.username] || {
+                        name: acc.name,
+                        badge: acc.badge,
+                        badgeStyle: 'bg-slate-100 text-slate-700 border-slate-300',
+                      };
+                      const isLoggingInThis = loggingInRole === acc.username;
+                      const isSelected = selectedRole === acc.username;
+
+                      return (
+                        <button
+                          key={acc.username}
+                          type="button"
+                          data-demo-chip="true"
+                          disabled={loading}
+                          onClick={() => handleDemoChipClick(acc)}
+                          onKeyDown={(e) => handleChipKeyDown(e, idx)}
+                          aria-label={`Sign in as ${cfg.name}`}
+                          className={`snap-start shrink-0 min-h-[44px] px-3 py-1.5 rounded-lg border text-left transition flex items-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none disabled:cursor-not-allowed ${
+                            isSelected
+                              ? 'bg-blue-50/80 border-blue-600 shadow-2xs'
+                              : 'bg-white border-slate-200 hover:bg-blue-50/40 hover:border-blue-400'
+                          } ${loading && !isLoggingInThis ? 'opacity-50' : ''}`}
+                        >
+                          {/* Role Name & Username */}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs font-bold text-slate-800 whitespace-nowrap leading-tight">
+                              {cfg.name}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400 leading-tight">
+                              @{acc.username}
+                            </span>
+                          </div>
+
+                          {/* Role Badge or Active Spinner */}
+                          {isLoggingInThis ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1 shrink-0">
+                              <Loader2 className="w-3 h-3 animate-spin text-blue-600" aria-hidden="true" />
+                              <span>Signing in...</span>
+                            </span>
+                          ) : (
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0 border ${cfg.badgeStyle}`}
+                            >
+                              {cfg.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right Scroll Arrow */}
+                  {canScrollRight && (
+                    <button
+                      type="button"
+                      onClick={() => scrollStrip('right')}
+                      aria-label="Scroll demo roles right"
+                      className="absolute -right-2 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-700 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Accessible live status for demo login */}
+                <div aria-live="polite" className="sr-only">
+                  {loggingInRole && `Signing in as ${DEMO_ROLE_CONFIG[loggingInRole]?.name || loggingInRole}...`}
+                </div>
+              </section>
             )}
+
+            {/* Error Banner with aria-live="polite" */}
+            <div aria-live="polite" aria-atomic="true">
+              {error && (
+                <div
+                  role="alert"
+                  className="p-2.5 mb-3 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-2 text-xs text-rose-700"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" aria-hidden="true" />
+                  <span className="font-medium leading-snug">{error}</span>
+                </div>
+              )}
+            </div>
 
             {/* Compact Form */}
             <form className="space-y-3" onSubmit={handleSubmit}>
@@ -286,7 +537,7 @@ export const LoginPage: React.FC = () => {
                 disabled={loading}
                 className="w-full h-9 flex justify-center items-center gap-1.5 px-4 rounded-lg text-xs font-bold text-white bg-[#1E3A8A] hover:bg-[#172554] shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? (
+                {loading && !loggingInRole ? (
                   <span>Authenticating...</span>
                 ) : (
                   <>
@@ -297,80 +548,6 @@ export const LoginPage: React.FC = () => {
                 )}
               </button>
             </form>
-
-            {/* Compact 8-Role Demo Grid */}
-            {demoAccounts && demoAccounts.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-slate-200">
-                <div className="flex items-center gap-1.5 text-slate-700 text-xs font-bold mb-2">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
-                  <span>Quick Demo Access (Auto-fills Credentials)</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {demoAccounts.map((acc) => {
-                    const isSelected = selectedRole === acc.username;
-
-                    // Clean badge label that never overflows
-                    const badgeLabel =
-                      acc.badge === 'Management (Read-only)'
-                        ? 'Read-Only'
-                        : acc.badge === 'Deputy Coordinator'
-                        ? 'Deputy Coord'
-                        : acc.badge;
-
-                    const badgeUpper = badgeLabel.toUpperCase();
-                    const badgeStyle = badgeUpper.includes('ADMIN')
-                      ? 'bg-rose-100 text-rose-800 border-rose-200'
-                      : badgeUpper.includes('COORD')
-                      ? 'bg-blue-100 text-blue-800 border-blue-200'
-                      : badgeUpper.includes('RB')
-                      ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
-                      : badgeUpper.includes('PGRC')
-                      ? 'bg-teal-100 text-teal-800 border-teal-200'
-                      : badgeUpper.includes('RO')
-                      ? 'bg-amber-100 text-amber-900 border-amber-200'
-                      : badgeUpper.includes('OC')
-                      ? 'bg-purple-100 text-purple-900 border-purple-200'
-                      : 'bg-slate-100 text-slate-700 border-slate-300';
-
-                    // Simplified display name for compact card
-                    const cleanName = acc.name
-                      .replace(' Central Grievance', '')
-                      .replace(' Bureau Officer', ' Officer')
-                      .replace(' Office Officer', ' Officer')
-                      .replace(' Cells Officer', ' Officer')
-                      .replace(' Executive', '');
-
-                    return (
-                      <button
-                        key={acc.username}
-                        type="button"
-                        onClick={() => handleSelectRole(acc)}
-                        className={`p-2 rounded-lg border transition flex items-center justify-between text-left group cursor-pointer ${
-                          isSelected
-                            ? 'ring-2 ring-blue-600 bg-blue-50/50 border-blue-600 shadow-2xs'
-                            : 'border-slate-200 bg-slate-50/70 hover:bg-blue-50/30 hover:border-blue-400'
-                        }`}
-                      >
-                        <div className="min-w-0 pr-1.5 flex flex-col">
-                          <span className="text-xs font-semibold text-slate-800 group-hover:text-blue-700 truncate leading-tight">
-                            {cleanName}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-400 leading-tight mt-0.5">
-                            @{acc.username}
-                          </span>
-                        </div>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap shrink-0 border ${badgeStyle}`}
-                        >
-                          {badgeLabel}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
