@@ -308,6 +308,17 @@ export const ReportsPage: React.FC = () => {
 
   const totalCases = report?.total ?? sumOfCounts;
 
+  // Dynamic review progress metrics for Overlap Outcomes report
+  const overlapReviewStats = useMemo(() => {
+    if (activeKind !== 'overlap_outcomes' || !displayItems) return null;
+    const openItem = displayItems.find((i) => i.label?.toLowerCase() === 'open');
+    const openCount = openItem ? (openItem.count || 0) : 0;
+    const totalPairs = report?.total ?? sumOfCounts;
+    const reviewedCount = Math.max(0, totalPairs - openCount);
+    const reviewedPct = totalPairs > 0 ? Math.round((reviewedCount / totalPairs) * 100) : 0;
+    return { totalPairs, reviewedCount, openCount, reviewedPct };
+  }, [activeKind, displayItems, report, sumOfCounts]);
+
   // Highest count analysis with tie handling
   const leaderAnalysis = useMemo(() => {
     if (!displayItems || displayItems.length === 0) return null;
@@ -512,16 +523,22 @@ export const ReportsPage: React.FC = () => {
           )}
 
           {/* Overlap Outcomes Progress Banner */}
-          {activeKind === 'overlap_outcomes' && (
-            <div className="cb-card p-4 space-y-2">
+          {activeKind === 'overlap_outcomes' && overlapReviewStats && (
+            <div className="cb-card p-4 space-y-2.5 bg-white border border-slate-200 rounded-xl shadow-xs">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-[var(--text)]">Coordination Review Progress</span>
-                <span className="font-semibold text-[var(--text-secondary)] num-tabular">
-                  0 of {totalCases} pairs reviewed (0%)
+                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
+                  <span>Coordination Review Progress</span>
+                </span>
+                <span className="font-bold text-slate-700 num-tabular">
+                  {overlapReviewStats.reviewedCount} of {overlapReviewStats.totalPairs} pairs reviewed ({overlapReviewStats.reviewedPct}%)
                 </span>
               </div>
-              <div className="w-full bg-[var(--bg-subtle)] border border-[var(--border)] rounded-full h-2">
-                <div className="bg-[var(--brand)] h-2 rounded-full" style={{ width: '0%' }} />
+              <div className="w-full bg-slate-100 border border-slate-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, overlapReviewStats.reviewedPct))}%` }}
+                />
               </div>
             </div>
           )}
