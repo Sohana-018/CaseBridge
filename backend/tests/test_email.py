@@ -1,16 +1,31 @@
-"""Tests for CaseBridge real email notification service.
+"""Tests for CaseBridge Demo email notification service.
 
 Covers:
-1. SMTP configuration and environment variable loading.
-2. Low-level send_email_smtp: disabled mode, TLS, SSL, error handling & graceful failure.
-3. Complaint registration email dispatch (success & failure paths).
-4. Status update email dispatch upon status change events (success & failure paths).
-5. Non-status events (e.g. remarks) avoiding unnecessary emails.
-6. Email template branding, HTML styling, and plain-text fallback content.
+1. Email provider configuration (HTTPS Resend default, SMTP option, environment loading).
+2. Missing configuration handling: safely skips email sending with clear non-secret logs.
+3. Resend HTTPS provider adapter: mocked success, HTTPError (e.g. 401/422), URLError / network timeout.
+4. SMTP provider adapter: explicitly selected option, TLS, SSL, error handling & graceful failure.
+5. API Integration:
+   - Complaint registration email dispatch (success & failure paths).
+   - Status update email dispatch on status change events (success & failure paths).
+   - Cases without complainant email do not dispatch.
+   - Non-status events (e.g. remarks) avoid unnecessary emails.
+6. Email templates & Demo branding:
+   - "CaseBridge Demo" branding throughout subjects, headers, and signatures.
+   - Rejection of AICTE / government affiliation claims.
+   - Complete removal of citizen tracking buttons and promises of online tracking / full timelines.
+   - Retention of tracking ID and useful status metadata.
+7. Frontend badge contract:
+   - "Email address saved" shown only when complainant_email exists (not name-only).
+   - Absence of "Email notifications active".
 """
 
 from datetime import date
+from io import BytesIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+import urllib.error
+import urllib.request
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
@@ -22,11 +37,15 @@ from app.models import Bureau, Case, CaseCategory, CaseStatus, Institution, Prio
 from app.permissions import UserPayload
 from app.routers.auth import create_token
 from app.services.email import (
+    EmailConfig,
     SMTPConfig,
+    get_email_config,
     get_smtp_config,
     render_complaint_submission_templates,
     render_status_update_templates,
     send_complaint_submission_notification,
+    send_email,
+    send_email_resend,
     send_email_smtp,
     send_status_update_notification,
 )
@@ -71,13 +90,18 @@ def client_fixture():
 
 
 # ==============================================================================
-# 1. SMTP Configuration Tests
+# 1. Configuration & Missing Configuration Tests
 # ==============================================================================
 
 
-def test_smtp_config_defaults(monkeypatch: pytest.MonkeyPatch):
-    """Verify default values when SMTP environment variables are unset."""
+def test_email_config_defaults(monkeypatch: pytest.MonkeyPatch):
+    """Verify default values when email environment variables are unset."""
     for key in [
+        "EMAIL_BACKEND",
+        "EMAIL_FROM_EMAIL",
+        "EMAIL_FROM_NAME",
+        "RESEND_API_KEY",
+        "RESEND_API_URL",
         "SMTP_HOST",
         "SMTP_PORT",
         "SMTP_USERNAME",
@@ -86,184 +110,291 @@ def test_smtp_config_defaults(monkeypatch: pytest.MonkeyPatch):
         "SMTP_FROM_NAME",
         "SMTP_TLS",
         "SMTP_SSL",
+        "EMAIL_TIMEOUT",
         "SMTP_TIMEOUT",
-        "FRONTEND_URL",
     ]:
         monkeypatch.delenv(key, raising=False)
 
-    cfg = get_smtp_config()
-    assert cfg.host == ""
-    assert cfg.port == 587
-    assert cfg.from_email == "notifications@casebridge.aicte.gov.in"
-    assert cfg.use_tls is True
-    assert cfg.use_ssl is False
+    cfg = get_email_config()
+    # Code-only starting choice for containerized hosting
+    assert cfg.backend == "resend"
+    # Never invent an unverified sender address
+    assert cfg.from_email == ""
+    assert cfg.from_name == "CaseBridge Demo"
+    assert cfg.resend_api_key == ""
+    assert cfg.resend_api_url == "https://api.resend.com/emails"
+    assert cfg.smtp_host == ""
+    assert cfg.smtp_port == 587
+    assert cfg.smtp_tls is True
+    assert cfg.smtp_ssl is False
     assert cfg.timeout == 10
-    assert cfg.frontend_url == "http://localhost:5173"
+
+    # Test backwards compatibility alias
+    assert isinstance(cfg, SMTPConfig)
 
 
-def test_smtp_config_custom_env(monkeypatch: pytest.MonkeyPatch):
-    """Verify custom environment variables are properly mapped."""
-    monkeypatch.setenv("SMTP_HOST", "smtp.custom-mail.gov.in")
+def test_email_config_custom_env(monkeypatch: pytest.MonkeyPatch):
+    """Verify custom environment variables for both Resend and SMTP."""
+    monkeypatch.setenv("EMAIL_BACKEND", "smtp")
+    monkeypatch.setenv("EMAIL_FROM_EMAIL", "custom-sender@demo.casebridge.test")
+    monkeypatch.setenv("EMAIL_FROM_NAME", "CaseBridge Demo Team")
+    monkeypatch.setenv("SMTP_HOST", "mail.internal.test")
     monkeypatch.setenv("SMTP_PORT", "465")
     monkeypatch.setenv("SMTP_USERNAME", "mailer_user")
-    monkeypatch.setenv("SMTP_PASSWORD", "super_secret_pw")
-    monkeypatch.setenv("SMTP_FROM_EMAIL", "helpdesk@aicte.gov.in")
-    monkeypatch.setenv("SMTP_FROM_NAME", "AICTE National Grievance Desk")
+    monkeypatch.setenv("SMTP_PASSWORD", "mailer_secret")
     monkeypatch.setenv("SMTP_TLS", "false")
     monkeypatch.setenv("SMTP_SSL", "true")
-    monkeypatch.setenv("SMTP_TIMEOUT", "15")
-    monkeypatch.setenv("FRONTEND_URL", "https://casebridge.aicte.gov.in/")
+    monkeypatch.setenv("EMAIL_TIMEOUT", "15")
 
-    cfg = get_smtp_config()
-    assert cfg.host == "smtp.custom-mail.gov.in"
-    assert cfg.port == 465
-    assert cfg.username == "mailer_user"
-    assert cfg.password == "super_secret_pw"
-    assert cfg.from_email == "helpdesk@aicte.gov.in"
-    assert cfg.from_name == "AICTE National Grievance Desk"
-    assert cfg.use_tls is False
-    assert cfg.use_ssl is True
+    cfg = get_email_config()
+    assert cfg.backend == "smtp"
+    assert cfg.from_email == "custom-sender@demo.casebridge.test"
+    assert cfg.from_name == "CaseBridge Demo Team"
+    assert cfg.smtp_host == "mail.internal.test"
+    assert cfg.smtp_port == 465
+    assert cfg.smtp_username == "mailer_user"
+    assert cfg.smtp_password == "mailer_secret"
+    assert cfg.smtp_tls is False
+    assert cfg.smtp_ssl is True
     assert cfg.timeout == 15
-    assert cfg.frontend_url == "https://casebridge.aicte.gov.in"  # trailing slash stripped
+
+
+def test_resend_missing_configuration_safely_skips():
+    """Missing RESEND_API_KEY or EMAIL_FROM_EMAIL must return False without throwing."""
+    # Missing API key
+    cfg_no_key = EmailConfig(
+        backend="resend",
+        resend_api_key="",
+        from_email="sender@demo.example.com",
+    )
+    assert send_email_resend("user@example.com", "Test", "<p>A</p>", "A", config=cfg_no_key) is False
+
+    # Missing sender email
+    cfg_no_sender = EmailConfig(
+        backend="resend",
+        resend_api_key="re_test_key",
+        from_email="",
+    )
+    assert send_email_resend("user@example.com", "Test", "<p>A</p>", "A", config=cfg_no_sender) is False
+
+    # Invalid recipient email
+    cfg_valid = EmailConfig(
+        backend="resend",
+        resend_api_key="re_test_key",
+        from_email="sender@demo.example.com",
+    )
+    assert send_email_resend("not-an-email", "Test", "<p>A</p>", "A", config=cfg_valid) is False
+    assert send_email_resend("", "Test", "<p>A</p>", "A", config=cfg_valid) is False
+
+
+def test_smtp_missing_configuration_safely_skips():
+    """Missing SMTP_HOST or EMAIL_FROM_EMAIL must return False without throwing."""
+    # Missing host
+    cfg_no_host = EmailConfig(
+        backend="smtp",
+        smtp_host="",
+        from_email="sender@demo.example.com",
+    )
+    assert send_email_smtp("user@example.com", "Test", "<p>A</p>", "A", config=cfg_no_host) is False
+
+    # Missing sender
+    cfg_no_sender = EmailConfig(
+        backend="smtp",
+        smtp_host="smtp.example.com",
+        from_email="",
+    )
+    assert send_email_smtp("user@example.com", "Test", "<p>A</p>", "A", config=cfg_no_sender) is False
+
+
+def test_send_email_router_skips_on_unknown_backend():
+    """Unknown backend logs a warning and returns False without throwing."""
+    cfg = EmailConfig(
+        backend="unknown_mailer",
+        from_email="sender@demo.example.com",
+    )
+    assert send_email("user@example.com", "Test", "<p>A</p>", "A", config=cfg) is False
 
 
 # ==============================================================================
-# 2. SMTP Delivery Layer Tests (Success & Graceful Failure)
+# 2. Mocked HTTPS Provider Adapter (Resend)
 # ==============================================================================
 
 
-def test_send_email_smtp_disabled_when_host_empty():
-    """When SMTP_HOST is empty, delivery should be cleanly skipped returning False."""
-    cfg = SMTPConfig(
-        host="",
-        port=587,
-        username="",
-        password="",
-        from_email="noreply@gov.in",
-        from_name="Desk",
-        use_tls=True,
-        use_ssl=False,
-        timeout=5,
-        frontend_url="http://localhost:5173",
-    )
-    result = send_email_smtp("student@test.com", "Test Subject", "<p>Hello</p>", "Hello", config=cfg)
-    assert result is False
-
-
-def test_send_email_smtp_invalid_recipient():
-    """Invalid or empty recipient emails should be safely skipped."""
-    cfg = SMTPConfig(
-        host="smtp.example.com",
-        port=587,
-        username="",
-        password="",
-        from_email="noreply@gov.in",
-        from_name="Desk",
-        use_tls=True,
-        use_ssl=False,
-        timeout=5,
-        frontend_url="http://localhost:5173",
-    )
-    assert send_email_smtp("", "Sub", "<p>Hi</p>", "Hi", config=cfg) is False
-    assert send_email_smtp("invalid-email-no-at", "Sub", "<p>Hi</p>", "Hi", config=cfg) is False
-
-
-def test_send_email_smtp_success_tls():
-    """Verify proper STARTTLS connection and message payload dispatch."""
-    cfg = SMTPConfig(
-        host="smtp.relay.aicte.gov.in",
-        port=587,
-        username="smtp_user",
-        password="smtp_password",
-        from_email="alerts@aicte.gov.in",
-        from_name="CaseBridge Alerts",
-        use_tls=True,
-        use_ssl=False,
-        timeout=10,
-        frontend_url="http://localhost:5173",
-    )
-
-    mock_server = MagicMock()
-    with patch("smtplib.SMTP", return_value=mock_server) as mock_smtp_cls:
-        success = send_email_smtp(
-            to_email="complainant@example.com",
-            subject="Grievance Received",
-            html_content="<h1>Registration</h1>",
-            text_content="Registration",
-            config=cfg,
-        )
-
-        assert success is True
-        mock_smtp_cls.assert_called_once_with("smtp.relay.aicte.gov.in", 587, timeout=10)
-        mock_server.starttls.assert_called_once()
-        mock_server.login.assert_called_once_with("smtp_user", "smtp_password")
-        assert mock_server.send_message.call_count == 1
-
-        sent_msg = mock_server.send_message.call_args[0][0]
-        assert sent_msg["Subject"] == "Grievance Received"
-        assert sent_msg["To"] == "complainant@example.com"
-        assert sent_msg["From"] == "CaseBridge Alerts <alerts@aicte.gov.in>"
-
-
-def test_send_email_smtp_success_ssl():
-    """Verify SSL/TLS port 465 connection dispatch."""
-    cfg = SMTPConfig(
-        host="smtp.gmail.com",
-        port=465,
-        username="user@gmail.com",
-        password="app_password",
-        from_email="user@gmail.com",
-        from_name="CaseBridge",
-        use_tls=False,
-        use_ssl=True,
+def test_resend_https_success():
+    """Successful HTTPS POST to Resend endpoint parses payload and returns True."""
+    cfg = EmailConfig(
+        backend="resend",
+        resend_api_key="re_valid_api_key_123",
+        from_email="verified@demo.example.com",
+        from_name="CaseBridge Demo",
         timeout=8,
-        frontend_url="http://localhost:5173",
     )
 
-    mock_server = MagicMock()
-    with patch("smtplib.SMTP_SSL", return_value=mock_server) as mock_smtp_ssl:
-        success = send_email_smtp(
-            to_email="target@example.com",
-            subject="Subject",
-            html_content="<p>Body</p>",
-            text_content="Body",
+    mock_resp = MagicMock()
+    mock_resp.getcode.return_value = 200
+    mock_resp.__enter__.return_value = mock_resp
+    mock_resp.__exit__.return_value = None
+
+    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen:
+        sent = send_email_resend(
+            to_email="citizen@student.ac.in",
+            subject="[CaseBridge Demo] Registration Notice",
+            html_content="<p>Tracking ID: PGRC-2026-0001</p>",
+            text_content="Tracking ID: PGRC-2026-0001",
             config=cfg,
         )
 
-        assert success is True
-        mock_smtp_ssl.assert_called_once_with("smtp.gmail.com", 465, timeout=8)
-        mock_server.login.assert_called_once_with("user@gmail.com", "app_password")
-        assert mock_server.send_message.call_count == 1
+        assert sent is True
+        assert mock_urlopen.call_count == 1
+        req = mock_urlopen.call_args[0][0]
+        assert isinstance(req, urllib.request.Request)
+        assert req.full_url == "https://api.resend.com/emails"
+        assert req.get_method() == "POST"
+        assert req.headers["Authorization"] == "Bearer re_valid_api_key_123"
+        assert "application/json" in req.headers["Content-type"]
 
 
-def test_send_email_smtp_failure_is_handled_gracefully():
-    """Verify that any SMTP connection or protocol exception is caught and returns False."""
-    cfg = SMTPConfig(
-        host="smtp.failing-server.com",
-        port=587,
-        username="u",
-        password="p",
-        from_email="alerts@gov.in",
-        from_name="Alerts",
-        use_tls=True,
-        use_ssl=False,
-        timeout=5,
-        frontend_url="http://localhost:5173",
+def test_resend_https_http_error_handled_without_leaking_secrets():
+    """HTTP 401 or 422 from Resend API is caught safely and returns False."""
+    cfg = EmailConfig(
+        backend="resend",
+        resend_api_key="re_invalid_api_key",
+        from_email="verified@demo.example.com",
     )
 
-    with patch("smtplib.SMTP", side_effect=Exception("Connection refused or timeout")):
-        result = send_email_smtp(
-            to_email="someone@example.com",
-            subject="Notification",
+    http_error = urllib.error.HTTPError(
+        url="https://api.resend.com/emails",
+        code=401,
+        msg="Unauthorized",
+        hdrs={},
+        fp=BytesIO(b'{"message":"Invalid API key"}'),
+    )
+
+    with patch("urllib.request.urlopen", side_effect=http_error):
+        sent = send_email_resend(
+            to_email="citizen@student.ac.in",
+            subject="[CaseBridge Demo] Notice",
             html_content="<p>Test</p>",
             text_content="Test",
             config=cfg,
         )
-        assert result is False
+        assert sent is False
+
+
+def test_resend_https_network_url_error_handled():
+    """URLError (e.g. connection refused or DNS failure) is caught safely and returns False."""
+    cfg = EmailConfig(
+        backend="resend",
+        resend_api_key="re_valid_api_key",
+        from_email="verified@demo.example.com",
+    )
+
+    url_error = urllib.error.URLError("Connection timed out")
+
+    with patch("urllib.request.urlopen", side_effect=url_error):
+        sent = send_email_resend(
+            to_email="citizen@student.ac.in",
+            subject="[CaseBridge Demo] Notice",
+            html_content="<p>Test</p>",
+            text_content="Test",
+            config=cfg,
+        )
+        assert sent is False
 
 
 # ==============================================================================
-# 3. API Integration: Complaint Registration Notification
+# 3. Mocked SMTP Provider Adapter
+# ==============================================================================
+
+
+def test_smtp_success_tls():
+    """Valid SMTP TLS flow connects, initiates STARTTLS, logs in and sends message."""
+    cfg = EmailConfig(
+        backend="smtp",
+        smtp_host="smtp.example.com",
+        smtp_port=587,
+        smtp_username="smtp_user",
+        smtp_password="smtp_password",
+        from_email="notifications@demo.example.com",
+        from_name="CaseBridge Demo",
+        smtp_tls=True,
+        smtp_ssl=False,
+    )
+
+    mock_server = MagicMock()
+    mock_server.__enter__.return_value = mock_server
+    mock_server.__exit__.return_value = None
+
+    with patch("smtplib.SMTP", return_value=mock_server) as mock_smtp_cls:
+        sent = send_email_smtp(
+            to_email="test.user@example.com",
+            subject="[CaseBridge Demo] Test Notice",
+            html_content="<p>Notice</p>",
+            text_content="Notice",
+            config=cfg,
+        )
+
+        assert sent is True
+        mock_smtp_cls.assert_called_once_with("smtp.example.com", 587, timeout=10)
+        mock_server.starttls.assert_called_once()
+        mock_server.login.assert_called_once_with("smtp_user", "smtp_password")
+        mock_server.send_message.assert_called_once()
+
+
+def test_smtp_success_ssl():
+    """Valid SMTP SSL flow connects via SMTP_SSL directly on port 465."""
+    cfg = EmailConfig(
+        backend="smtp",
+        smtp_host="smtp.example.com",
+        smtp_port=465,
+        smtp_username="smtp_user",
+        smtp_password="smtp_password",
+        from_email="notifications@demo.example.com",
+        smtp_tls=False,
+        smtp_ssl=True,
+    )
+
+    mock_server = MagicMock()
+    mock_server.__enter__.return_value = mock_server
+    mock_server.__exit__.return_value = None
+
+    with patch("smtplib.SMTP_SSL", return_value=mock_server) as mock_ssl_cls:
+        sent = send_email_smtp(
+            to_email="test.ssl@example.com",
+            subject="[CaseBridge Demo] SSL Notice",
+            html_content="<p>SSL</p>",
+            text_content="SSL",
+            config=cfg,
+        )
+
+        assert sent is True
+        mock_ssl_cls.assert_called_once_with("smtp.example.com", 465, timeout=10)
+        mock_server.login.assert_called_once_with("smtp_user", "smtp_password")
+        mock_server.send_message.assert_called_once()
+
+
+def test_smtp_failure_is_handled_gracefully():
+    """Network connection failure in SMTP returns False without crashing."""
+    cfg = EmailConfig(
+        backend="smtp",
+        smtp_host="smtp.unreachable.test",
+        smtp_port=587,
+        from_email="notifications@demo.example.com",
+    )
+
+    with patch("smtplib.SMTP", side_effect=Exception("Connection refused")):
+        sent = send_email_smtp(
+            to_email="someone@example.com",
+            subject="Notice",
+            html_content="<p>Test</p>",
+            text_content="Test",
+            config=cfg,
+        )
+        assert sent is False
+
+
+# ==============================================================================
+# 4. API Integration: Complaint Registration Notification
 # ==============================================================================
 
 
@@ -272,7 +403,7 @@ def test_complaint_submission_triggers_email_success(client: TestClient):
     token = get_token("coordinator")
     headers = {"Authorization": f"Bearer {token}"}
 
-    with patch("app.services.email.send_email_smtp", return_value=True) as mock_send:
+    with patch("app.services.email.send_email", return_value=True) as mock_send:
         res = client.post(
             "/api/v1/cases",
             headers=headers,
@@ -293,7 +424,6 @@ def test_complaint_submission_triggers_email_success(client: TestClient):
         assert data["complainant_name"] == "Rohan Mehra"
         assert data["complainant_email"] == "rohan.mehra@example.com"
 
-        # Background task runs synchronously in TestClient
         assert mock_send.call_count == 1
         call_kwargs = mock_send.call_args[1] if mock_send.call_args[1] else {}
         call_args = mock_send.call_args[0] if mock_send.call_args[0] else ()
@@ -305,20 +435,23 @@ def test_complaint_submission_triggers_email_success(client: TestClient):
 
         assert to_email == "rohan.mehra@example.com"
         assert case_no in subject
-        assert "Complaint Registered" in subject
+        assert "[CaseBridge Demo]" in subject
         assert case_no in html_body
-        assert f"/cases/{case_no}" in html_body
-        assert "Apex Institute of Technology" in html_body
         assert case_no in text_body
-        assert f"/cases/{case_no}" in text_body
+        assert "Apex Institute of Technology" in html_body
+        # Verify no tracking buttons or citizen portal promises
+        assert "Track Complaint Status" not in html_body
+        assert "TRACK YOUR COMPLAINT ONLINE" not in text_body
+        assert "/cases/" not in html_body
+        assert "/cases/" not in text_body
 
 
 def test_complaint_submission_succeeds_even_when_email_fails(client: TestClient):
-    """If SMTP delivery raises an unhandled error, complaint registration must still succeed."""
+    """If email delivery raises an unhandled error, complaint registration must still succeed."""
     token = get_token("coordinator")
     headers = {"Authorization": f"Bearer {token}"}
 
-    with patch("app.services.email.send_email_smtp", side_effect=RuntimeError("SMTP crash")):
+    with patch("app.services.email.send_email", side_effect=RuntimeError("Delivery adapter crash")):
         res = client.post(
             "/api/v1/cases",
             headers=headers,
@@ -333,7 +466,6 @@ def test_complaint_submission_succeeds_even_when_email_fails(client: TestClient)
             },
         )
 
-        # Crucial requirement: API must return 201 and not fail
         assert res.status_code == 201
         data = res.json()
         assert data["case_no"].startswith("RB-")
@@ -345,7 +477,7 @@ def test_complaint_submission_without_email_does_not_dispatch(client: TestClient
     token = get_token("coordinator")
     headers = {"Authorization": f"Bearer {token}"}
 
-    with patch("app.services.email.send_email_smtp") as mock_send:
+    with patch("app.services.email.send_email") as mock_send:
         res = client.post(
             "/api/v1/cases",
             headers=headers,
@@ -363,7 +495,7 @@ def test_complaint_submission_without_email_does_not_dispatch(client: TestClient
 
 
 # ==============================================================================
-# 4. API Integration: Status Update Notification
+# 5. API Integration: Status Update Notification
 # ==============================================================================
 
 
@@ -372,25 +504,22 @@ def test_status_change_triggers_email_success(client: TestClient):
     token = get_token("coordinator")
     headers = {"Authorization": f"Bearer {token}"}
 
-    # 1. Create a case with complainant email
     case_res = client.post(
         "/api/v1/cases",
         headers=headers,
         json={
             "permanent_id": "DEMO-NOTIF-101",
             "bureau": "PGRC",
-            "category": "fee_refund",
-            "description": "Tuition fee refund withheld after cancellation.",
+            "category": "faculty",
+            "description": "Ragging complaint filed by first-year student.",
             "received_date": str(date.today()),
             "complainant_name": "Amit Roy",
             "complainant_email": "amit.roy@student.ac.in",
         },
     )
-    assert case_res.status_code == 201
     case_no = case_res.json()["case_no"]
 
-    # 2. Append a status_change event
-    with patch("app.services.email.send_email_smtp", return_value=True) as mock_send:
+    with patch("app.services.email.send_email", return_value=True) as mock_send:
         event_res = client.post(
             f"/api/v1/cases/{case_no}/events",
             headers=headers,
@@ -403,7 +532,6 @@ def test_status_change_triggers_email_success(client: TestClient):
 
         assert event_res.status_code == 201
         assert mock_send.call_count == 1
-
         call_kwargs = mock_send.call_args[1] if mock_send.call_args[1] else {}
         call_args = mock_send.call_args[0] if mock_send.call_args[0] else ()
 
@@ -414,11 +542,16 @@ def test_status_change_triggers_email_success(client: TestClient):
 
         assert to_email == "amit.roy@student.ac.in"
         assert case_no in subject
+        assert "[CaseBridge Demo]" in subject
         assert "Under Process" in subject
         assert "Under Process" in html_body
         assert "Inquiry notice dispatched to college registrar." in html_body
-        assert f"/cases/{case_no}" in html_body
         assert "Inquiry notice dispatched to college registrar." in text_body
+        # Verify no tracking buttons or citizen portal promises
+        assert "View Full Case Timeline" not in html_body
+        assert "VIEW COMPLETE CASE HISTORY" not in text_body
+        assert "/cases/" not in html_body
+        assert "/cases/" not in text_body
 
 
 def test_status_change_succeeds_even_when_email_fails(client: TestClient):
@@ -441,7 +574,7 @@ def test_status_change_succeeds_even_when_email_fails(client: TestClient):
     )
     case_no = case_res.json()["case_no"]
 
-    with patch("app.services.email.send_email_smtp", side_effect=Exception("Network down")):
+    with patch("app.services.email.send_email", side_effect=Exception("Provider timeout")):
         event_res = client.post(
             f"/api/v1/cases/{case_no}/events",
             headers=headers,
@@ -454,14 +587,13 @@ def test_status_change_succeeds_even_when_email_fails(client: TestClient):
 
         assert event_res.status_code == 201
 
-        # Case status must be updated in DB
         get_res = client.get(f"/api/v1/cases/{case_no}", headers=headers)
         assert get_res.status_code == 200
         assert get_res.json()["status"] == "disposed"
 
 
 def test_remark_event_does_not_trigger_status_email(client: TestClient):
-    """A remark event that does NOT change the case status should not dispatch a status update email."""
+    """Administrative remarks without status changes do not send status change emails."""
     token = get_token("coordinator")
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -471,21 +603,21 @@ def test_remark_event_does_not_trigger_status_email(client: TestClient):
         json={
             "permanent_id": "DEMO-NOTIF-101",
             "bureau": "PGRC",
-            "category": "faculty",
-            "description": "Faculty qualification verification issue.",
+            "category": "fee_refund",
+            "description": "Delayed disbursement of merit scholarship.",
             "received_date": str(date.today()),
-            "complainant_email": "informant@example.com",
+            "complainant_email": "scholar@example.ac.in",
         },
     )
     case_no = case_res.json()["case_no"]
 
-    with patch("app.services.email.send_email_smtp") as mock_send:
+    with patch("app.services.email.send_email") as mock_send:
         event_res = client.post(
             f"/api/v1/cases/{case_no}/events",
             headers=headers,
             json={
                 "event_type": "remark",
-                "remarks": "Internal memo attached for file review.",
+                "remarks": "Contacted accounts office for disbursement ledger.",
             },
         )
 
@@ -494,46 +626,100 @@ def test_remark_event_does_not_trigger_status_email(client: TestClient):
 
 
 # ==============================================================================
-# 5. Template Rendering & Color Palette Checks
+# 6. Email Template Branding & Regression Tests
 # ==============================================================================
 
 
-def test_email_templates_content_and_styling():
-    """Verify HTML design elements (#1E3A8A navy, Tracking ID, tracking link, fallback)."""
-    sub, html_body, text_body = render_complaint_submission_templates(
-        case_no="PG-2026-99999",
+def test_email_templates_removed_tracking_promises_and_demo_branding():
+    """Verify templates contain Demo branding, tracking ID, and no tracking promises."""
+    # 1. Registration template
+    subject, html_body, text_body = render_complaint_submission_templates(
+        case_no="PGRC-2026-9999",
         complainant_name="Sunil Joshi",
         institution_name="National Engineering College",
-        permanent_id="DEMO-2005",
+        permanent_id="NEC-442",
         bureau="PGRC",
-        category="fee_refund",
+        category="faculty",
         received_date="2026-10-28",
-        description="Demand for excess laboratory fee during final semester.",
-        frontend_url="https://casebridge.aicte.gov.in",
+        description="Faculty absence without alternate arrangement.",
     )
 
-    assert "PG-2026-99999" in sub
-    assert "#1E3A8A" in html_body  # Brand navy primary
-    assert "https://casebridge.aicte.gov.in/cases/PG-2026-99999" in html_body
-    assert "Sunil Joshi" in html_body
-    assert "National Engineering College" in html_body
-    assert "DEMO-2005" in html_body
-    assert "https://casebridge.aicte.gov.in/cases/PG-2026-99999" in text_body
+    # Demo branding present
+    assert "[CaseBridge Demo]" in subject
+    assert "CaseBridge Demo" in html_body
+    assert "CaseBridge Demo Desk" in text_body
+    assert "PGRC-2026-9999" in subject
+    assert "PGRC-2026-9999" in html_body
+    assert "PGRC-2026-9999" in text_body
 
-    sub2, html_body2, text_body2 = render_status_update_templates(
-        case_no="PG-2026-99999",
+    # Bureau masking preserved
+    assert "PGRC" in html_body
+    assert "PGRC" in text_body
+
+    # Government / AICTE affiliation claims ABSENT
+    assert "Official Grievance Desk" not in html_body
+    assert "Official Grievance Desk" not in text_body
+    assert "AICTE" not in html_body
+    assert "AICTE" not in text_body
+    assert "All India Council for Technical Education" not in html_body
+    assert "All India Council for Technical Education" not in text_body
+
+    # Citizen tracking buttons & promises ABSENT
+    assert "Track Complaint Status" not in html_body
+    assert "TRACK YOUR COMPLAINT ONLINE" not in text_body
+    assert "timeline" not in html_body.lower()
+    assert "/cases/" not in html_body
+    assert "/cases/" not in text_body
+
+    # 2. Status update template
+    up_sub, up_html, up_text = render_status_update_templates(
+        case_no="PGRC-2026-9999",
         complainant_name="Sunil Joshi",
         from_status="pending",
         to_status="under_process",
-        remarks="Regulatory notice served to college management.",
+        remarks="Faculty committee initiated hearing.",
         institution_name="National Engineering College",
-        action_date="2026-10-28",
-        frontend_url="https://casebridge.aicte.gov.in",
+        action_date="2026-10-29",
     )
 
-    assert "Under Process" in sub2
-    assert "#1E3A8A" in html_body2
-    assert "Regulatory notice served to college management." in html_body2
-    assert "https://casebridge.aicte.gov.in/cases/PG-2026-99999" in html_body2
-    assert "Regulatory notice served to college management." in text_body2
+    assert "[CaseBridge Demo]" in up_sub
+    assert "Under Process" in up_sub
+    assert "CaseBridge Demo" in up_html
+    assert "CaseBridge Demo Desk" in up_text
+    assert "PGRC-2026-9999" in up_html
+    assert "Faculty committee initiated hearing." in up_html
+    assert "Faculty committee initiated hearing." in up_text
 
+    # Government / AICTE claims ABSENT
+    assert "AICTE" not in up_html
+    assert "AICTE" not in up_text
+    assert "Official Grievance Desk" not in up_html
+
+    # Citizen tracking buttons & promises ABSENT
+    assert "View Full Case Timeline" not in up_html
+    assert "VIEW COMPLETE CASE HISTORY" not in up_text
+    assert "/cases/" not in up_html
+    assert "/cases/" not in up_text
+
+
+# ==============================================================================
+# 7. Frontend Badge Contract Regression Tests
+# ==============================================================================
+
+
+def test_frontend_case_detail_page_badge_contract():
+    """Verify CaseDetailPage renders 'Email address saved' only when complainant_email exists."""
+    frontend_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "src" / "pages" / "CaseDetailPage.tsx"
+    assert frontend_path.exists(), f"Could not find {frontend_path}"
+
+    content = frontend_path.read_text(encoding="utf-8")
+
+    # 1. 'Email notifications active' must not exist anywhere in the component
+    assert "Email notifications active" not in content
+
+    # 2. 'Email address saved' must be present
+    assert "Email address saved" in content
+
+    # 3. Must be guarded strictly by caseItem.complainant_email (not only name)
+    assert "{caseItem.complainant_email && (" in content
+    assert "caseItem.complainant_email &&" in content

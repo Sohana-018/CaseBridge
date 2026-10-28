@@ -18,7 +18,17 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      # Email notifications (SMTP)
+      # Email notifications (CaseBridge Demo)
+      # Render Free blocks outbound SMTP ports 25, 465, and 587; 'resend' HTTPS adapter is the supported route.
+      - key: EMAIL_BACKEND
+        value: "resend"
+      - key: EMAIL_FROM_EMAIL
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: "CaseBridge Demo"
+      - key: RESEND_API_KEY
+        sync: false
+      # Optional SMTP configuration (if deployed on hosting with open SMTP ports)
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -27,13 +37,7 @@ services:
         sync: false
       - key: SMTP_PASSWORD
         sync: false
-      - key: SMTP_FROM_EMAIL
-        sync: false
-      - key: SMTP_FROM_NAME
-        value: "CaseBridge Grievance Portal"
       - key: SMTP_TLS
         value: "true"
       - key: SMTP_SSL
         value: "false"
-      - key: FRONTEND_URL
-        sync: false

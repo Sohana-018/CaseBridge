@@ -712,7 +712,7 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
 
                 <div>
                   <label htmlFor="new-case-complainant-email" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
-                    Complainant Email <span className="text-[var(--text-tertiary)]">(For Tracking Updates)</span>
+                    Complainant Email <span className="text-[var(--text-tertiary)]">(Optional)</span>
                   </label>
                   <input
                     id="new-case-complainant-email"

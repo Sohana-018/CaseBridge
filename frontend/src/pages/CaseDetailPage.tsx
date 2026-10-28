@@ -427,7 +427,7 @@ export const CaseDetailPage: React.FC = () => {
                   </div>
                 </dl>
 
-                {/* Complainant Notification Info (if available) */}
+                {/* Complainant Info (if available) */}
                 {!isRestricted && (caseItem.complainant_name || caseItem.complainant_email) && (
                   <div className="mt-3 pt-3 border-t border-[var(--border)] text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="text-[var(--text-tertiary)]">Complainant:</span>
@@ -439,9 +439,11 @@ export const CaseDetailPage: React.FC = () => {
                         </span>
                       )}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      Email notifications active
-                    </span>
+                    {caseItem.complainant_email && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        Email address saved
+                      </span>
+                    )}
                   </div>
                 )}
 
