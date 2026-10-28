@@ -167,6 +167,7 @@ When `ALLOW_DEMO_LOGIN=true`, quick-login accounts are accessible directly on th
 | Username | Role | Jurisdiction | Primary Capabilities | Password Config |
 |:---|:---|:---|:---|:---|
 | `coordinator` | `coordinator` | All Bureaus | Global case view, overlap queue decisions, case transfers & escalations | `DEMO_COORDINATOR_PASSWORD` |
+| `deputy_coord` | `deputy_coord` | All Bureaus | Deputy coordinator view, joint inquiry reviews, operational triage | `DEMO_COORDINATOR_PASSWORD` |
 | `officer_rb` | `bureau_officer` | `RB` | Full RB case details; masked summaries for other bureaus; status updates | `DEMO_OFFICER_PASSWORD` |
 | `officer_pgrc` | `bureau_officer` | `PGRC` | Full PGRC case details; masked summaries for other bureaus; status updates | `DEMO_OFFICER_PASSWORD` |
 | `officer_ro` | `bureau_officer` | `RO` | Full RO case details; masked summaries for other bureaus; status updates | `DEMO_OFFICER_PASSWORD` |
@@ -182,8 +183,10 @@ When `ALLOW_DEMO_LOGIN=true`, quick-login accounts are accessible directly on th
 
 The repository includes a comprehensive test suite covering API contracts, role permissions, state transitions, and regression baselines:
 
+> **Audit & Presentation Note:** Pitch deck slides citing 119 tests reflected an earlier development milestone; the current verified test suite includes **145 automated tests** (including 19 email notification tests with mocked adapters and 15 periodic report analytics tests). All tests run offline with external outbound services safely mocked.
+
 ```bash
-# 1. Run backend unit & integration tests (126 tests)
+# 1. Run backend unit & integration tests (145 tests across 14 test suites)
 pytest backend/tests -q
 
 # 2. Run deterministic regression check (33 assertions across multiple runs)

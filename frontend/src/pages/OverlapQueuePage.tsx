@@ -51,6 +51,7 @@ import {
   Building2,
   ArrowRightLeft,
   Check,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 // ============================================================================
@@ -915,7 +916,7 @@ export const OverlapQueuePage: React.FC = () => {
                       {/* Heuristic Overlap Assessment */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="w-6 h-6 rounded-md bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
-                          <Sliders className="w-3.5 h-3.5 text-white" />
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-white" />
                         </div>
                         <span className="text-xs font-bold text-slate-900">
                           Heuristic overlap score:
@@ -981,7 +982,7 @@ export const OverlapQueuePage: React.FC = () => {
                             }}
                             className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg shrink-0 transition inline-flex items-center gap-1 cursor-pointer"
                           >
-                            <Sliders className="w-3 h-3 text-blue-600" />
+                            <SlidersHorizontal className="w-3 h-3 text-blue-600" />
                             <span>Use suggestion in review note</span>
                           </button>
                         )}
