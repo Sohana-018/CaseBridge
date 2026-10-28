@@ -38,7 +38,7 @@ def test_import_twice_gives_same_row_counts(db_session: Session):
     # First run
     res1 = import_csv(session=db_session, seed_dir=SEED_DIR, today=FIXED_TODAY)
     assert res1["institutions_created"] == 25
-    assert res1["cases_created"] == 200
+    assert res1["cases_created"] == 555
     assert res1["institutions_skipped"] == 0
     assert res1["cases_skipped"] == 0
 
@@ -47,15 +47,15 @@ def test_import_twice_gives_same_row_counts(db_session: Session):
     events_count_1 = len(db_session.exec(select(CaseEvent)).all())
 
     assert inst_count_1 == 25
-    assert cases_count_1 == 200
-    assert events_count_1 >= 200  # Initial 'created' events
+    assert cases_count_1 == 555
+    assert events_count_1 >= 555  # Initial and milestone events
 
     # Second run
     res2 = import_csv(session=db_session, seed_dir=SEED_DIR, today=FIXED_TODAY)
     assert res2["institutions_created"] == 0
     assert res2["cases_created"] == 0
     assert res2["institutions_skipped"] == 25
-    assert res2["cases_skipped"] == 200
+    assert res2["cases_skipped"] == 555
 
     inst_count_2 = len(db_session.exec(select(Institution)).all())
     cases_count_2 = len(db_session.exec(select(Case)).all())
@@ -230,8 +230,8 @@ def test_auto_seed_on_empty_database(db_session: Session):
     auto_seed_demo_data(session=db_session)
 
     summary = get_dashboard_summary(db_session)
-    assert summary["total"] >= 200
-    assert summary["total"] <= 225
+    assert summary["total"] >= 555
+    assert summary["total"] <= 600
 
     # Confirm DEMO-1042 has its two central cases
     demo_cases = db_session.exec(
