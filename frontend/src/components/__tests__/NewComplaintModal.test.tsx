@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -25,6 +26,36 @@ const mockInstitution: apiClient.Institution = {
   address: '123 Campus Way',
   region: 'North',
 };
+
+function createDeferred<T>() {
+  let resolve!: (val: T) => void;
+  let reject!: (err: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function ModalTestHost({
+  onSuccess,
+}: {
+  onSuccess?: (c: apiClient.CaseItem) => void | Promise<void>;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <div>
+      <button type="button" onClick={() => setIsOpen(true)}>
+        Reopen Modal
+      </button>
+      <NewComplaintModal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        onSuccess={onSuccess}
+      />
+    </div>
+  );
+}
 
 describe('NewComplaintModal UX & Overlap Decoupling', () => {
   beforeEach(() => {
@@ -56,7 +87,11 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
     });
   });
 
-  const renderModal = (props: { isOpen?: boolean; onClose?: () => void; onSuccess?: (c: apiClient.CaseItem) => void } = {}) => {
+  const renderModal = (props: {
+    isOpen?: boolean;
+    onClose?: () => void;
+    onSuccess?: (c: apiClient.CaseItem) => void | Promise<void>;
+  } = {}) => {
     const defaultProps = {
       isOpen: true,
       onClose: vi.fn(),
@@ -96,11 +131,8 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
     });
   };
 
-  it('1. createCase resolves while scan is slow: saved confirmation appears immediately', async () => {
-    let resolveScan!: (value: apiClient.OverlapScanResponse) => void;
-    const scanPromise = new Promise<apiClient.OverlapScanResponse>((resolve) => {
-      resolveScan = resolve;
-    });
+  it('1. createCase resolves while scan is slow: saved confirmation appears immediately with corrected subtitle', async () => {
+    const deferredScan = createDeferred<apiClient.OverlapScanResponse>();
 
     vi.mocked(apiClient.createCase).mockResolvedValueOnce({
       case_no: 'CASE-SLOW-001',
@@ -109,14 +141,10 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'Slow scan test',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
-    vi.mocked(apiClient.scanOverlaps).mockReturnValueOnce(scanPromise);
+    vi.mocked(apiClient.scanOverlaps).mockReturnValueOnce(deferredScan.promise);
 
     renderModal();
     await fillAndSubmitForm();
@@ -125,6 +153,9 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
     await waitFor(() => {
       expect(screen.getByText(/complaint registered: case-slow-001/i)).toBeDefined();
     });
+
+    // Subtitle must reflect that overlap check is shown below, not that it is already evaluated
+    expect(screen.getByText('Complaint saved; overlap-check status is shown below.')).toBeDefined();
 
     // Overlap checking status should be active
     expect(screen.getByText(/checking for overlapping complaints.../i)).toBeDefined();
@@ -139,7 +170,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
     });
 
     await act(async () => {
-      resolveScan({ created: 0 });
+      deferredScan.resolve({ created: 0 });
     });
 
     await waitFor(() => {
@@ -155,11 +186,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'Matches test',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
     vi.mocked(apiClient.scanOverlaps).mockResolvedValueOnce({ created: 1 });
@@ -214,11 +241,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'No overlaps expected',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
     vi.mocked(apiClient.scanOverlaps).mockResolvedValueOnce({ created: 0 });
@@ -251,11 +274,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'Scan fail test',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
     vi.mocked(apiClient.scanOverlaps).mockRejectedValueOnce(new Error('Detection worker connection timed out'));
@@ -286,11 +305,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'Fetch fail test',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
     vi.mocked(apiClient.scanOverlaps).mockResolvedValueOnce({ created: 1 });
@@ -319,11 +334,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'Retry test',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
     // First scan call fails
@@ -369,11 +380,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'Forbidden test',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
     // 403 Forbidden error thrown on scan
@@ -410,11 +417,7 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
       description: 'Dashboard error test',
       received_date: '2026-10-28',
       status: 'pending',
-      institution: {
-        permanent_id: 'INST-001',
-        name: 'National Technical Institute',
-        region: 'North',
-      },
+      institution: mockInstitution,
     });
 
     // Dashboard summary rejection
@@ -441,51 +444,205 @@ describe('NewComplaintModal UX & Overlap Decoupling', () => {
     });
   });
 
-  it('7. Close/reopen during in-flight request causes no stale updates or cross-case leakage', async () => {
-    let resolveCase!: (value: apiClient.CaseItem) => void;
-    const pendingCase = new Promise<apiClient.CaseItem>((resolve) => {
-      resolveCase = resolve;
+  it('7a. Parent onSuccess synchronous throw does not block saved confirmation or repeat createCase', async () => {
+    vi.mocked(apiClient.createCase).mockResolvedValueOnce({
+      case_no: 'CASE-SYNCTHROW-001',
+      bureau: 'RB',
+      category: 'infrastructure',
+      description: 'Sync throw test',
+      received_date: '2026-10-28',
+      status: 'pending',
+      institution: mockInstitution,
     });
 
-    vi.mocked(apiClient.createCase).mockReturnValueOnce(pendingCase);
+    vi.mocked(apiClient.scanOverlaps).mockResolvedValueOnce({ created: 0 });
+    vi.mocked(apiClient.getOverlaps).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 100,
+    });
 
-    const { rerender } = render(
+    const throwingCallback = vi.fn(() => {
+      throw new Error('Sync error in parent onSuccess');
+    });
+
+    renderModal({ onSuccess: throwingCallback });
+    await fillAndSubmitForm('Testing synchronous parent callback failure');
+
+    // Saved confirmation must appear and not be broken by the callback throw
+    await waitFor(() => {
+      expect(screen.getByText(/complaint registered: case-syncthrow-001/i)).toBeDefined();
+    });
+
+    expect(screen.getByText('Complaint saved; overlap-check status is shown below.')).toBeDefined();
+    expect(screen.queryByText(/registering\.\.\./i)).toBeNull();
+    expect(throwingCallback).toHaveBeenCalledTimes(1);
+    expect(apiClient.createCase).toHaveBeenCalledTimes(1);
+  });
+
+  it('7b. Parent onSuccess rejected promise does not block saved confirmation or repeat createCase', async () => {
+    vi.mocked(apiClient.createCase).mockResolvedValueOnce({
+      case_no: 'CASE-ASYNCREJECT-001',
+      bureau: 'RB',
+      category: 'infrastructure',
+      description: 'Async rejection test',
+      received_date: '2026-10-28',
+      status: 'pending',
+      institution: mockInstitution,
+    });
+
+    vi.mocked(apiClient.scanOverlaps).mockResolvedValueOnce({ created: 0 });
+    vi.mocked(apiClient.getOverlaps).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 100,
+    });
+
+    const rejectingCallback = vi.fn(async () => {
+      throw new Error('Async promise rejection in parent onSuccess');
+    });
+
+    renderModal({ onSuccess: rejectingCallback });
+    await fillAndSubmitForm('Testing asynchronous parent callback rejection');
+
+    await waitFor(() => {
+      expect(screen.getByText(/complaint registered: case-asyncreject-001/i)).toBeDefined();
+    });
+
+    expect(screen.getByText('Complaint saved; overlap-check status is shown below.')).toBeDefined();
+    expect(screen.queryByText(/registering\.\.\./i)).toBeNull();
+    expect(rejectingCallback).toHaveBeenCalledTimes(1);
+    expect(apiClient.createCase).toHaveBeenCalledTimes(1);
+  });
+
+  it('8. Closing and reopening via close button while createCase is pending prevents stale leakage into new session', async () => {
+    const deferredCase1 = createDeferred<apiClient.CaseItem>();
+    vi.mocked(apiClient.createCase).mockReturnValueOnce(deferredCase1.promise);
+
+    render(
       <MemoryRouter>
-        <NewComplaintModal isOpen={true} onClose={vi.fn()} />
+        <ModalTestHost />
       </MemoryRouter>
     );
 
-    await fillAndSubmitForm('Case 1 in flight');
+    await fillAndSubmitForm('Case 1 submitted and pending');
 
-    // Close the modal while createCase is pending
-    rerender(
-      <MemoryRouter>
-        <NewComplaintModal isOpen={false} onClose={vi.fn()} />
-      </MemoryRouter>
-    );
-
-    // Resolve the first case in background
+    // Modal is in submitting state. Click the actual close button (X button).
+    const closeBtn = screen.getByLabelText(/close dialog/i);
     await act(async () => {
-      resolveCase({
-        case_no: 'CASE-STALE-999',
+      fireEvent.click(closeBtn);
+    });
+
+    // Modal dialog is closed
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // Reopen modal for Session 2
+    const reopenBtn = screen.getByRole('button', { name: /reopen modal/i });
+    await act(async () => {
+      fireEvent.click(reopenBtn);
+    });
+
+    // Modal is open again fresh
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    // Now resolve the delayed createCase from Session 1
+    await act(async () => {
+      deferredCase1.resolve({
+        case_no: 'CASE-OLD-STALE-1',
         bureau: 'RB',
         category: 'infrastructure',
-        description: 'Stale case',
+        description: 'Case 1 submitted and pending',
         received_date: '2026-10-28',
         status: 'pending',
+        institution: mockInstitution,
       });
     });
 
-    // Reopen modal for a new case
-    rerender(
+    // Assert: No stale case confirmation appears in Session 2
+    expect(screen.queryByText(/case-old-stale-1/i)).toBeNull();
+    // Submitting state is NOT stuck (Submit button is available and enabled)
+    const submitBtn = screen.getByRole('button', { name: /register complaint/i });
+    expect(submitBtn).toBeDefined();
+    expect(submitBtn.hasAttribute('disabled')).toBe(false);
+    // Description textarea is fresh and empty
+    const descTextarea = screen.getByLabelText(/complaint description/i) as HTMLTextAreaElement;
+    expect(descTextarea.value).toBe('');
+  });
+
+  it('9. Closing and reopening via close button while overlap scan/fetch is pending prevents stale overlap leakage', async () => {
+    const deferredScan1 = createDeferred<apiClient.OverlapScanResponse>();
+
+    vi.mocked(apiClient.createCase).mockResolvedValueOnce({
+      case_no: 'CASE-SESSION-1',
+      bureau: 'RB',
+      category: 'infrastructure',
+      description: 'Session 1 case',
+      received_date: '2026-10-28',
+      status: 'pending',
+      institution: mockInstitution,
+    });
+
+    // Overlap scan is delayed in Session 1
+    vi.mocked(apiClient.scanOverlaps).mockReturnValueOnce(deferredScan1.promise);
+
+    render(
       <MemoryRouter>
-        <NewComplaintModal isOpen={true} onClose={vi.fn()} />
+        <ModalTestHost />
       </MemoryRouter>
     );
 
-    // Ensure the old case's confirmation banner is NOT displayed
-    expect(screen.queryByText(/case-stale-999/i)).toBeNull();
-    // Ensure form is fresh and ready
+    await fillAndSubmitForm('Session 1 case submitting');
+
+    // Registration is confirmed immediately for Session 1
+    await waitFor(() => {
+      expect(screen.getByText(/complaint registered: case-session-1/i)).toBeDefined();
+    });
+
+    expect(screen.getByText(/checking for overlapping complaints.../i)).toBeDefined();
+
+    // Click actual close button while overlap check is pending
+    const closeBtn = screen.getByLabelText(/close dialog/i);
+    await act(async () => {
+      fireEvent.click(closeBtn);
+    });
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // Reopen modal for Session 2
+    const reopenBtn = screen.getByRole('button', { name: /reopen modal/i });
+    await act(async () => {
+      fireEvent.click(reopenBtn);
+    });
+
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    // Now resolve Session 1's scan and mock getOverlaps with match data for CASE-SESSION-1
+    vi.mocked(apiClient.getOverlaps).mockResolvedValueOnce({
+      items: [
+        {
+          id: 777,
+          band: 'high',
+          review_status: 'needs_review',
+          reasons: ['name_match'],
+          case_a: { case_no: 'CASE-SESSION-1', bureau: 'RB', status: 'pending' },
+          case_b: { case_no: 'CASE-EXISTING-777', bureau: 'PGRC', status: 'pending' },
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 100,
+    });
+
+    await act(async () => {
+      deferredScan1.resolve({ created: 1 });
+    });
+
+    // Assert: Session 2 is still the fresh registration form, NOT overwritten by Session 1 results
+    expect(screen.queryByText(/potential overlapping cases/i)).toBeNull();
+    expect(screen.queryByText(/pair #777/i)).toBeNull();
+    expect(screen.queryByText(/case-session-1/i)).toBeNull();
     expect(screen.getByLabelText(/complaint description/i)).toBeDefined();
   });
 });

@@ -360,9 +360,47 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
       return;
     }
 
-    // Always inform parent of the saved complaint and refresh dashboard counts in background
-    onSuccess?.(created);
+    // If modal was closed or reset while createCase was in-flight, ignore modal updates
+    if (submitSeq !== requestSeqRef.current) {
+      try {
+        const maybePromise = onSuccess?.(created);
+        if (maybePromise && typeof (maybePromise as Promise<unknown>).catch === 'function') {
+          (maybePromise as Promise<unknown>).catch((err) => {
+            console.warn('Parent onSuccess promise rejection (modal closed):', err);
+          });
+        }
+      } catch (err) {
+        console.warn('Parent onSuccess error (modal closed):', err);
+      }
 
+      getDashboardSummary()
+        .then(() => {
+          window.dispatchEvent(new CustomEvent('casebridge:refresh-counts'));
+        })
+        .catch((err) => {
+          console.warn('Dashboard count refresh failed:', err);
+        });
+      return;
+    }
+
+    // IMMEDIATELY establish saved state for current modal session
+    setSubmitting(false);
+    setSubmitStep('');
+    setRegisteredCase(created);
+
+    // Safely invoke parent notification without blocking confirmation or unhandled rejection
+    try {
+      const maybePromise = onSuccess?.(created);
+      if (maybePromise && typeof (maybePromise as Promise<unknown>).catch === 'function') {
+        (maybePromise as Promise<unknown>).catch((err) => {
+          console.warn('Parent onSuccess promise rejection:', err);
+        });
+      }
+    } catch (err) {
+      console.warn('Parent onSuccess error:', err);
+    }
+
+    // Refresh Overview counts in background without blocking or failing confirmation
     getDashboardSummary()
       .then(() => {
         window.dispatchEvent(new CustomEvent('casebridge:refresh-counts'));
@@ -370,14 +408,6 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
       .catch((err) => {
         console.warn('Dashboard count refresh failed:', err);
       });
-
-    // If modal was closed or reset while createCase was in-flight, ignore modal updates
-    if (submitSeq !== requestSeqRef.current) return;
-
-    // IMMEDIATELY confirm complaint registration
-    setSubmitting(false);
-    setSubmitStep('');
-    setRegisteredCase(created);
 
     // Run overlap evaluation separately
     evaluateOverlaps(created.case_no);
@@ -406,7 +436,7 @@ export const NewComplaintModal: React.FC<NewComplaintModalProps> = ({
               </h2>
               <p className="text-xs text-[var(--text-secondary)]">
                 {registeredCase
-                  ? 'Grievance created and evaluated by CaseBridge detection engine'
+                  ? 'Complaint saved; overlap-check status is shown below.'
                   : 'Record a new grievance complaint into the centralized registry'}
               </p>
             </div>
