@@ -1,9 +1,14 @@
 # CaseBridge: Database Migration Runbook (SQLite to Supabase Postgres)
 
-This runbook defines the exact operational procedure for migrating the CaseBridge database from Render ephemeral SQLite storage to Supabase PostgreSQL (Free Tier).
+This runbook defines the operational procedure for migrating the CaseBridge database from Render ephemeral SQLite storage to Supabase PostgreSQL (Free Tier).
 
 > [!CRITICAL]
-> **MANDATORY PRE-CONDITION**: Do NOT start this cutover without first freezing writes and verifying an offline consistent snapshot. Because Render free tier uses ephemeral container storage, any restart or redeploy can wipe the SQLite file. **Your verified offline snapshot is the ONLY rollback source. If a complete consistent snapshot cannot be obtained, the cutover does not proceed.**
+> **STAGE 5 MANDATORY STOP CHECKPOINT & CUTOVER BLOCKERS**:
+> Cutover MUST NOT proceed until two explicit blockers are resolved with the user:
+> 1. **Snapshot Extraction Route (BLOCKED on Render Free Tier)**: Render free-tier web services have no shell access (SSH or console), no persistent disk, and no one-off job execution. Extracting the live SQLite database without a shell is currently blocked.
+> 2. **Pre-Cutover Write Freeze (BLOCKED on Existing Live Service)**: Setting environment variables (such as `SYSTEM_MAINTENANCE_MODE=true`) or redeploying on Render free tier causes a container restart that wipes ephemeral storage, destroying unpreserved data. Suspending the frontend service leaves the backend API reachable and writes can continue.
+>
+> **Do NOT run live migration or cutover until a verified, non-destructive snapshot extraction and write-freeze route is approved.**
 
 ---
 
@@ -13,14 +18,16 @@ This runbook defines the exact operational procedure for migrating the CaseBridg
 | :--- | :--- | :--- |
 | **Database Engine** | SQLite 3 (`backend/casebridge.db`) | PostgreSQL 16 (Supabase Shared Pooler) |
 | **Hosting Platform** | Render Free Tier (ephemeral disk) | Supabase Free Tier (managed DB) |
-| **Connection Method** | Local filesystem file | Session-Mode Shared Pooler (Port 5432, IPv4) |
+| **Admin Connection** | Local filesystem file | `postgres.[PROJECT-REF]` via Session Pooler (DDL & migration only) |
+| **Runtime App Connection** | Local filesystem file | `casebridge_app.[PROJECT-REF]` via Session Pooler (Port 5432, IPv4) |
 | **Driver** | Built-in Python `sqlite3` | `psycopg[binary]>=3.2.0` |
 | **Data API Exposure** | N/A (local SQLite) | Fully Neutralized (Privileges Revoked + Deny-all RLS) |
-| **Seeding on Boot** | Run on every boot (`AUTO_SEED=true`) | Decoupled (`AUTO_SEED=false`, manual one-time init) |
+| **DDL on Boot** | Run on boot | Decoupled (`RUN_DDL=false`, one-time admin setup) |
+| **Seeding on Boot** | Run on boot (`AUTO_SEED=true`) | Decoupled (`AUTO_SEED=false`, manual one-time init) |
 
 ---
 
-## Stage A: Supabase Project Setup & Connection String
+## Stage A: Supabase Project Setup & Connection String Configuration
 
 ### 1. Create Supabase Project
 1. Log into your [Supabase Dashboard](https://supabase.com/dashboard).
@@ -29,33 +36,47 @@ This runbook defines the exact operational procedure for migrating the CaseBridg
 4. Select the region closest to your Render service (e.g. `Frankfurt (eu-central-1)` or `Singapore (ap-southeast-1)`).
 5. Ensure you remain on the **Free Plan** (do NOT enable the paid IPv4 add-on).
 
-### 2. Copy the Session-Mode Shared Pooler Connection String
+### 2. Understand the Two-Role Security Architecture
+
+CaseBridge strictly enforces a **Two-Role Model** to eliminate superuser/owner privileges at runtime:
+
+1. **Migration / Admin Role (`postgres`)**:
+   - Used **only** by the system administrator for one-time table creation (`create_db_and_tables`), running `scripts/security_hardening.sql`, and running the initial `scripts/migrate_sqlite_to_postgres.py` migration script.
+   - Never configured in Render runtime environment variables.
+2. **Runtime Application Role (`casebridge_app`)**:
+   - Used by the Render web service for day-to-day application operations.
+   - Genuine least-privileged role: granted `SELECT`, `INSERT`, `UPDATE`, `DELETE` under strict RLS policies on application tables; granted sequence usage; **strictly denied `CREATE TABLE`, `DROP TABLE`, `ALTER TABLE`, or schema modifications**.
+   - Runs with `RUN_DDL=false`, performing NO DDL and NO schema validation on startup.
+
+### 3. Configure Custom Pooler Connection Strings
+
 > [!WARNING]
 > **IP Version & Connection Mode Rules**:
 > - Supabase's **Direct Connection** (port 5432 on `db.<ref>.supabase.co`) is strictly **IPv6-only** on the free tier. Render's free tier runtime does not support outbound IPv6 to external hosts. Attempting direct connection from Render will fail with network timeout / connection refused.
 > - Supabase's **Shared Pooler** provides an **IPv4-compatible** endpoint available on every plan at no extra cost.
 > - You **MUST** use **Session Mode (Port 5432)**, NOT Transaction Mode (Port 6543). CaseBridge uses SQLModel/SQLAlchemy connection pooling, session-scoped prepared statements, and sequence tracking that require Session Mode.
-> - The pooler host name CANNOT be guessed or derived from region name alone — it must be copied directly from your project's Connect dialog.
+> - Supabase's shared pooler supports custom database roles using the username syntax: `[ROLE].[PROJECT-REF]`.
 
-1. In your project dashboard, click **Connect** (top navigation bar).
-2. Under **Connection Method**, select **Session pooler** (or **Connection pooler** -> Mode: **Session**).
-3. The port MUST be **`5432`** (NOT `6543`).
-4. Copy the URI string, which will look like:
+1. In your Supabase Dashboard, click **Connect** (top navigation bar).
+2. Under **Connection Method**, select **Session pooler** (Mode: **Session**, Port: **`5432`**).
+3. Copy the pooler host name (e.g. `aws-0-[REGION].pooler.supabase.com`).
+4. **Admin Connection URL** (for one-time migration only):
    ```text
-   postgres://postgres.[PROJECT_REF]:[YOUR-PASSWORD]@[POOLER-HOST].pooler.supabase.com:5432/postgres?sslmode=require
+   postgresql://postgres.[PROJECT-REF]:[ADMIN-PASSWORD]@[POOLER-HOST]:5432/postgres?sslmode=require
    ```
-5. **URL Encoding & Dialect**:
-   - If your password contains special characters (e.g. `@`, `#`, `/`, `%`), you must percent-encode it (e.g. `@` -> `%40`).
-   - The CaseBridge backend driver automatically normalizes `postgres://` or `postgresql://` to `postgresql+psycopg://`.
-   - Ensure `sslmode=require` is present at the end of the query string.
+5. **Runtime Connection URL** (for Render `DATABASE_URL`):
+   ```text
+   postgresql://casebridge_app.[PROJECT-REF]:[APP-PASSWORD]@[POOLER-HOST]:5432/postgres?sslmode=require
+   ```
+   *(Note: Percent-encode special characters in passwords if applicable, e.g. `@` -> `%40`).*
 
 ---
 
 ## Stage B: Apply Security Hardening BEFORE Any Data Copy
 
-By default, Supabase exposes all tables in `public` schema via its auto-generated PostgREST Data API to the `anon` and `authenticated` roles. Because CaseBridge handles sensitive grievance records and uses its own FastAPI JWT auth, the Data API must be completely locked down before copying any live data.
+By default, Supabase exposes all tables in the `public` schema via its auto-generated PostgREST Data API to the `anon` and `authenticated` roles. Because CaseBridge handles sensitive grievance records and uses its own FastAPI JWT auth, the Data API must be completely locked down before copying any live data.
 
-### 1. Execute Security Hardening Script
+### 1. Execute Security Hardening Script as Admin (`postgres`)
 In your Supabase Dashboard, open the **SQL Editor**, paste and run the contents of [`scripts/security_hardening.sql`](file:///scripts/security_hardening.sql):
 
 ```sql
@@ -110,7 +131,14 @@ END
 $$;
 ```
 
-### 2. Verify Access Denial in Supabase SQL Editor
+### 2. Set Password for `casebridge_app` Role
+In the Supabase SQL Editor, execute:
+```sql
+ALTER ROLE casebridge_app WITH PASSWORD '[USER-CHOSEN-SECURE-PASSWORD]';
+```
+*(The user chooses and enters their own password; never log or commit credentials).*
+
+### 3. Verify Access Denial in Supabase SQL Editor
 Run the verification check in the SQL Editor to prove `anon` cannot read anything:
 ```sql
 SET ROLE anon;
@@ -120,89 +148,74 @@ RESET ROLE;
 
 ---
 
-## Stage C: Pre-Cutover Backup (Safe Write-Freeze and Snapshot)
+## Stage C: Pre-Cutover Backup & Write-Freeze Status
 
 > [!CAUTION]
-> **EPHEMERAL STORAGE WARNING**: Render's free tier stores files on an ephemeral container filesystem. Any container restart, crash, or deployment permanently destroys any un-backed-up SQLite database.
-> The write freeze MUST be active before taking the snapshot, and MUST remain active until PostgreSQL cutover is fully verified.
+> **EPHEMERAL STORAGE & FREE-TIER REALITY**:
+> Render's free tier stores files on an ephemeral container filesystem (https://render.com/docs/free). Any container restart, redeploy, or spin-down permanently destroys un-backed-up SQLite files.
+>
+> **CRITICAL RUNBOOK STATUS**:
+> - **Snapshot Extraction: [BLOCKED ON RENDER FREE TIER]**
+>   Render free web services provide NO SSH shell, NO dashboard terminal, and NO persistent disk. The `sqlite3` or Python `VACUUM INTO` procedure below is executable ONLY if the service is on a paid Render plan with shell access or if a dedicated extraction route is implemented.
+> - **Pre-Cutover Write Freeze: [BLOCKED ON EXISTING LIVE SERVICE]**
+>   Setting `SYSTEM_MAINTENANCE_MODE=true` on the existing live service requires a redeploy, which would wipe the ephemeral SQLite file before it can be preserved. Furthermore, suspending the frontend service leaves the backend API reachable and incoming writes could continue.
+> - **Requirement**: Cutover MUST NOT proceed until a verified, non-destructive extraction route is established.
 
-### 1. Freeze Live Writes
-To guarantee zero data drift or lost complaints during cutover:
-1. In the Render Dashboard, temporarily suspend the frontend service OR set the environment variable:
-   `SYSTEM_MAINTENANCE_MODE=true` (or stop web traffic).
-2. Confirm via Render logs that no incoming `POST /cases` or `POST /overlaps/*/review` requests are in-flight.
+### Conditional Procedure (Requires Paid Render Plan with Shell Access):
+*If and only if SSH/shell access is available on a paid plan:*
 
-### 2. Take Consistent SQLite Snapshot (with WAL checkpoint)
-Do NOT copy `casebridge.db` using ordinary file copy (`cp`), because active transactions in `casebridge.db-wal` would be skipped or corrupted. Use SQLite's online consistent backup API or `VACUUM INTO`:
-
-Connect to the running container shell or run via SSH:
-```bash
-python -c "
-import sqlite3
-conn = sqlite3.connect('backend/casebridge.db')
-conn.execute('PRAGMA wal_checkpoint(TRUNCATE);')
-conn.execute(\"VACUUM INTO 'backend/casebridge_snapshot_pre_cutover.db';\")
-conn.close()
-print('Consistent backup complete.')
-"
-```
-
-### 3. Verify Snapshot Integrity and Store Off-Render
-Run the offline verification on the snapshot:
-```bash
-sqlite3 backend/casebridge_snapshot_pre_cutover.db "PRAGMA integrity_check;"
-# Output must be: ok
-
-# Compute SHA-256 hash
-sha256sum backend/casebridge_snapshot_pre_cutover.db > snapshot_hash.txt
-
-# Record row counts
-sqlite3 backend/casebridge_snapshot_pre_cutover.db "
-SELECT 'institutions', count(*) FROM institutions
-UNION ALL SELECT 'cases', count(*) FROM cases
-UNION ALL SELECT 'case_events', count(*) FROM case_events
-UNION ALL SELECT 'overlap_links', count(*) FROM overlap_links
-UNION ALL SELECT 'alerts', count(*) FROM alerts
-UNION ALL SELECT 'users', count(*) FROM users
-UNION ALL SELECT 'counters', count(*) FROM counters
-UNION ALL SELECT 'config', count(*) FROM config;
-" > snapshot_counts.txt
-```
-**Download `casebridge_snapshot_pre_cutover.db`, `snapshot_hash.txt`, and `snapshot_counts.txt` safely onto your local machine or secure cloud storage.**
+1. Checkpoint WAL and take atomic consistent snapshot:
+   ```bash
+   python -c "
+   import sqlite3
+   conn = sqlite3.connect('backend/casebridge.db')
+   conn.execute('PRAGMA wal_checkpoint(TRUNCATE);')
+   conn.execute(\"VACUUM INTO 'backend/casebridge_snapshot_pre_cutover.db';\")
+   conn.close()
+   print('Consistent backup complete.')
+   "
+   ```
+2. Verify snapshot integrity offline:
+   ```bash
+   sqlite3 backend/casebridge_snapshot_pre_cutover.db "PRAGMA integrity_check;"
+   sha256sum backend/casebridge_snapshot_pre_cutover.db > snapshot_hash.txt
+   ```
+3. Download `casebridge_snapshot_pre_cutover.db` and hash file safely off-Render before proceeding.
 
 ---
 
 ## Stage D: Run Migration Script Against Supabase
 
-### 1. First-Time Schema Initialization
-Ensure all PostgreSQL tables are created in Supabase:
+### 1. First-Time Schema Initialization via Admin Role (`postgres`)
+Create all PostgreSQL tables using the admin connection:
 ```bash
 python -c "
 import os
-os.environ['DATABASE_URL'] = '[YOUR_SUPABASE_SESSION_POOLER_URL]'
+os.environ['RUN_DDL'] = 'true'
+os.environ['DATABASE_URL'] = '[SUPABASE_ADMIN_POOLER_URL]'
 from app.db import create_db_and_tables, engine
 create_db_and_tables(engine)
-print('Tables initialized in Supabase.')
+print('Tables initialized in Supabase by role postgres.')
 "
 ```
 
 ### 2. Re-apply Security Hardening
-Re-run `scripts/security_hardening.sql` in the Supabase SQL editor to ensure RLS and privilege revocations cover the newly created tables.
+In the Supabase SQL Editor, re-run `scripts/security_hardening.sql` to ensure RLS policies and table grants cover all newly created tables.
 
-### 3. Execute Migration
-Run the idempotent, conflict-safe migration script:
+### 3. Execute Data Migration Script
+Run the idempotent, conflict-safe migration script using the admin connection:
 ```bash
 python scripts/migrate_sqlite_to_postgres.py \
   --sqlite-snapshot backend/casebridge_snapshot_pre_cutover.db \
-  --postgres-url "[YOUR_SUPABASE_SESSION_POOLER_URL]"
+  --postgres-url "[SUPABASE_ADMIN_POOLER_URL]"
 ```
 
 The script will:
-1. Verify snapshot file integrity and ensure no dangling WAL.
-2. Transfer all 8 tables in topological order (`config`, `counters`, `users`, `institutions`, `cases`, `case_events`, `overlap_links`, `alerts`).
-3. Advance all PostgreSQL sequences above max existing IDs.
-4. Verify 100% row counts, 100% SHA-256 content hashes, and 0 FK orphans.
-5. Exit cleanly with code `0`.
+1. Verify snapshot integrity and refuse live databases by name (`casebridge.db`) or uncheckpointed WAL files.
+2. Transfer all 8 tables in topological order: `config`, `counters`, `users`, `institutions`, `cases`, `case_events`, `overlap_links`, `alerts`.
+3. Advance all PostgreSQL sequences above max existing table IDs.
+4. Verify 100% row counts, 100% SHA-256 typed content hashes, and zero FK orphans.
+5. Provide idempotent re-run (0 rows inserted on second pass) and abort on any destination conflict without overwriting.
 
 ---
 
@@ -210,32 +223,47 @@ The script will:
 
 ### 1. Update Render Environment Variables
 In the Render Dashboard for `casebridge-backend`:
-1. **`DATABASE_URL`**: Set to your copied session pooler connection string:
-   `postgres://postgres.[REF]:[ENCODED_PASSWORD]@[POOLER_HOST].pooler.supabase.com:5432/postgres?sslmode=require`
-2. **`AUTO_SEED`**: Set to `"false"` (strictly disables auto-seeding on boot).
-3. **`RUN_SEED_IMPORT`**: Set to `"false"` (ensures CSV importer never runs on container startup).
-4. **`SEED_DEMO_OUTCOMES`**: Leave unset or set to `"false"`.
-5. Remove `SYSTEM_MAINTENANCE_MODE` to restore web traffic.
-6. Deploy the changes on Render.
+1. **`DATABASE_URL`**: Set genuinely to the runtime role connection string:
+   `postgresql://casebridge_app.[PROJECT-REF]:[APP-PASSWORD]@[POOLER-HOST]:5432/postgres?sslmode=require`
+2. **`RUN_DDL`**: Set to `"false"` (strictly prohibits DDL under `casebridge_app`).
+3. **`AUTO_SEED`**: Set to `"false"` (strictly disables auto-seeding on boot).
+4. **`RUN_SEED_IMPORT`**: Set to `"false"` (strictly disables CSV import on boot).
+5. **`SYSTEM_MAINTENANCE_MODE`**: Ensure unset or `"false"`.
+6. Trigger the deployment on Render.
 
 ### 2. Post-Cutover Verification Checklist
 - [ ] **Health Endpoint**: `GET /api/v1/health` returns `{"status":"ok"}`.
 - [ ] **Admin Status**: `GET /api/v1/admin/health-summary` reports `db_status: "Operational (PostgreSQL)"`.
-- [ ] **Authentication**: Log into the frontend using an existing coordinator/admin account.
+- [ ] **Role Verification**: Application connects as `casebridge_app` with zero DDL permissions.
+- [ ] **Authentication**: Log in using an existing coordinator/admin account.
 - [ ] **Data Verification**: Confirm existing cases, review outcomes, and institutions display properly.
-- [ ] **Sequence Verification**: Submit a test complaint from the UI. Verify it generates the next incremental case number without colliding with existing cases.
-- [ ] **Overlap Scan**: Verify the overlap queue and confirm review decisions persist across page reloads.
+- [ ] **Sequence Verification**: Register a new complaint. Verify it receives the next incremental case number without collision.
+- [ ] **Overlap Scan & Review**: Verify overlap scan and submit a review decision under RLS. Confirm persistence across page reloads.
+
+---
+
+## Stage F: Maintenance Mode Implementation & Operational Scope
+
+### 1. Code Implementation
+CaseBridge provides `SYSTEM_MAINTENANCE_MODE=true` support:
+- **Mutating Requests**: Default-denies all `POST`, `PUT`, `PATCH`, `DELETE` requests with HTTP 503 and structured error:
+  `{"error": {"code": "MAINTENANCE_MODE", "message": "System is currently undergoing scheduled maintenance. Write operations are temporarily suspended."}}`
+- **Allowlist**: Permits only `/api/v1/auth/login` and `/api/v1/auth/mock-login` so that administrators and health-checks can authenticate.
+- **Read Operations**: All `GET` requests pass through cleanly.
+- **Background Operations**: Lifespan startup seeding (`AUTO_SEED`), CSV seed import (`RUN_SEED_IMPORT`), alert evaluations, and the standalone `scripts/import_csv.py` script automatically abort when maintenance mode is active.
+
+### 2. Operational Scope & Limitations
+- **Post-Cutover Use**: When running on PostgreSQL, setting `SYSTEM_MAINTENANCE_MODE=true` safely freezes all runtime writes during planned maintenance or rollbacks.
+- **Pre-Cutover Prohibition on Render Free Tier**: Because Render free tier restarts containers on environment variable changes, setting this flag on the existing live service causes an ephemeral filesystem wipe. It cannot be used as a pre-cutover write freeze on Render free tier.
 
 ---
 
 ## Rollback Plan
 
-If unexpected issues arise during or after cutover:
-
 ### Scenario 1: Rollback BEFORE any new writes land in Postgres
-If the cutover fails during verification and NO user has written new complaints or reviews to Postgres:
-1. In Render, revert `DATABASE_URL` to point back to SQLite (or leave unset to default to `backend/casebridge.db`).
-2. If Render's container restarted and wiped the ephemeral SQLite file, restore it directly from the offline snapshot:
+*(Requires paid Render plan with shell access to restore files)*
+1. In Render, set `DATABASE_URL` back to SQLite (or leave unset).
+2. If the container was restarted and wiped the ephemeral database, restore from offline snapshot via shell:
    ```bash
    cp backend/casebridge_snapshot_pre_cutover.db backend/casebridge.db
    ```
@@ -244,32 +272,30 @@ If the cutover fails during verification and NO user has written new complaints 
 ### Scenario 2: Rollback AFTER new writes have landed in Postgres
 > [!WARNING]
 > If new complaints or review decisions were recorded in Postgres after cutover, **DO NOT silently overwrite them with the old SQLite snapshot**.
-1. Set `SYSTEM_MAINTENANCE_MODE=true` to freeze writes.
-2. Run an export query in PostgreSQL to capture all records created after cutover:
+1. In Render environment variables, set `SYSTEM_MAINTENANCE_MODE=true` to freeze writes safely.
+2. In Supabase SQL Editor, export records created after cutover:
    ```sql
    SELECT * FROM cases WHERE created_at > '[CUTOVER_TIMESTAMP]';
    SELECT * FROM overlap_links WHERE created_at > '[CUTOVER_TIMESTAMP]';
    SELECT * FROM case_events WHERE ts > '[CUTOVER_TIMESTAMP]';
    ```
-3. Restore SQLite from `casebridge_snapshot_pre_cutover.db`.
-4. Replay the post-cutover exported records into SQLite, update the `counters` table, and verify continuity.
-5. Revert Render environment variables.
+3. Replay exported records into SQLite and update `counters`.
+4. Revert Render environment variables.
 
 ---
 
 ## Supabase & Render Free-Tier Operational Caveats
 
-1. **Supabase Inactivity Pausing**:
+1. **Supabase Inactivity Pausing (1-Year Restore Window)**:
    - Supabase automatically pauses free-tier projects after **7 days of database inactivity**.
    - Supabase sends an email notification ~7 days before pausing.
-   - If paused, the database can be unpaused from the Supabase dashboard in ~1-2 minutes without data loss. Projects can be restored for up to 90-365 days.
+   - If paused, the database can be unpaused from the Supabase dashboard in ~1-2 minutes without data loss. Projects can be restored for **up to 1 year** after pausing (per [Supabase Pausing Docs](https://supabase.com/docs/guides/platform/pausing)).
    - *Mitigation*: CaseBridge's normal usage or periodic uptime ping keeps the pooler active.
 2. **No Automatic Backups on Free Tier**:
    - The Supabase free plan does NOT include automated daily backups or Point-in-Time Recovery (PITR).
    - *Mitigation*: Maintain a scheduled weekly backup using `pg_dump`:
      ```bash
-     pg_dump -d "[SUPABASE_POOLER_URL]" -F c -b -v -f "backup_$(date +%Y%m%d).dump"
+     pg_dump -d "[SUPABASE_ADMIN_POOLER_URL]" -F c -b -v -f "backup_$(date +%Y%m%d).dump"
      ```
 3. **Render Cold Starts**:
-   - Migrating to Supabase provides **persistent storage** across Render restarts, but it **DOES NOT eliminate Render free-tier cold starts** (which take ~50 seconds when spun down due to HTTP inactivity). `pool_pre_ping=True` ensures stale pooled connections reconnect gracefully upon wake-up.
-
+   - Migrating to Supabase provides **persistent storage** across Render restarts, but it **DOES NOT eliminate Render free-tier cold starts** (~50 seconds when spun down due to HTTP inactivity). `pool_pre_ping=True` ensures stale pooled connections reconnect gracefully upon wake-up.

@@ -68,6 +68,8 @@ def normalize_value(val: Any, col_type: str = "") -> Any:
         return None
     if col_type == "boolean":
         return bool(val in (1, "1", "true", "True", True))
+    if col_type == "user-defined" and isinstance(val, str):
+        return val.strip().upper()
     if isinstance(val, bool):
         return val
     if isinstance(val, (datetime, date)):
@@ -106,18 +108,22 @@ def normalize_value(val: Any, col_type: str = "") -> Any:
 
 def validate_snapshot_file(path: Path, allow_live: bool = False) -> None:
     """Ensure path exists, is a valid SQLite database, and is not a live database."""
-    if not path.exists():
-        raise InvalidSnapshotError(f"Snapshot file not found: {path}")
-
-    # Check for live database indicators
-    abs_path_str = str(path.resolve()).lower()
+    # Check for live database indicators BY NAME / PATH before existence check
     if not allow_live:
-        if abs_path_str.endswith("backend\\casebridge.db") or abs_path_str.endswith("backend/casebridge.db"):
+        path_name_lower = path.name.lower()
+        normalized_path = str(path).replace("\\", "/").lower()
+        if (
+            path_name_lower == "casebridge.db"
+            or normalized_path.endswith("backend/casebridge.db")
+            or normalized_path.endswith("/casebridge.db")
+        ):
             raise InvalidSnapshotError(
                 f"Refusing to run against primary development/live database: {path}\n"
                 "You must provide a consistent snapshot file created via 'VACUUM INTO' or 'sqlite3 .backup'."
             )
 
+    if not path.exists():
+        raise InvalidSnapshotError(f"Snapshot file not found: {path}")
     wal_file = path.parent / f"{path.name}-wal"
     shm_file = path.parent / f"{path.name}-shm"
     if wal_file.exists() and wal_file.stat().st_size > 0:
@@ -300,6 +306,8 @@ def migrate_sqlite_to_postgres(
                             c_type = pg_col_types.get(col, "")
                             if c_type == "boolean" and not isinstance(val, bool) and val is not None:
                                 row_copy[col] = bool(val in (1, "1", "true", "True", True))
+                            elif c_type == "user-defined" and isinstance(val, str):
+                                row_copy[col] = val.strip().upper()
                             elif (c_type in ("json", "jsonb") or col == "reasons"):
                                 if isinstance(val, str):
                                     try:
@@ -361,6 +369,7 @@ def migrate_sqlite_to_postgres(
 
     verify_report = verify_migration_content(sqlite_snapshot_path, postgres_url)
     report["verification"] = verify_report
+    report["success"] = bool(verify_report.get("success", True))
     return report
 
 

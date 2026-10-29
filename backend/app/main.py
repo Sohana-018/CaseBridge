@@ -2,8 +2,9 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Load environment variables from backend/.env if present
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -71,24 +72,47 @@ def auto_seed_demo_data(session: Session) -> None:
         print(f"[Auto-Seed] Error importing CSVs: {e}")
 
 
+def is_maintenance_mode() -> bool:
+    """Check if SYSTEM_MAINTENANCE_MODE environment flag is active."""
+    return os.getenv("SYSTEM_MAINTENANCE_MODE", "false").lower() in ("true", "1", "yes")
+
+
+# Allowed state-changing endpoints during maintenance mode:
+# Only the exact authentication endpoint(s) required to authenticate health checks/monitoring probes.
+MAINTENANCE_ALLOWLIST_PATHS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/mock-login",
+}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager creating tables, seeding users/config, and running alert evaluations."""
-    create_db_and_tables()
+    # Gate DDL execution: runtime role casebridge_app performs NO DDL at boot.
+    # RUN_DDL=true is only set during one-time manual initialization under admin role.
+    run_ddl = os.getenv("RUN_DDL", "false").lower() in ("true", "1", "yes")
+    is_sqlite = str(engine.url).startswith("sqlite")
+    if is_sqlite or run_ddl:
+        create_db_and_tables()
 
     auto_seed = os.getenv("AUTO_SEED", "false").lower() in ("true", "1", "yes")
     run_seed_import = os.getenv("RUN_SEED_IMPORT", "false").lower() in ("true", "1", "yes")
+    maintenance_active = is_maintenance_mode()
 
     with Session(engine) as session:
-        # Decouple all seeding from boot: production starts with AUTO_SEED=false
-        # and NO automatic seeding, import, demo-user, or demo-config creation.
-        if auto_seed or run_seed_import:
-            seed_default_users_and_config(session)
-            auto_seed_demo_data(session)
+        # In maintenance mode, suspend all background writes, auto-seeding, and alert refresh
+        if maintenance_active:
+            print("[Lifespan] SYSTEM_MAINTENANCE_MODE=true: skipping all background seeding, imports, and alert evaluations.")
+        else:
+            # Decouple all seeding from boot: production starts with AUTO_SEED=false
+            # and NO automatic seeding, import, demo-user, or demo-config creation.
+            if auto_seed or run_seed_import:
+                seed_default_users_and_config(session)
+                auto_seed_demo_data(session)
 
-        # Skip background alert evaluation on boot during automated testing
-        if os.getenv("TESTING") != "1" and not os.getenv("POSTGRES_TEST_URL"):
-            refresh_alerts(session)
+            # Skip background alert evaluation on boot during automated testing
+            if os.getenv("TESTING") != "1" and not os.getenv("POSTGRES_TEST_URL") and not os.getenv("POSTGRES_APP_URL"):
+                refresh_alerts(session)
     yield
 
 
@@ -98,6 +122,28 @@ app = FastAPI(
     description="Integrated Dashboard for Monitoring and Tracking Institution-Related Complaint Cases",
     lifespan=lifespan,
 )
+
+# Register maintenance mode middleware (blocks all state-changing writes with 503)
+@app.middleware("http")
+async def maintenance_mode_middleware(request: Request, call_next):
+    if is_maintenance_mode():
+        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            norm_path = request.url.path.rstrip("/")
+            if norm_path not in MAINTENANCE_ALLOWLIST_PATHS:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": {
+                            "code": "MAINTENANCE_MODE",
+                            "message": "System is currently in maintenance mode. Database modifications are temporarily disabled.",
+                            "details": {
+                                "method": request.method,
+                                "path": request.url.path,
+                            },
+                        }
+                    },
+                )
+    return await call_next(request)
 
 # Register shared error handlers (PRD Section 10 contract)
 register_error_handlers(app)

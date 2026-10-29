@@ -28,6 +28,17 @@ if postgres_test_url:
     _orig_sqlmodel_create_engine = sqlmodel.create_engine
     _orig_sqlalchemy_create_engine = sqlalchemy.create_engine
 
+    # Separate Test Harness Admin connection from App Runtime connection
+    # Harness Admin URL connects as owner/postgres to perform DDL and TRUNCATEs
+    # App Test URL connects as runtime role (e.g. casebridge_app) to execute queries
+    postgres_admin_url = os.getenv("POSTGRES_ADMIN_URL", postgres_test_url)
+
+    _admin_engine = _orig_sqlmodel_create_engine(
+        postgres_admin_url,
+        echo=False,
+        pool_pre_ping=True,
+    )
+
     _pg_engine = _orig_sqlmodel_create_engine(
         postgres_test_url,
         echo=False,
@@ -49,11 +60,11 @@ if postgres_test_url:
     sqlmodel.create_engine = _patched_create_engine
     sqlalchemy.create_engine = _patched_create_engine
 
-    # Intercept drop_all to preserve tables and fast-truncate between tests
+    # Intercept drop_all to preserve tables and fast-truncate between tests using admin connection
     _orig_drop_all = sqlmodel.SQLModel.metadata.drop_all
 
     def _safe_drop_all(bind=None, **kwargs):
-        target = bind or _pg_engine
+        target = _admin_engine
         if getattr(getattr(target, "dialect", None), "name", "") == "postgresql":
             with target.begin() as conn:
                 conn.execute(
@@ -68,9 +79,9 @@ if postgres_test_url:
 
     @pytest.fixture(autouse=True)
     def clean_postgres_db():
-        """Ensure clean slate for each test running against isolated Postgres."""
-        sqlmodel.SQLModel.metadata.create_all(_pg_engine)
-        with _pg_engine.begin() as conn:
+        """Ensure clean slate for each test running against isolated Postgres using admin connection."""
+        sqlmodel.SQLModel.metadata.create_all(_admin_engine)
+        with _admin_engine.begin() as conn:
             conn.execute(
                 text(
                     "TRUNCATE TABLE alerts, case_events, cases, config, counters, institutions, overlap_links, users RESTART IDENTITY CASCADE;"

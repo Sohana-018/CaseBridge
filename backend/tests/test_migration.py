@@ -32,11 +32,16 @@ def test_validate_snapshot_refuses_nonexistent_path(tmp_path: Path):
         validate_snapshot_file(fake_path)
 
 
-def test_validate_snapshot_refuses_live_database():
-    """Verify live app database path is refused."""
+def test_validate_snapshot_refuses_live_database(tmp_path: Path):
+    """Verify live app database path is refused by name, regardless of file existence."""
     live_path = Path("backend/casebridge.db")
     with pytest.raises(InvalidSnapshotError, match="Refusing to run against primary development/live database"):
         validate_snapshot_file(live_path)
+
+    nonexistent_live = tmp_path / "casebridge.db"
+    assert not nonexistent_live.exists()
+    with pytest.raises(InvalidSnapshotError, match="Refusing to run against primary development/live database"):
+        validate_snapshot_file(nonexistent_live)
 
 
 def test_validate_snapshot_refuses_uncheckpointed_wal(tmp_path: Path):
