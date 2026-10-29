@@ -115,6 +115,7 @@ def test_maintenance_mode_on_blocks_mutating_requests(client: TestClient, monkey
 def test_maintenance_mode_on_allows_login_endpoints(client: TestClient, monkeypatch):
     """When SYSTEM_MAINTENANCE_MODE=true, only exact login endpoints in allowlist succeed."""
     monkeypatch.setenv("SYSTEM_MAINTENANCE_MODE", "true")
+    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")
 
     # 1. Real login endpoint allowed
     res = client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin123"})

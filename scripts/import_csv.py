@@ -135,13 +135,13 @@ def import_csv(
     seed_dir: Optional[Path] = None,
     today: Optional[date] = None,
 ) -> dict:
-    if os.getenv("SYSTEM_MAINTENANCE_MODE", "false").lower() in ("true", "1", "yes"):
-        print("[Import] SYSTEM_MAINTENANCE_MODE is active: aborting CSV import to prevent database writes.")
-        return {"institutions": 0, "cases": 0, "events": 0}
     """Import institutions and cases CSVs into database session.
 
     Skips already existing institutions (by permanent_id) and cases (by case_no).
     """
+    if os.getenv("SYSTEM_MAINTENANCE_MODE", "false").lower() in ("true", "1", "yes"):
+        print("[Import] SYSTEM_MAINTENANCE_MODE is active: aborting CSV import to prevent database writes.")
+        return {"institutions": 0, "cases": 0, "events": 0}
     if seed_dir is None:
         seed_dir = SEED_DIR
     if today is None:
