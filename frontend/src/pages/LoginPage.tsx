@@ -443,7 +443,7 @@ export const LoginPage: React.FC = () => {
           {/* Bottom Footer */}
           <div className="pt-4 mt-4 border-t border-white/15 flex items-center justify-between text-xs text-blue-200/70">
             <span className="font-semibold text-white">CaseBridge</span>
-            <span className="text-[11px] text-blue-200/70">Synthetic Demo Environment</span>
+            <span className="text-[11px] text-blue-200/70">CaseBridge Prototype · Demo Data</span>
           </div>
         </div>
 
@@ -454,7 +454,7 @@ export const LoginPage: React.FC = () => {
             <div className="mb-3">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold mb-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                <span>Synthetic Demo Environment · Prototype Evaluation</span>
+                <span>CaseBridge · Prototype Evaluation</span>
               </div>
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                 Officer Authentication
@@ -599,11 +599,10 @@ export const LoginPage: React.FC = () => {
                           onClick={() => handleDemoChipClick(acc)}
                           onKeyDown={(e) => handleChipKeyDown(e, idx)}
                           aria-label={`Sign in as ${cfg.name}`}
-                          className={`snap-start shrink-0 min-h-[44px] px-3 py-1.5 rounded-lg border text-left transition flex items-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none disabled:cursor-not-allowed ${
-                            isSelected
+                          className={`snap-start shrink-0 min-h-[44px] px-3 py-1.5 rounded-lg border text-left transition flex items-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:outline-none disabled:cursor-not-allowed ${isSelected
                               ? 'bg-blue-50/80 border-blue-600 shadow-2xs'
                               : 'bg-white border-slate-200 hover:bg-blue-50/40 hover:border-blue-400'
-                          } ${(loading || serverWakingUp) && !isLoggingInThis ? 'opacity-50' : ''}`}
+                            } ${(loading || serverWakingUp) && !isLoggingInThis ? 'opacity-50' : ''}`}
                         >
                           {/* Role Name & Username */}
                           <div className="flex flex-col min-w-0">
@@ -692,11 +691,10 @@ export const LoginPage: React.FC = () => {
                       setSelectedRole(null);
                     }}
                     placeholder="e.g. admin or coordinator"
-                    className={`block w-full h-9 pl-9 pr-3 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition ${
-                      serverWakingUp || loading
+                    className={`block w-full h-9 pl-9 pr-3 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition ${serverWakingUp || loading
                         ? 'opacity-60 bg-slate-100 cursor-not-allowed'
                         : 'bg-slate-50 focus:bg-white'
-                    }`}
+                      }`}
                   />
                 </div>
               </div>
@@ -723,11 +721,10 @@ export const LoginPage: React.FC = () => {
                       if (error) setError(null);
                     }}
                     placeholder="••••••••"
-                    className={`block w-full h-9 pl-9 pr-9 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition ${
-                      serverWakingUp || loading
+                    className={`block w-full h-9 pl-9 pr-9 border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition ${serverWakingUp || loading
                         ? 'opacity-60 bg-slate-100 cursor-not-allowed'
                         : 'bg-slate-50 focus:bg-white'
-                    }`}
+                      }`}
                   />
                   <button
                     type="button"
