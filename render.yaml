@@ -4,16 +4,19 @@ services:
     env: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: python ../scripts/import_csv.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Intended production startup: uvicorn only, no automatic import on boot.
+    # One-time initialization command (run manually only if initializing a fresh database from seed CSVs):
+    #   python ../scripts/import_csv.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: ENV
         value: prod
       - key: ALLOW_DEMO_LOGIN
         value: "false"
-      # Auto-seed demo data on startup if cases table is empty.
-      # Note: ALLOW_DEMO_LOGIN=true is needed for the one-click demo accounts.
+      # Production default: No automatic seeding on startup.
+      # Seeding is strictly decoupled from boot to protect persistent data.
       - key: AUTO_SEED
-        value: "true"
+        value: "false"
       - key: CORS_ORIGINS
         sync: false
       - key: JWT_SECRET

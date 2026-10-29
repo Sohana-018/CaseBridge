@@ -1,3 +1,4 @@
+from fastapi.encoders import jsonable_encoder
 from typing import Any, Dict, Optional
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException as FastAPIHTTPException, RequestValidationError
@@ -47,6 +48,15 @@ class ConflictError(AppException):
         super().__init__(code="CONFLICT", message=message, status_code=409, details=details)
 
 
+class MaintenanceError(AppException):
+    def __init__(
+        self,
+        message: str = "System is in maintenance mode. Database modifications are temporarily disabled.",
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(code="MAINTENANCE_MODE", message=message, status_code=503, details=details)
+
+
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
@@ -67,7 +77,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": "Validation error",
-                "details": exc.errors(),
+                "details": jsonable_encoder(exc.errors()),
             }
         },
     )

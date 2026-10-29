@@ -57,6 +57,26 @@ def seed_realistic_overlap_outcomes(session: Session) -> int:
     chart reflects an active, realistic operational review history (73% reviewed),
     while preserving the central demo pair PG-2026-00104 / RB-2026-00219 as OPEN.
     """
+    is_prod = (
+        os.getenv("ENV", "").lower() in ("production", "prod")
+        or os.getenv("ENVIRONMENT", "").lower() in ("production", "prod")
+        or os.getenv("APP_ENV", "").lower() in ("production", "prod")
+        or os.getenv("IS_PRODUCTION", "").lower() in ("true", "1")
+    )
+    allow_demo = os.getenv("SEED_DEMO_OUTCOMES", "false").lower() in ("true", "1", "yes")
+
+    if not allow_demo:
+        print("[Import] SEED_DEMO_OUTCOMES is false/unset: skipping generation of fabricated overlap review outcomes.")
+        return 0
+
+    if is_prod:
+        print("[Import] CRITICAL WARNING: Target database/environment is marked as PRODUCTION! Refusing to generate fabricated demo review outcomes.")
+        return 0
+
+    print("=" * 80)
+    print("[Import] NOTICE: SEED_DEMO_OUTCOMES=true detected on non-production database. GENERATING FABRICATED DEMO OVERLAP OUTCOMES!")
+    print("=" * 80)
+
     import random
 
     existing_reviewed = session.exec(
@@ -119,6 +139,9 @@ def import_csv(
 
     Skips already existing institutions (by permanent_id) and cases (by case_no).
     """
+    if os.getenv("SYSTEM_MAINTENANCE_MODE", "false").lower() in ("true", "1", "yes"):
+        print("[Import] SYSTEM_MAINTENANCE_MODE is active: aborting CSV import to prevent database writes.")
+        return {"institutions": 0, "cases": 0, "events": 0}
     if seed_dir is None:
         seed_dir = SEED_DIR
     if today is None:
@@ -304,6 +327,11 @@ def import_csv(
 
 
 if __name__ == "__main__":
+    run_seed_flag = os.getenv("RUN_SEED_IMPORT")
+    if run_seed_flag is not None and run_seed_flag.lower() not in ("true", "1", "yes"):
+        print("[CaseBridge] RUN_SEED_IMPORT is set to false/disabled: skipping CSV Import.")
+        sys.exit(0)
+
     print("[CaseBridge] Starting CSV Import...")
     result = import_csv()
     print(f"[CaseBridge] Import finished: {result}")
