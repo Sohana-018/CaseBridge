@@ -19,12 +19,21 @@ if not DATABASE_URL:
         DATABASE_URL = "sqlite:///:memory:"
     else:
         DATABASE_URL = f"sqlite:///{(BASE_DIR / 'casebridge.db').as_posix()}"
+elif DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("postgresql://") and "+psycopg" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 # SQLite requires check_same_thread=False for FastAPI concurrency
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+is_sqlite = DATABASE_URL.startswith("sqlite")
+connect_args = {"check_same_thread": False} if is_sqlite else {}
 engine_kwargs = {"echo": False, "connect_args": connect_args}
 if DATABASE_URL == "sqlite:///:memory:":
     engine_kwargs["poolclass"] = StaticPool
+elif not is_sqlite:
+    engine_kwargs["pool_pre_ping"] = True
+    engine_kwargs["pool_size"] = 5
+    engine_kwargs["max_overflow"] = 10
 
 engine = create_engine(
     DATABASE_URL,
@@ -36,6 +45,10 @@ def create_db_and_tables(target_engine=None) -> None:
     """Create all SQLModel database tables and migrate missing columns if needed."""
     eng = target_engine or engine
     SQLModel.metadata.create_all(eng)
+
+    # Missing column fixup block is specific to legacy SQLite schemas
+    if getattr(eng.dialect, "name", None) != "sqlite" and not str(eng.url).startswith("sqlite"):
+        return
 
     try:
         from sqlalchemy import text

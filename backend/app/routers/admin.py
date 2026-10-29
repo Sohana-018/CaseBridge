@@ -299,6 +299,21 @@ def get_audit_logs(
     return results
 
 
+def _get_db_status(session: Session) -> str:
+    try:
+        bind = session.get_bind()
+        dialect_name = getattr(bind.dialect, "name", "")
+        if dialect_name == "postgresql":
+            return "Operational (PostgreSQL)"
+        if dialect_name == "sqlite":
+            return "Operational (SQLite)"
+        if dialect_name:
+            return f"Operational ({dialect_name.capitalize()})"
+    except Exception:
+        pass
+    return "Operational (Database)"
+
+
 @router.get("/health-summary", response_model=SystemHealthResponse, summary="Get system health and data quality metrics")
 def get_health_summary(
     session: Session = Depends(get_session),
@@ -345,7 +360,7 @@ def get_health_summary(
         cases_missing_deadline=missing_deadline,
         overdue_cases=overdue,
         manual_verification_count=len(find_manual_verification_items(session)),
-        db_status="Operational (SQLite)",
+        db_status=_get_db_status(session),
     )
 
 

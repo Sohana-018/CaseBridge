@@ -75,12 +75,20 @@ def auto_seed_demo_data(session: Session) -> None:
 async def lifespan(app: FastAPI):
     """Lifecycle manager creating tables, seeding users/config, and running alert evaluations."""
     create_db_and_tables()
+
+    auto_seed = os.getenv("AUTO_SEED", "false").lower() in ("true", "1", "yes")
+    run_seed_import = os.getenv("RUN_SEED_IMPORT", "false").lower() in ("true", "1", "yes")
+
     with Session(engine) as session:
-        seed_default_users_and_config(session)
-        auto_seed = os.getenv("AUTO_SEED", "false").lower() in ("true", "1", "yes")
-        if auto_seed:
+        # Decouple all seeding from boot: production starts with AUTO_SEED=false
+        # and NO automatic seeding, import, demo-user, or demo-config creation.
+        if auto_seed or run_seed_import:
+            seed_default_users_and_config(session)
             auto_seed_demo_data(session)
-        refresh_alerts(session)
+
+        # Skip background alert evaluation on boot during automated testing
+        if os.getenv("TESTING") != "1" and not os.getenv("POSTGRES_TEST_URL"):
+            refresh_alerts(session)
     yield
 
 
